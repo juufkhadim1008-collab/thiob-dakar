@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
+import { motion } from 'framer-motion';
 import { useApp } from '@/lib/store';
 import { UserRole } from '@/lib/types';
 import { DAKAR_NEIGHBORHOODS } from '@/lib/mock-data';
@@ -11,10 +12,8 @@ import {
   ChefHat, 
   Bike, 
   ShieldCheck, 
-  User, 
   Compass, 
-  Sparkles,
-  PhoneCall
+  Sparkles 
 } from 'lucide-react';
 import { formatFCFA } from '@/lib/utils';
 
@@ -44,37 +43,44 @@ export default function Navbar({
 
   return (
     <header className="sticky top-0 z-40 w-full glass-nav shadow-xs">
-      {/* Top Banner : Role Switcher Bar */}
+      {/* Top Banner : Animated Role Switcher Bar */}
       <div className="bg-[#07431E] text-white text-xs py-1.5 px-4">
         <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-[#008235] text-white font-medium text-[11px]">
-              <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#008235] text-white font-medium text-[11px]">
+              <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
               Plateforme Dakar en Direct
             </span>
             <span className="hidden sm:inline text-white/80">
-              Changer d’espace pour tester les fonctionnalités :
+              Changer d’espace pour tester :
             </span>
           </div>
 
-          {/* Quick Role Switcher Pills */}
-          <div className="flex items-center gap-1 bg-black/30 p-0.5 rounded-lg">
+          {/* Quick Role Switcher Pills with Framer Motion layoutId */}
+          <div className="flex items-center gap-1 bg-black/40 p-1 rounded-xl">
             {roleConfigs.map((item) => {
               const isActive = currentRole === item.role;
               return (
                 <button
                   key={item.role}
                   onClick={() => setCurrentRole(item.role)}
-                  className={`flex items-center gap-1.5 px-3 py-1 rounded-md font-medium transition-all ${
-                    isActive
-                      ? 'bg-[#FA8038] text-white shadow-xs font-semibold'
-                      : 'text-white/70 hover:text-white hover:bg-white/10'
-                  }`}
+                  className="relative flex items-center gap-1.5 px-3 py-1 rounded-lg font-medium text-xs transition-colors z-10"
                 >
-                  {item.icon}
-                  <span>{item.label}</span>
+                  {isActive && (
+                    <motion.div
+                      layoutId="activeRoleIndicator"
+                      className="absolute inset-0 bg-[#FA8038] rounded-lg shadow-md -z-10"
+                      transition={{ type: 'spring', stiffness: 450, damping: 35 }}
+                    />
+                  )}
+                  <span className={isActive ? 'text-white' : 'text-white/70 hover:text-white'}>
+                    {item.icon}
+                  </span>
+                  <span className={isActive ? 'text-white font-bold' : 'text-white/70 hover:text-white'}>
+                    {item.label}
+                  </span>
                   {item.badge && (
-                    <span className={`text-[10px] px-1 rounded ${isActive ? 'bg-black/20 text-white' : 'bg-white/20 text-white/90'}`}>
+                    <span className={`text-[10px] px-1 rounded ${isActive ? 'bg-black/20 text-white' : 'bg-white/10 text-white/80'}`}>
                       {item.badge}
                     </span>
                   )}
@@ -91,11 +97,13 @@ export default function Navbar({
           
           {/* Logo Thiob-Dakar */}
           <div className="flex items-center gap-3">
-            <div 
+            <motion.div 
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.96 }}
               onClick={() => setCurrentRole('client')} 
               className="cursor-pointer flex items-center gap-2.5 group"
             >
-              <div className="w-11 h-11 rounded-2xl brand-gradient flex items-center justify-center text-white shadow-md group-hover:scale-105 transition-transform">
+              <div className="w-11 h-11 rounded-2xl brand-gradient flex items-center justify-center text-white shadow-md">
                 <span className="text-2xl font-black tracking-tighter">TD</span>
               </div>
               <div>
@@ -108,7 +116,7 @@ export default function Navbar({
                   Gastronomie & Livraison
                 </p>
               </div>
-            </div>
+            </motion.div>
 
             {/* Dakar Neighborhood Selector (Client mode) */}
             {currentRole === 'client' && (
@@ -149,33 +157,45 @@ export default function Navbar({
           <div className="flex items-center gap-3">
             {/* Live Order Tracking Quick Button */}
             {activeTrackingOrder && (
-              <button
+              <motion.button
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
                 onClick={() => setActiveTrackingOrder(activeTrackingOrder)}
-                className="flex items-center gap-2 px-3 py-2 rounded-full bg-[#EBF7EE] text-[#07431E] border border-[#008235]/30 text-xs font-bold hover:bg-[#008235] hover:text-white transition-all shadow-xs"
+                className="flex items-center gap-2 px-3 py-2 rounded-full bg-[#EBF7EE] text-[#07431E] border border-[#008235]/30 text-xs font-bold shadow-xs"
               >
                 <span className="w-2 h-2 rounded-full bg-[#FA8038] animate-ping"></span>
                 <span>Suivre {activeTrackingOrder.orderNumber}</span>
-              </button>
+              </motion.button>
             )}
 
-            {/* Cart Button (Client mode) */}
+            {/* Cart Button (Client mode) with animated badge */}
             {currentRole === 'client' && (
-              <button
+              <motion.button
+                whileHover={{ scale: 1.04 }}
+                whileTap={{ scale: 0.96 }}
                 onClick={onOpenCart}
-                className="relative flex items-center gap-2.5 px-4 py-2.5 rounded-full bg-[#07431E] hover:bg-[#063517] text-white font-medium text-sm transition-all shadow-md active:scale-95"
+                className="relative flex items-center gap-2.5 px-4 py-2.5 rounded-full bg-[#07431E] hover:bg-[#063517] text-white font-medium text-sm shadow-md"
               >
                 <div className="relative">
                   <ShoppingBag className="w-4 h-4" />
                   {cartCount > 0 && (
-                    <span className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-[#FA8038] text-white text-[11px] font-bold flex items-center justify-center shadow-xs">
+                    <motion.span 
+                      key={cartCount}
+                      initial={{ scale: 0.5, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      transition={{ type: 'spring', stiffness: 500, damping: 25 }}
+                      className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-[#FA8038] text-white text-[11px] font-bold flex items-center justify-center shadow-xs"
+                    >
                       {cartCount}
-                    </span>
+                    </motion.span>
                   )}
                 </div>
                 <span className="hidden sm:inline font-semibold">
                   {cartCount > 0 ? formatFCFA(cartTotal) : 'Panier'}
                 </span>
-              </button>
+              </motion.button>
             )}
 
             {/* Current Active Role Badge */}

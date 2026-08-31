@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { AppProvider, useApp } from '@/lib/store';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
@@ -28,17 +29,27 @@ function MainApp() {
         onSearchChange={setSearchQuery}
       />
 
-      {/* Main Content Area switched by Role */}
-      <main className="flex-1">
-        {currentRole === 'client' && (
-          <ClientSpace
-            selectedNeighborhood={selectedNeighborhood}
-            searchQuery={searchQuery}
-          />
-        )}
-        {currentRole === 'restaurant' && <RestaurantSpace />}
-        {currentRole === 'courier' && <CourierSpace />}
-        {currentRole === 'admin' && <AdminSpace />}
+      {/* Main Content Area switched smoothly with AnimatePresence */}
+      <main className="flex-1 overflow-hidden">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={currentRole}
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -15 }}
+            transition={{ duration: 0.25, ease: 'easeInOut' }}
+          >
+            {currentRole === 'client' && (
+              <ClientSpace
+                selectedNeighborhood={selectedNeighborhood}
+                searchQuery={searchQuery}
+              />
+            )}
+            {currentRole === 'restaurant' && <RestaurantSpace />}
+            {currentRole === 'courier' && <CourierSpace />}
+            {currentRole === 'admin' && <AdminSpace />}
+          </motion.div>
+        </AnimatePresence>
       </main>
 
       {/* Cart & Checkout Drawer */}

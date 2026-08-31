@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { motion, AnimatePresence, Variants } from 'framer-motion';
 import { useApp } from '@/lib/store';
 import { CATEGORIES } from '@/lib/mock-data';
 import { Restaurant, MenuItem } from '@/lib/types';
@@ -11,14 +12,9 @@ import {
   Bike, 
   Sparkles, 
   Plus, 
-  Search, 
   Flame, 
   MapPin, 
-  ArrowRight, 
-  Info,
-  Check,
-  ChevronRight,
-  Heart
+  Check
 } from 'lucide-react';
 
 interface ClientSpaceProps {
@@ -76,18 +72,38 @@ export default function ClientSpace({
     setSelectedDishForModal(null);
   };
 
+  // Stagger animation container
+  const containerVariants: Variants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.08,
+      },
+    },
+  };
+
+  const cardVariants: Variants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.4 } },
+  };
+
   return (
     <div className="pb-24">
-      {/* 🌟 HERO SECTION : Dakar Gastronomy & Teranga */}
+      {/* 🌟 HERO SECTION */}
       <section className="relative overflow-hidden brand-gradient text-white py-12 md:py-16 px-4 sm:px-6 lg:px-8">
-        {/* Subtle Decorative Pattern */}
         <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#FA8038_1px,transparent_1px)] [background-size:16px_16px]"></div>
         
         <div className="max-w-7xl mx-auto relative z-10">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
             
             {/* Left Content */}
-            <div className="lg:col-span-7 space-y-5">
+            <motion.div 
+              initial={{ opacity: 0, x: -30 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.5, ease: 'easeOut' }}
+              className="lg:col-span-7 space-y-5"
+            >
               <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-xs font-bold text-[#FA8038]">
                 <Sparkles className="w-3.5 h-3.5" />
                 <span>La référence de la cuisine dakaroise en livraison</span>
@@ -116,10 +132,15 @@ export default function ClientSpace({
                   <p className="text-[11px] text-white/70">Paiement instantané</p>
                 </div>
               </div>
-            </div>
+            </motion.div>
 
             {/* Right Card / Promo Highlight */}
-            <div className="lg:col-span-5">
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.5, delay: 0.15 }}
+              className="lg:col-span-5"
+            >
               <div className="bg-white/10 backdrop-blur-md border border-white/20 p-6 rounded-3xl shadow-2xl relative overflow-hidden group">
                 <div className="absolute -right-6 -bottom-6 w-32 h-32 bg-[#FA8038]/30 rounded-full blur-2xl"></div>
                 <span className="inline-block px-3 py-1 rounded-full bg-[#FA8038] text-white text-[11px] font-extrabold uppercase tracking-wider mb-3">
@@ -136,16 +157,18 @@ export default function ClientSpace({
                     <span className="text-xs text-white/70 block">Prix spécial</span>
                     <span className="text-lg font-black text-[#FA8038]">4 500 FCFA</span>
                   </div>
-                  <button
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
                     onClick={() => handleQuickAdd(menuItems[0])}
-                    className="px-5 py-2.5 rounded-full bg-white text-[#07431E] hover:bg-[#FA8038] hover:text-white transition-all text-xs font-bold shadow-md flex items-center gap-1.5"
+                    className="px-5 py-2.5 rounded-full bg-white text-[#07431E] hover:bg-[#FA8038] hover:text-white transition-colors text-xs font-bold shadow-md flex items-center gap-1.5"
                   >
                     <Plus className="w-4 h-4" />
                     <span>Ajouter direct</span>
-                  </button>
+                  </motion.button>
                 </div>
               </div>
-            </div>
+            </motion.div>
 
           </div>
         </div>
@@ -156,12 +179,19 @@ export default function ClientSpace({
         <div className="bg-white p-3 sm:p-4 rounded-2xl sm:rounded-3xl shadow-lg border border-[#E2ECE5] flex items-center gap-2 overflow-x-auto no-scrollbar">
           <button
             onClick={() => setSelectedCategory('all')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-2 ${
+            className={`relative px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-colors flex items-center gap-2 z-10 ${
               selectedCategory === 'all'
-                ? 'brand-gradient text-white shadow-xs'
+                ? 'text-white'
                 : 'bg-[#F7FAF7] text-[#07431E] hover:bg-[#EBF7EE]'
             }`}
           >
+            {selectedCategory === 'all' && (
+              <motion.div
+                layoutId="activeCategoryPill"
+                className="absolute inset-0 brand-gradient rounded-xl shadow-xs -z-10"
+                transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+              />
+            )}
             <span>🍽️ Tous les plats</span>
           </button>
 
@@ -171,12 +201,19 @@ export default function ClientSpace({
               <button
                 key={cat.id}
                 onClick={() => setSelectedCategory(cat.id)}
-                className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-2 ${
+                className={`relative px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-colors flex items-center gap-2 z-10 ${
                   isSelected
-                    ? 'brand-gradient text-white shadow-xs'
+                    ? 'text-white'
                     : 'bg-[#F7FAF7] text-[#07431E] hover:bg-[#EBF7EE]'
                 }`}
               >
+                {isSelected && (
+                  <motion.div
+                    layoutId="activeCategoryPill"
+                    className="absolute inset-0 brand-gradient rounded-xl shadow-xs -z-10"
+                    transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+                  />
+                )}
                 <span>{cat.icon}</span>
                 <span>{cat.name}</span>
               </button>
@@ -185,7 +222,7 @@ export default function ClientSpace({
         </div>
       </section>
 
-      {/* 🍽️ SECTION : PLATS POPULAIRES & CARTE */}
+      {/* 🍽️ SECTION : PLATS POPULAIRES */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-10">
         <div className="flex items-center justify-between mb-6">
           <div>
@@ -204,24 +241,32 @@ export default function ClientSpace({
           </span>
         </div>
 
-        {/* Dishes Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        {/* Dishes Animated Grid */}
+        <motion.div 
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+        >
           {filteredDishes.map((dish) => {
             const isAdded = justAddedId === dish.id;
             const parentResto = restaurants.find((r) => r.id === dish.restaurantId);
 
             return (
-              <div
+              <motion.div
                 key={dish.id}
+                variants={cardVariants}
+                whileHover={{ y: -6, transition: { duration: 0.2 } }}
+                whileTap={{ scale: 0.98 }}
                 onClick={() => setSelectedDishForModal(dish)}
-                className="bg-white rounded-3xl border border-[#E2ECE5] overflow-hidden card-hover-lift flex flex-col cursor-pointer group"
+                className="bg-white rounded-3xl border border-[#E2ECE5] overflow-hidden card-hover-lift flex flex-col cursor-pointer group shadow-xs"
               >
                 {/* Dish Image Banner */}
                 <div className="relative h-44 w-full overflow-hidden bg-gray-100">
                   <img
                     src={dish.image}
                     alt={dish.name}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    className="w-full h-full object-cover group-hover:scale-108 transition-transform duration-500"
                   />
                   <div className="absolute inset-0 bg-linear-to-t from-black/60 via-transparent to-transparent"></div>
                   
@@ -262,33 +307,34 @@ export default function ClientSpace({
                       </span>
                     </div>
 
-                    <button
+                    <motion.button
+                      whileTap={{ scale: 0.85 }}
                       onClick={(e) => handleQuickAdd(dish, e)}
                       className={`w-9 h-9 rounded-2xl flex items-center justify-center transition-all ${
                         isAdded
                           ? 'bg-[#008235] text-white scale-110'
-                          : 'bg-[#FA8038] hover:bg-[#E36D26] text-white shadow-md active:scale-95'
+                          : 'bg-[#FA8038] hover:bg-[#E36D26] text-white shadow-md'
                       }`}
                       title="Ajouter au panier"
                     >
                       {isAdded ? <Check className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-                    </button>
+                    </motion.button>
                   </div>
                 </div>
-              </div>
+              </motion.div>
             );
           })}
-        </div>
+        </motion.div>
       </section>
 
-      {/* 🏢 SECTION : RESTAURANTS PARTENAIRES DE DAKAR */}
+      {/* 🏢 SECTION : RESTAURANTS PARTENAIRES */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-16">
         <div className="flex items-center justify-between mb-6">
           <div>
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full bg-[#008235]"></span>
               <h2 className="text-xl sm:text-2xl font-black text-[#07431E]">
-                Restaurants Populaires à {selectedNeighborhood}
+                Restaurants Partenaires à {selectedNeighborhood}
               </h2>
             </div>
             <p className="text-xs text-[#576A5E] mt-1">
@@ -297,19 +343,27 @@ export default function ClientSpace({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <motion.div 
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+          className="grid grid-cols-1 md:grid-cols-2 gap-6"
+        >
           {filteredRestaurants.map((resto) => (
-            <div
+            <motion.div
               key={resto.id}
+              variants={cardVariants}
+              whileHover={{ y: -5, transition: { duration: 0.2 } }}
+              whileTap={{ scale: 0.98 }}
               onClick={() => setSelectedRestaurant(resto)}
-              className="bg-white rounded-3xl border border-[#E2ECE5] overflow-hidden card-hover-lift cursor-pointer flex flex-col sm:flex-row group"
+              className="bg-white rounded-3xl border border-[#E2ECE5] overflow-hidden card-hover-lift cursor-pointer flex flex-col sm:flex-row group shadow-xs"
             >
               {/* Image */}
               <div className="relative sm:w-2/5 h-48 sm:h-auto overflow-hidden bg-gray-100">
                 <img
                   src={resto.coverImage}
                   alt={resto.name}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  className="w-full h-full object-cover group-hover:scale-108 transition-transform duration-500"
                 />
                 <div className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-white/90 backdrop-blur-xs text-[#07431E] font-bold text-xs flex items-center gap-1 shadow-sm">
                   <Star className="w-3.5 h-3.5 text-[#F5B738] fill-[#F5B738]" />
@@ -354,141 +408,175 @@ export default function ClientSpace({
                   </div>
                 </div>
               </div>
-            </div>
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
       </section>
 
-      {/* 🍲 MODAL : PERSONNALISATION DU PLAT */}
-      {selectedDishForModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-          <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            {/* Header Image */}
-            <div className="relative h-48 w-full">
-              <img
-                src={selectedDishForModal.image}
-                alt={selectedDishForModal.name}
-                className="w-full h-full object-cover"
-              />
-              <button
-                onClick={() => setSelectedDishForModal(null)}
-                className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70"
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* Modal Body */}
-            <div className="p-5 space-y-4">
-              <div>
-                <span className="text-[11px] font-bold uppercase text-[#008235] tracking-wider">
-                  Détail du plat
-                </span>
-                <h3 className="text-lg font-black text-[#07431E] mt-0.5">
-                  {selectedDishForModal.name}
-                </h3>
-                <p className="text-xs text-gray-600 mt-1 leading-relaxed">
-                  {selectedDishForModal.description}
-                </p>
-              </div>
-
-              {/* Special Instructions / Notes */}
-              <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1">
-                  Instructions spécifiques au Chef (Piment, sans oignon, etc.) :
-                </label>
-                <textarea
-                  rows={2}
-                  value={dishNotes}
-                  onChange={(e) => setDishNotes(e.target.value)}
-                  placeholder="Ex: Piment bien séparé, sauce tamarin en plus svp..."
-                  className="w-full p-2.5 bg-[#F7FAF7] border border-[#E2ECE5] rounded-xl text-xs focus:bg-white focus:border-[#008235] focus:outline-hidden"
+      {/* 🍲 MODAL : PERSONNALISATION DU PLAT WITH ANIMATEPRESENCE */}
+      <AnimatePresence>
+        {selectedDishForModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSelectedDishForModal(null)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-xs"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+              className="relative z-10 bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden"
+            >
+              {/* Header Image */}
+              <div className="relative h-48 w-full">
+                <img
+                  src={selectedDishForModal.image}
+                  alt={selectedDishForModal.name}
+                  className="w-full h-full object-cover"
                 />
-              </div>
-
-              {/* Modal Footer */}
-              <div className="pt-3 border-t border-[#E2ECE5] flex items-center justify-between">
-                <div>
-                  <span className="text-[10px] text-gray-400 uppercase font-bold block">Prix</span>
-                  <span className="text-base font-black text-[#FA8038]">
-                    {formatFCFA(selectedDishForModal.price)}
-                  </span>
-                </div>
-
                 <button
-                  onClick={handleAddWithCustomNotes}
-                  className="px-6 py-2.5 rounded-full brand-gradient-orange text-white text-xs font-bold shadow-lg hover:opacity-95 flex items-center gap-1.5"
+                  onClick={() => setSelectedDishForModal(null)}
+                  className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70"
                 >
-                  <Plus className="w-4 h-4" />
-                  <span>Ajouter au panier</span>
+                  ✕
                 </button>
               </div>
-            </div>
-          </div>
-        </div>
-      )}
 
-      {/* 🏢 MODAL : DETAIL D'UN RESTAURANT */}
-      {selectedRestaurant && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs">
-          <div className="bg-white w-full max-w-3xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-            <div className="relative h-44 w-full">
-              <img
-                src={selectedRestaurant.coverImage}
-                alt={selectedRestaurant.name}
-                className="w-full h-full object-cover"
-              />
-              <div className="absolute inset-0 bg-linear-to-t from-black/70 to-transparent"></div>
-              <button
-                onClick={() => setSelectedRestaurant(null)}
-                className="absolute top-4 right-4 w-9 h-9 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70"
-              >
-                ✕
-              </button>
-              <div className="absolute bottom-4 left-6 text-white">
-                <span className="text-xs font-bold bg-[#008235] px-2.5 py-0.5 rounded-md">
-                  📍 {selectedRestaurant.neighborhood}
-                </span>
-                <h3 className="text-2xl font-black mt-1">{selectedRestaurant.name}</h3>
-                <p className="text-xs text-white/80">{selectedRestaurant.address}</p>
+              {/* Modal Body */}
+              <div className="p-5 space-y-4">
+                <div>
+                  <span className="text-[11px] font-bold uppercase text-[#008235] tracking-wider">
+                    Détail du plat
+                  </span>
+                  <h3 className="text-lg font-black text-[#07431E] mt-0.5">
+                    {selectedDishForModal.name}
+                  </h3>
+                  <p className="text-xs text-gray-600 mt-1 leading-relaxed">
+                    {selectedDishForModal.description}
+                  </p>
+                </div>
+
+                {/* Special Instructions / Notes */}
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">
+                    Instructions spécifiques au Chef (Piment, sans oignon, etc.) :
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={dishNotes}
+                    onChange={(e) => setDishNotes(e.target.value)}
+                    placeholder="Ex: Piment bien séparé, sauce tamarin en plus svp..."
+                    className="w-full p-2.5 bg-[#F7FAF7] border border-[#E2ECE5] rounded-xl text-xs focus:bg-white focus:border-[#008235] focus:outline-hidden"
+                  />
+                </div>
+
+                {/* Modal Footer */}
+                <div className="pt-3 border-t border-[#E2ECE5] flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] text-gray-400 uppercase font-bold block">Prix</span>
+                    <span className="text-base font-black text-[#FA8038]">
+                      {formatFCFA(selectedDishForModal.price)}
+                    </span>
+                  </div>
+
+                  <motion.button
+                    whileHover={{ scale: 1.05 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={handleAddWithCustomNotes}
+                    className="px-6 py-2.5 rounded-full brand-gradient-orange text-white text-xs font-bold shadow-lg flex items-center gap-1.5"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>Ajouter au panier</span>
+                  </motion.button>
+                </div>
               </div>
-            </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
-            <div className="p-6 overflow-y-auto space-y-4">
-              <h4 className="font-extrabold text-sm text-[#07431E] uppercase tracking-wider">
-                Menu & Spécialités du Restaurant
-              </h4>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {menuItems
-                  .filter((m) => m.restaurantId === selectedRestaurant.id)
-                  .map((dish) => (
-                    <div
-                      key={dish.id}
-                      className="p-3.5 rounded-2xl bg-[#F7FAF7] border border-[#E2ECE5] flex items-center justify-between gap-3"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <h5 className="font-bold text-xs text-[#0D1C12] truncate">{dish.name}</h5>
-                        <p className="text-[11px] text-[#FA8038] font-bold mt-0.5">
-                          {formatFCFA(dish.price)}
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => {
-                          addToCart(dish);
-                          setSelectedRestaurant(null);
-                        }}
-                        className="px-3 py-1.5 rounded-xl brand-gradient-orange text-white text-xs font-bold shadow-xs hover:opacity-95"
+      {/* 🏢 MODAL : DETAIL D'UN RESTAURANT WITH ANIMATEPRESENCE */}
+      <AnimatePresence>
+        {selectedRestaurant && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSelectedRestaurant(null)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-xs"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+              className="relative z-10 bg-white w-full max-w-3xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+            >
+              <div className="relative h-44 w-full">
+                <img
+                  src={selectedRestaurant.coverImage}
+                  alt={selectedRestaurant.name}
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 bg-linear-to-t from-black/70 to-transparent"></div>
+                <button
+                  onClick={() => setSelectedRestaurant(null)}
+                  className="absolute top-4 right-4 w-9 h-9 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70"
+                >
+                  ✕
+                </button>
+                <div className="absolute bottom-4 left-6 text-white">
+                  <span className="text-xs font-bold bg-[#008235] px-2.5 py-0.5 rounded-md">
+                    📍 {selectedRestaurant.neighborhood}
+                  </span>
+                  <h3 className="text-2xl font-black mt-1">{selectedRestaurant.name}</h3>
+                  <p className="text-xs text-white/80">{selectedRestaurant.address}</p>
+                </div>
+              </div>
+
+              <div className="p-6 overflow-y-auto space-y-4">
+                <h4 className="font-extrabold text-sm text-[#07431E] uppercase tracking-wider">
+                  Menu & Spécialités du Restaurant
+                </h4>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {menuItems
+                    .filter((m) => m.restaurantId === selectedRestaurant.id)
+                    .map((dish) => (
+                      <div
+                        key={dish.id}
+                        className="p-3.5 rounded-2xl bg-[#F7FAF7] border border-[#E2ECE5] flex items-center justify-between gap-3"
                       >
-                        + Ajouter
-                      </button>
-                    </div>
-                  ))}
+                        <div className="min-w-0 flex-1">
+                          <h5 className="font-bold text-xs text-[#0D1C12] truncate">{dish.name}</h5>
+                          <p className="text-[11px] text-[#FA8038] font-bold mt-0.5">
+                            {formatFCFA(dish.price)}
+                          </p>
+                        </div>
+                        <motion.button
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.92 }}
+                          onClick={() => {
+                            addToCart(dish);
+                            setSelectedRestaurant(null);
+                          }}
+                          className="px-3 py-1.5 rounded-xl brand-gradient-orange text-white text-xs font-bold shadow-xs"
+                        >
+                          + Ajouter
+                        </motion.button>
+                      </div>
+                    ))}
+                </div>
               </div>
-            </div>
+            </motion.div>
           </div>
-        </div>
-      )}
+        )}
+      </AnimatePresence>
 
     </div>
   );
