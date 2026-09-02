@@ -70,10 +70,25 @@ interface AppContextType {
   deleteOutingPlan: (id: string) => void;
   toggleFavoriteRestaurant: (id: string) => void;
 
-  // Restaurant Actions
+  // Restaurant Actions & Active Session
+  currentRestaurantId: string;
+  setCurrentRestaurantId: (id: string) => void;
+  currentRestaurant: Restaurant;
+  registerNewRestaurant: (data: {
+    name: string;
+    logo: string;
+    type?: string;
+    address: string;
+    neighborhood: string;
+    phone?: string;
+    coverImage?: string;
+  }) => Restaurant;
+  updateCurrentRestaurant: (updates: Partial<Restaurant>) => void;
   updateOrderStatus: (orderId: string, newStatus: OrderStatus) => void;
   toggleMenuItemAvailability: (itemId: string) => void;
   addMenuItem: (item: Omit<MenuItem, 'id'>) => void;
+  updateMenuItem: (itemId: string, updates: Partial<MenuItem>) => void;
+  deleteMenuItem: (itemId: string) => void;
   updateRestaurantShowcase: (restoId: string, updates: Partial<Restaurant>) => void;
 
   // Courier Actions
@@ -92,12 +107,151 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [currentRole, setCurrentRole] = useState<UserRole>('client');
   const [restaurants, setRestaurants] = useState<Restaurant[]>(initialRestaurants);
   const [menuItems, setMenuItems] = useState<MenuItem[]>(initialMenuItems);
+  const [currentRestaurantId, setCurrentRestaurantId] = useState<string>('resto-kamiss');
   const [orders, setOrders] = useState<Order[]>(INITIAL_ORDERS);
   const [couriers, setCouriers] = useState<Courier[]>(INITIAL_COURIERS);
   const [metrics, setMetrics] = useState<PlatformMetrics>(INITIAL_METRICS);
   const [reservations, setReservations] = useState<Reservation[]>(INITIAL_RESERVATIONS);
   const [outingPlans, setOutingPlans] = useState<OutingPlan[]>(INITIAL_OUTING_PLANS);
   const [favoriteRestaurantIds, setFavoriteRestaurantIds] = useState<string[]>(['resto-kamiss', 'resto-1']);
+
+  // Load registered restaurant from localStorage on startup if available
+  useEffect(() => {
+    try {
+      const savedRestoId = localStorage.getItem('thiob_active_restaurant_id');
+      const savedRestos = localStorage.getItem('thiob_custom_restaurants');
+      if (savedRestos) {
+        const parsed: Restaurant[] = JSON.parse(savedRestos);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setRestaurants((prev) => {
+            const combined = [...parsed, ...prev.filter(p => !parsed.some(c => c.id === p.id))];
+            return combined;
+          });
+        }
+      }
+      if (savedRestoId) {
+        setCurrentRestaurantId(savedRestoId);
+      }
+    } catch {}
+  }, []);
+
+  const currentRestaurant = restaurants.find((r) => r.id === currentRestaurantId) || restaurants[0];
+
+  const registerNewRestaurant = (data: {
+    name: string;
+    logo: string;
+    type?: string;
+    address: string;
+    neighborhood: string;
+    phone?: string;
+    coverImage?: string;
+  }): Restaurant => {
+    const newId = `resto-${Date.now()}`;
+    const newResto: Restaurant = {
+      id: newId,
+      name: data.name,
+      logo: data.logo || 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=300&q=80',
+      coverImage: data.coverImage || 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=1200&q=80',
+      tagline: 'L’Excellence et la Saveur de Dakar',
+      description: `Bienvenue chez ${data.name}. Nous préparons des plats faits maison avec les ingrédients les plus frais de Dakar.`,
+      neighborhood: data.neighborhood || 'Almadies',
+      address: data.address || 'Dakar, Sénégal',
+      phone: data.phone || '+221 77 100 00 00',
+      ownerName: 'Chef Propriétaire',
+      rating: 5.0,
+      reviewCount: 1,
+      priceRange: '2 500 - 6 500 FCFA',
+      deliveryTimeEstimate: '20-30 min',
+      deliveryFee: 1500,
+      minOrder: 3000,
+      isOpen: true,
+      featuredTags: ['Nouveau Resto Dakar', 'Qualité Chef', 'Livraison Express'],
+      openingHours: '11h30 - 23h30 (7j/7)',
+      gallery: [
+        'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=800&q=80',
+        'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=800&q=80',
+        'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=800&q=80',
+        'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=800&q=80',
+      ],
+      ambianceTags: ['Terrasse Vue Océan', 'Service Rapide', 'Téranga Dakaroise', 'Fait Maison'],
+      amenities: ['Wifi Ultra Rapide', 'Climatisation VIP', 'Paiement Wave & CB', 'Terrasse Panoramique'],
+    };
+
+    // Create 3 starter dishes for this new restaurant
+    const starterDishes: MenuItem[] = [
+      {
+        id: `dish-${Date.now()}-1`,
+        restaurantId: newId,
+        name: `Thiéboudienne Spécial ${data.name}`,
+        description: 'Le chef-d’œuvre de la maison au Thiof frais de l’Atlantique, riz rouge aux légumes dorés et piment.',
+        price: 4500,
+        image: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80',
+        category: 'cat-thieb',
+        isAvailable: true,
+        preparationTimeMinutes: 25,
+        tags: ['Signature', 'Populaire', 'Épicé doux'],
+      },
+      {
+        id: `dish-${Date.now()}-2`,
+        restaurantId: newId,
+        name: 'Dibi Agneau Braisé au Feu de Bois',
+        description: 'Morceaux d’agneau fondants marinés aux épices dakaroises, oignons caramélisés et moutarde.',
+        price: 5500,
+        image: 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=800&q=80',
+        category: 'cat-dibi',
+        isAvailable: true,
+        preparationTimeMinutes: 20,
+        tags: ['Grillade', 'Best-seller'],
+      },
+      {
+        id: `dish-${Date.now()}-3`,
+        restaurantId: newId,
+        name: 'Bissap & Gingembre Maison Frais (50cl)',
+        description: 'Infusion artisanale de fleurs d’hibiscus et gingembre avec une touche de menthe fraîche.',
+        price: 1500,
+        image: 'https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?auto=format&fit=crop&w=800&q=80',
+        category: 'cat-poisson',
+        isAvailable: true,
+        preparationTimeMinutes: 5,
+        tags: ['Boisson', 'Bio'],
+      },
+    ];
+
+    setRestaurants((prev) => [newResto, ...prev]);
+    setMenuItems((prev) => [...starterDishes, ...prev]);
+    setCurrentRestaurantId(newId);
+
+    // Save to localStorage for instant persistence
+    try {
+      localStorage.setItem('thiob_active_restaurant_id', newId);
+      const existingCustom = localStorage.getItem('thiob_custom_restaurants');
+      const list = existingCustom ? JSON.parse(existingCustom) : [];
+      localStorage.setItem('thiob_custom_restaurants', JSON.stringify([newResto, ...list]));
+    } catch {}
+
+    return newResto;
+  };
+
+  const updateCurrentRestaurant = (updates: Partial<Restaurant>) => {
+    setRestaurants((prev) => {
+      const updated = prev.map((r) => (r.id === currentRestaurantId ? { ...r, ...updates } : r));
+      try {
+        const customRestos = updated.filter(r => r.id.startsWith('resto-1') || r.id === currentRestaurantId);
+        localStorage.setItem('thiob_custom_restaurants', JSON.stringify(customRestos));
+      } catch {}
+      return updated;
+    });
+  };
+
+  const updateMenuItem = (itemId: string, updates: Partial<MenuItem>) => {
+    setMenuItems((prev) =>
+      prev.map((m) => (m.id === itemId ? { ...m, ...updates } : m))
+    );
+  };
+
+  const deleteMenuItem = (itemId: string) => {
+    setMenuItems((prev) => prev.filter((m) => m.id !== itemId));
+  };
 
   const [cart, setCart] = useState<CartItem[]>([]);
   const [activeTrackingOrder, setActiveTrackingOrder] = useState<Order | null>(null);
@@ -360,9 +514,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         createOutingPlan,
         deleteOutingPlan,
         toggleFavoriteRestaurant,
+        currentRestaurantId,
+        setCurrentRestaurantId,
+        currentRestaurant,
+        registerNewRestaurant,
+        updateCurrentRestaurant,
         updateOrderStatus,
         toggleMenuItemAvailability,
         addMenuItem,
+        updateMenuItem,
+        deleteMenuItem,
         updateRestaurantShowcase,
         toggleCourierOnline,
         acceptDeliveryMission,

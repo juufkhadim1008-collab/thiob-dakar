@@ -66,7 +66,7 @@ const VEHICLE_OPTIONS = [
 ];
 
 export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
-  const { setCurrentRole } = useApp();
+  const { setCurrentRole, registerNewRestaurant } = useApp();
   const [step, setStep] = useState<OnboardingStep>('splash');
   const [selectedRole, setSelectedRole] = useState<UserRole | null>(null);
 
@@ -192,7 +192,20 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
 
   const finishOnboarding = (role: UserRole) => {
     triggerCelebration();
-    setCurrentRole(role);
+    if (role === 'restaurant') {
+      registerNewRestaurant({
+        name: restoName.trim() || 'Mon Restaurant Dakar',
+        logo: restoLogo,
+        type: RESTO_TYPES.find(t => t.id === restoType)?.label.split(' ')[1] || 'Cuisine Dakaroise',
+        address: restoLocation,
+        neighborhood: restoLocation.includes('Almadies') ? 'Almadies' : restoLocation.includes('Plateau') ? 'Plateau' : restoLocation.includes('Ngor') ? 'Ngor' : restoLocation.includes('Pikine') ? 'Pikine' : restoLocation.includes('Mermoz') ? 'Mermoz' : 'Almadies',
+        phone: '+221 77 123 45 67',
+        coverImage: restoCustomLogo || 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=1200&q=80',
+      });
+      setCurrentRole('restaurant');
+    } else {
+      setCurrentRole(role);
+    }
     onComplete(role);
   };
 

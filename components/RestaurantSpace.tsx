@@ -53,15 +53,18 @@ export default function RestaurantSpace() {
     updateOrderStatus, 
     toggleMenuItemAvailability, 
     addMenuItem,
+    updateMenuItem,
+    deleteMenuItem,
     updateRestaurantShowcase,
+    updateCurrentRestaurant,
     createReservation,
-    addToCart
+    addToCart,
+    currentRestaurant,
   } = useApp();
 
   // Top-level Two Buttons View Switcher: 'vitrine' | 'dashboard'
   const [viewMode, setViewMode] = useState<'vitrine' | 'dashboard'>('vitrine');
 
-  const [selectedRestoId, setSelectedRestoId] = useState('resto-kamiss');
   const [dashboardTab, setDashboardTab] = useState<'kds' | 'vitrine_studio' | 'menu' | 'reservations' | 'analytics'>('vitrine_studio');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -97,7 +100,7 @@ export default function RestaurantSpace() {
   const [newDishCategory, setNewDishCategory] = useState('cat-thieb');
   const [newDishImage, setNewDishImage] = useState('https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80');
 
-  const currentResto = restaurants.find((r) => r.id === selectedRestoId) || restaurants[0];
+  const currentResto = currentRestaurant;
   const restoOrders = orders.filter((o) => o.restaurantId === currentResto.id);
   const restoDishes = menuItems.filter((m) => m.restaurantId === currentResto.id);
   const restoReservations = reservations.filter((res) => res.restaurantId === currentResto.id || res.restaurantName.toLowerCase().includes(currentResto.name.toLowerCase()));
@@ -198,19 +201,16 @@ export default function RestaurantSpace() {
           </div>
           <div>
             <span className="text-[9px] uppercase font-extrabold tracking-widest text-[#0A6E3B] block">
-              Sénégal Teranga Gourmet
+              Espace Restaurant Dédié
             </span>
-            <select
-              value={selectedRestoId}
-              onChange={(e) => setSelectedRestoId(e.target.value)}
-              className="font-black text-base text-[#081A10] bg-transparent border-none focus:outline-hidden cursor-pointer p-0"
-            >
-              {restaurants.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.name} ({r.neighborhood})
-                </option>
-              ))}
-            </select>
+            <div className="flex items-center gap-2">
+              <h2 className="font-black text-base text-[#081A10] leading-none">
+                {currentResto.name}
+              </h2>
+              <span className="text-[10px] font-bold text-[#0A6E3B] bg-[#E6F5EC] px-2 py-0.5 rounded-full border border-[#0A6E3B]/20">
+                📍 {currentResto.neighborhood}
+              </span>
+            </div>
           </div>
         </div>
 

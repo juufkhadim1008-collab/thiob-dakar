@@ -2582,12 +2582,15 @@ function MobileRestaurantApp() {
     restaurants, 
     menuItems, 
     updateRestaurantShowcase,
+    updateCurrentRestaurant,
     toggleMenuItemAvailability,
     addMenuItem,
+    updateMenuItem,
+    deleteMenuItem,
+    currentRestaurant,
   } = useApp();
 
   const [mobileMode, setMobileMode] = useState<'vitrine' | 'dashboard'>('vitrine');
-  const [selectedRestoId, setSelectedRestoId] = useState('resto-kamiss');
   const [restoTab, setRestoTab] = useState<'showcase' | 'orders' | 'reservations' | 'menu' | 'stats'>('showcase');
   const [isServiceActive, setIsServiceActive] = useState(true);
   const [vitrineCategory, setVitrineCategory] = useState('all');
@@ -2633,8 +2636,8 @@ function MobileRestaurantApp() {
   const [newDishDesc, setNewDishDesc] = useState('');
   const [newDishImage, setNewDishImage] = useState('https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80');
 
-  // Active restaurant
-  const currentResto = restaurants.find((r) => r.id === selectedRestoId) || restaurants[0];
+  // Active restaurant: Strictly the logged-in restaurant (persisted and dynamic)
+  const currentResto = currentRestaurant;
   const myOrders = orders.filter((o) => o.restaurantId === currentResto.id);
   const myReservations = reservations.filter((res) => res.restaurantId === currentResto.id || res.restaurantName.toLowerCase().includes(currentResto.name.toLowerCase()));
   const myDishes = menuItems.filter((d) => d.restaurantId === currentResto.id);
@@ -2828,7 +2831,7 @@ function MobileRestaurantApp() {
         )}
       </AnimatePresence>
 
-      {/* 1. Ultra-Clean Minimalist Header: Just Logo & Name */}
+      {/* 1. Ultra-Clean Minimalist Header: Just Logo & Name + Settings Button */}
       <div className="pt-3 px-4 pb-3 bg-white border-b border-[#D8EADB] shrink-0 flex items-center justify-between shadow-2xs">
         <div className="flex items-center gap-2.5 min-w-0">
           <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#064E2B] to-[#10B981] p-0.5 shadow-sm shrink-0">
@@ -2845,17 +2848,14 @@ function MobileRestaurantApp() {
           </div>
         </div>
 
-        <select
-          value={selectedRestoId}
-          onChange={(e) => setSelectedRestoId(e.target.value)}
-          className="bg-[#F4F7F4] text-[#081A10] font-bold text-[10px] rounded-xl px-2 py-1 border border-[#D8EADB] focus:outline-hidden max-w-[120px] truncate"
+        {/* Paramètres Button */}
+        <button
+          onClick={openEditGeneralModal}
+          className="px-3 py-1.5 rounded-xl bg-[#E6F5EC] text-[#0A6E3B] font-black text-xs border border-[#0A6E3B]/20 flex items-center gap-1.5 shadow-2xs hover:bg-[#d8eedf] active:scale-95 transition-all"
         >
-          {restaurants.map((r) => (
-            <option key={r.id} value={r.id}>
-              {r.name}
-            </option>
-          ))}
-        </select>
+          <SlidersHorizontal className="w-3.5 h-3.5" />
+          <span>⚙️ Paramètres</span>
+        </button>
       </div>
 
       {/* 2. THE TWO CLEAN BUTTONS: Vitrine vs Dashboard */}
