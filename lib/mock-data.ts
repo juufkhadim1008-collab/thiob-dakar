@@ -1,4 +1,4 @@
-import { Category, Restaurant, MenuItem, Order, Courier, PlatformMetrics } from './types';
+import { Category, Restaurant, MenuItem, Order, Courier, PlatformMetrics, Reservation, OutingPlan, RestaurantReview } from './types';
 
 export const DAKAR_NEIGHBORHOODS = [
   'Tous les quartiers',
@@ -13,6 +13,61 @@ export const DAKAR_NEIGHBORHOODS = [
   'Yoff',
   'Mamelles',
   'Hann Maristes',
+  'Pikine',
+  'Keur Massar',
+];
+
+export interface DakarZoneItem {
+  id: string;
+  name: string;
+  shortName: string;
+  image: string;
+  neighborhood: string;
+}
+
+export const DAKAR_ZONES: DakarZoneItem[] = [
+  {
+    id: 'zone-almadies',
+    name: 'Zone Almadies',
+    shortName: 'Almadies',
+    image: 'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?auto=format&fit=crop&w=200&q=80',
+    neighborhood: 'Almadies',
+  },
+  {
+    id: 'zone-plateau',
+    name: 'Zone Plateau',
+    shortName: 'Plateau',
+    image: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=200&q=80',
+    neighborhood: 'Plateau',
+  },
+  {
+    id: 'zone-vdn',
+    name: 'Zone VDN',
+    shortName: 'VDN',
+    image: 'https://images.unsplash.com/photo-1565043589221-1a6fd9ae45c7?auto=format&fit=crop&w=200&q=80',
+    neighborhood: 'Mermoz',
+  },
+  {
+    id: 'zone-pikine',
+    name: 'Zone Pikine',
+    shortName: 'Pikine',
+    image: 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&w=200&q=80',
+    neighborhood: 'Pikine',
+  },
+  {
+    id: 'zone-keur-massar',
+    name: 'Zone Keur Massar',
+    shortName: 'Keur Massar',
+    image: 'https://images.unsplash.com/photo-1509749837427-ac94a2553d0e?auto=format&fit=crop&w=200&q=80',
+    neighborhood: 'Keur Massar',
+  },
+  {
+    id: 'zone-ngor',
+    name: 'Zone Ngor Virage',
+    shortName: 'Ngor',
+    image: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=200&q=80',
+    neighborhood: 'Ngor',
+  },
 ];
 
 export const CATEGORIES: Category[] = [
@@ -67,11 +122,29 @@ export const RESTAURANTS: Restaurant[] = [
     tagline: 'L’authenticité du Thiéboudienne rouge & blanc cuit au feu de bois',
     description: 'Maison réputée pour ses recettes ancestrales de Saint-Louis et Dakar, avec Thiof frais du jour, légumes mijotés et riz parfumé.',
     coverImage: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=1200&q=80',
+    gallery: [
+      'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1550966871-3ed3cdb5ed0c?auto=format&fit=crop&w=800&q=80',
+    ],
     logo: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=200&q=80',
     rating: 4.9,
     reviewCount: 342,
+    reviews: [
+      { id: 'rev-1', author: 'Aïcha Diallo', rating: 5, date: 'Hier', comment: 'Le meilleur Thiéboudienne de toute la presqu\'île des Almadies. Riz parfaitement assaisonné et Thiof braisé croustillant.' },
+      { id: 'rev-2', author: 'Cheikh Sarr', rating: 5, date: 'Il y a 3 jours', comment: 'Cadre exceptionnel pour un dîner aux Almadies. Service rapide et accueil digne de la Teranga.' }
+    ],
     neighborhood: 'Almadies',
     address: 'Route des Almadies, en face de la pointe des Almadies, Dakar',
+    coordinates: { lat: 14.7431, lng: -17.5186 },
+    priceRange: '2500 - 6000 FCFA',
+    ambianceTags: ['Vue Océan', 'Romantique', 'Sortie Couple', 'Terrasse Almadies', 'Teranga Chic'],
+    amenities: ['Terrasse vue mer', 'Climatisation', 'Parking privé gardé', 'Wifi gratuit', 'Service Voiturier'],
+    openingHours: {
+      'Lundi - Vendredi': '11h30 - 23h30',
+      'Samedi - Dimanche': '11h00 - 01h00'
+    },
     deliveryTimeEstimate: '25-35 min',
     deliveryFee: 1500,
     minOrder: 3000,
@@ -79,6 +152,8 @@ export const RESTAURANTS: Restaurant[] = [
     featuredTags: ['Thiéb Spécial', 'Cuisine Teranga', 'Best Seller Dakar'],
     ownerName: 'Mme Fatou Ndiaye',
     phone: '+221 77 450 12 34',
+    whatsapp: '+221774501234',
+    instagram: '@thiebroyaldakar',
   },
   {
     id: 'resto-2',
@@ -86,11 +161,26 @@ export const RESTAURANTS: Restaurant[] = [
     tagline: 'L’agneau tendre braisé à l’ancienne et sauce moutarde pimentée',
     description: 'La véritable Dibiterie sénégalaise : découpe à la minute, cuisson au charbon de bois, servie avec oignons croquants et piment vert.',
     coverImage: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=1200&q=80',
+    gallery: [
+      'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=800&q=80',
+    ],
     logo: 'https://images.unsplash.com/photo-1514933651103-005eec06c04b?auto=format&fit=crop&w=200&q=80',
     rating: 4.8,
     reviewCount: 215,
+    reviews: [
+      { id: 'rev-3', author: 'Mamadou Ba', rating: 5, date: 'Il y a 2 jours', comment: 'La viande d\'agneau est fondante à souhait ! Parfait pour une sortie entre amis au Plateau le soir.' }
+    ],
     neighborhood: 'Plateau',
     address: 'Avenue Pompidou x Rue Vincens, Dakar Plateau',
+    coordinates: { lat: 14.6710, lng: -17.4320 },
+    priceRange: '2500 - 6000 FCFA',
+    ambianceTags: ['Dibi Braisé', 'Sortie Entre Amis', 'Ambiance Nocturne', 'Au Cœur de Dakar'],
+    amenities: ['Espace Grillades', 'Climatisation', 'Salle VIP', 'Emporter & Sur Place'],
+    openingHours: {
+      'Lundi - Dimanche': '12h00 - 02h00 (Nocturne)'
+    },
     deliveryTimeEstimate: '20-30 min',
     deliveryFee: 1000,
     minOrder: 4000,
@@ -98,6 +188,7 @@ export const RESTAURANTS: Restaurant[] = [
     featuredTags: ['Dibi Chaud', 'Viande Fraîche', 'Nocturne'],
     ownerName: 'Ousmane Sow',
     phone: '+221 78 220 98 76',
+    whatsapp: '+221782209876',
   },
   {
     id: 'resto-3',
@@ -105,11 +196,25 @@ export const RESTAURANTS: Restaurant[] = [
     tagline: 'Yassa Poulet braisé, Mafé onctueux et Pastels dorés faits maison',
     description: 'Une cuisine généreuse comme à la maison. Nos sauces Yassa sont mijotées pendant 3 heures pour un fondant incomparable.',
     coverImage: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80',
+    gallery: [
+      'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1550966871-3ed3cdb5ed0c?auto=format&fit=crop&w=800&q=80',
+    ],
     logo: 'https://images.unsplash.com/photo-1552566626-52f8b828add9?auto=format&fit=crop&w=200&q=80',
     rating: 4.7,
     reviewCount: 189,
+    reviews: [
+      { id: 'rev-4', author: 'Khadija Kane', rating: 5, date: 'La semaine dernière', comment: 'Le Yassa Poulet braisé a le vrai goût de chez nous. Portions très généreuses.' }
+    ],
     neighborhood: 'Mermoz',
     address: 'Mermoz Pyrotechnie, près de la VDN, Dakar',
+    coordinates: { lat: 14.7080, lng: -17.4720 },
+    priceRange: '1000 - 3000 FCFA',
+    ambianceTags: ['Familial', 'Convivial', 'Cuisine Maison', 'Sortie Déjeuner'],
+    amenities: ['Terrasse Ombragée', 'Wifi Gratuit', 'Parking facile'],
+    openingHours: {
+      'Lundi - Samedi': '11h00 - 22h30'
+    },
     deliveryTimeEstimate: '30-40 min',
     deliveryFee: 1200,
     minOrder: 2500,
@@ -117,6 +222,46 @@ export const RESTAURANTS: Restaurant[] = [
     featuredTags: ['Yassa Poulet', 'Mafé Boeuf', 'Pastels'],
     ownerName: 'Coumba Ba',
     phone: '+221 76 890 45 12',
+    whatsapp: '+221768904512',
+  },
+  {
+    id: 'resto-kamiss',
+    name: 'Chez Kamiss',
+    tagline: 'Le spot incontournable de Ngor Virage • Grillades, Thiéb & Spécialités d’exception',
+    description: 'Une atmosphère chaleureuse au bord de l’océan à Ngor Virage, offrant les meilleurs Thiéboudienne, burgers gourmets, grillades et fritures de poissons frais.',
+    coverImage: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1200&q=80',
+    gallery: [
+      'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1550966871-3ed3cdb5ed0c?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=800&q=80',
+    ],
+    logo: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=200&q=80',
+    rating: 4.9,
+    reviewCount: 520,
+    reviews: [
+      { id: 'rev-5', author: 'Seydou Diop', rating: 5, date: 'Hier à 21h', comment: 'Cadre idyllique à Ngor Virage. Parfait pour une sortie en amoureux au coucher de soleil !' },
+      { id: 'rev-6', author: 'Mariama Traoré', rating: 5, date: 'Il y a 4 jours', comment: 'Le Thiébou jeun et les burgers sont juste extraordinaires. Je recommande les yeux fermés.' }
+    ],
+    neighborhood: 'Ngor',
+    address: 'Ngor Virage, Corniche Ouest face à l\'île de Ngor, Dakar',
+    coordinates: { lat: 14.7550, lng: -17.5140 },
+    priceRange: '2500 - 6000 FCFA',
+    ambianceTags: ['Coucher de Soleil', 'Sortie Romantique', 'Vue Océan Ngor', 'Terrasse Lounge', 'Tendance Dakar'],
+    amenities: ['Terrasse panoramique', 'Coucher de soleil garanti', 'Cocktails sans alcool & mocktails', 'Wifi fibre', 'Parking surveillé'],
+    openingHours: {
+      'Tous les jours': '11h00 - 00h30'
+    },
+    deliveryTimeEstimate: '20-30 min',
+    deliveryFee: 1000,
+    minOrder: 2500,
+    isOpen: true,
+    featuredTags: ['Ngor Virage', 'Thiéb Royal', 'Burgers & Poissons', 'Top Resto'],
+    ownerName: 'Kamiss Diallo',
+    phone: '+221 77 888 99 00',
+    whatsapp: '+221778889900',
+    instagram: '@chezkamiss_dakar',
   },
   {
     id: 'resto-4',
@@ -124,11 +269,25 @@ export const RESTAURANTS: Restaurant[] = [
     tagline: 'Thiof braisé géant, Gambas grillées et langoustes fraîches',
     description: 'Directement débarqués des pirogues de Ngor et Yoff, nos poissons et crustacés sont marinés aux herbes locales et grillés avec précision.',
     coverImage: 'https://images.unsplash.com/photo-1534422298391-e4f8c172dddb?auto=format&fit=crop&w=1200&q=80',
+    gallery: [
+      'https://images.unsplash.com/photo-1534422298391-e4f8c172dddb?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=800&q=80',
+    ],
     logo: 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=200&q=80',
     rating: 4.9,
     reviewCount: 410,
+    reviews: [
+      { id: 'rev-7', author: 'Babacar Niasse', rating: 5, date: 'Il y a 5 jours', comment: 'Le Thiof braisé géant avec les pieds dans le sable... Magique pour un dimanche midi.' }
+    ],
     neighborhood: 'Ngor',
     address: 'Corniche des Almadies x Plage de Ngor',
+    coordinates: { lat: 14.7570, lng: -17.5180 },
+    priceRange: '5000 - 15000 FCFA',
+    ambianceTags: ['Pieds dans l\'eau', 'Poissons Frais', 'Fruits de Mer', 'Sortie Romantique'],
+    amenities: ['Plage privée', 'Terrasse pieds dans l\'eau', 'Espace Dégustation'],
+    openingHours: {
+      'Mardi - Dimanche': '12h00 - 23h00'
+    },
     deliveryTimeEstimate: '35-45 min',
     deliveryFee: 2000,
     minOrder: 5000,
@@ -136,10 +295,207 @@ export const RESTAURANTS: Restaurant[] = [
     featuredTags: ['Thiof Braisé', 'Fruits de Mer', 'Vue Océan'],
     ownerName: 'Capitaine Babacar',
     phone: '+221 77 123 78 90',
+    whatsapp: '+221771237890',
+  },
+  {
+    id: 'resto-yoff-1',
+    name: 'Délices & Thiéb de Yoff Plage',
+    tagline: 'Le vrai Thiéb blanc au poisson frais & Dibi chaud face à l’océan de Yoff',
+    description: 'Institution traditionnelle de Yoff Tonghor, réputée pour ses poissons braisés débarqués du quai et son Thiéb Penda Mbaye mijoté au feu de bois.',
+    coverImage: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=1200&q=80',
+    gallery: [
+      'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=800&q=80',
+    ],
+    logo: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=200&q=80',
+    rating: 4.9,
+    reviewCount: 290,
+    reviews: [
+      { id: 'rev-8', author: 'Ousmane Cissé', rating: 5, date: 'Il y a 1 jour', comment: 'Le Thiéb blanc de Yoff Tonghor avec beugueudj et tamarin est juste incomparable !' }
+    ],
+    neighborhood: 'Yoff',
+    address: 'Plage de Yoff BCEAO, près du Quai de Pêche, Dakar',
+    coordinates: { lat: 14.7610, lng: -17.4680 },
+    priceRange: '2500 - 6000 FCFA',
+    ambianceTags: ['Bord de Mer Yoff', 'Cuisine Pêcheur', 'Dibi Chaud', 'Authentique Dakar'],
+    amenities: ['Terrasse Plage Yoff', 'Parking gratuit', 'Vue directe sur le large'],
+    openingHours: {
+      'Lundi - Dimanche': '11h30 - 23h00'
+    },
+    deliveryTimeEstimate: '20-30 min',
+    deliveryFee: 1000,
+    minOrder: 2500,
+    isOpen: true,
+    featuredTags: ['Yoff Plage', 'Thiéb Blanc', 'Poisson Braisé', 'Spécial Quai'],
+    ownerName: 'El Hadj Malick',
+    phone: '+221 77 333 44 55',
+    whatsapp: '+221773334455',
+  },
+  {
+    id: 'resto-ouakam-1',
+    name: 'Le Teranga Ouakam & Grillades',
+    tagline: 'Poulet Yassa braisé croustillant, Pastels dorés et Dibi savoureux',
+    description: 'Au pied du Monument de la Renaissance à Ouakam, nous vous servons les meilleures grillades et plats mijotés de la capitale.',
+    coverImage: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80',
+    gallery: [
+      'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1550966871-3ed3cdb5ed0c?auto=format&fit=crop&w=800&q=80',
+    ],
+    logo: 'https://images.unsplash.com/photo-1552566626-52f8b828add9?auto=format&fit=crop&w=200&q=80',
+    rating: 4.8,
+    reviewCount: 175,
+    reviews: [
+      { id: 'rev-9', author: 'Ndeye Fatou', rating: 5, date: 'Il y a 3 jours', comment: 'Superbe vue sur le Monument de la Renaissance. Poulet braisé délicieux.' }
+    ],
+    neighborhood: 'Ouakam',
+    address: 'Cité Assemblée, Route du Monument de la Renaissance, Ouakam',
+    coordinates: { lat: 14.7210, lng: -17.4950 },
+    priceRange: '2500 - 6000 FCFA',
+    ambianceTags: ['Vue Monument Renaissance', 'Grillades & Yassa', 'Sortie Familiale'],
+    amenities: ['Terrasse panoramique', 'Wifi gratuit', 'Parking surveillé'],
+    openingHours: {
+      'Lundi - Dimanche': '12h00 - 23h30'
+    },
+    deliveryTimeEstimate: '25-35 min',
+    deliveryFee: 1200,
+    minOrder: 3000,
+    isOpen: true,
+    featuredTags: ['Ouakam Monument', 'Yassa Braisé', 'Pastels Dorés'],
+    ownerName: 'Moustapha Gueye',
+    phone: '+221 78 555 66 77',
+    whatsapp: '+221785556677',
   },
 ];
 
+export const INITIAL_RESERVATIONS: Reservation[] = [
+  {
+    id: 'res-1',
+    reservationNumber: 'RES-8492',
+    restaurantId: 'resto-kamiss',
+    restaurantName: 'Chez Kamiss',
+    clientName: 'Moussa Diop',
+    clientPhone: '+221 77 654 32 10',
+    date: '2026-09-05',
+    time: '20:00',
+    guestsCount: 2,
+    occasion: 'Sortie avec ma copine',
+    status: 'confirmed',
+    notes: 'Table en terrasse face au coucher de soleil si possible.',
+    createdAt: '2026-09-02T10:30:00Z',
+  },
+  {
+    id: 'res-2',
+    reservationNumber: 'RES-8493',
+    restaurantId: 'resto-1',
+    restaurantName: 'Le Thiéb Royal de Dakar',
+    clientName: 'Fatou Bintou',
+    clientPhone: '+221 77 111 22 33',
+    date: '2026-09-06',
+    time: '13:00',
+    guestsCount: 4,
+    occasion: 'Déjeuner en famille',
+    status: 'pending',
+    notes: 'Prévoir chaises d\'enfants.',
+    createdAt: '2026-09-02T11:15:00Z',
+  }
+];
+
+export const INITIAL_OUTING_PLANS: OutingPlan[] = [
+  {
+    id: 'outing-1',
+    title: 'Sortie en amoureux aux Almadies',
+    restaurantId: 'resto-kamiss',
+    restaurantName: 'Chez Kamiss',
+    neighborhood: 'Ngor Virage',
+    plannedDate: 'Samedi 5 Septembre 20h00',
+    targetTag: 'Sortie Couple',
+    notes: 'Prendre la table vue mer et tester le Thiébou jeun royal et les cocktails locaux.',
+    createdAt: '2026-09-02T12:00:00Z',
+  }
+];
+
 export const MENU_ITEMS: MenuItem[] = [
+  // Plats Phares Thiob Express Dakar
+  {
+    id: 'menu-thieb-jeun',
+    restaurantId: 'resto-kamiss',
+    name: 'Thiébou jeun',
+    description: 'Le plat national par excellence : riz rouge savoureux, darne de poisson frais grillé, légumes mijotés, nététou et beugueudj.',
+    price: 3500,
+    category: 'cat-thieb',
+    image: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80',
+    isAvailable: true,
+    isPopular: true,
+    preparationTimeMinutes: 20,
+    tags: ['Thiéb Royal', 'Poisson Frais', 'Dakar Express'],
+  },
+  {
+    id: 'menu-burger-royal',
+    restaurantId: 'resto-kamiss',
+    name: 'Burger royal',
+    description: 'Double steak haché pur bœuf mariné, double cheddar fondant, cornichons craquants, laitue fraîche et sauce secrète maison.',
+    price: 2500,
+    category: 'cat-street',
+    image: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=800&q=80',
+    isAvailable: true,
+    isPopular: true,
+    preparationTimeMinutes: 15,
+    tags: ['Burger Double', 'Cheddar Fondant', 'Gourmet'],
+  },
+  {
+    id: 'menu-friture-poisson',
+    restaurantId: 'resto-kamiss',
+    name: 'Friture de poisson',
+    description: 'Assiette de poissons de roche et crevettes croustillantes dorées aux épices douces, servie avec frites dorées, rondelles de tomates et sauce piment.',
+    price: 2500,
+    category: 'cat-poisson',
+    image: 'https://images.unsplash.com/photo-1534422298391-e4f8c172dddb?auto=format&fit=crop&w=800&q=80',
+    isAvailable: true,
+    isPopular: true,
+    preparationTimeMinutes: 20,
+    tags: ['Friture Mer', 'Crevettes & Poissons', 'Croustillant'],
+  },
+  // Plats de Yoff (resto-yoff-1)
+  {
+    id: 'menu-yoff-thieb-blanc',
+    restaurantId: 'resto-yoff-1',
+    name: 'Thiébou Jën Blanc de Yoff Tonghor',
+    description: 'Le célèbre Thiéb blanc de Yoff au poisson Thiof frais du quai, riz parfumé aux oignons dorés, piment vert et sauce tamarin beugueudj.',
+    price: 3500,
+    category: 'cat-thieb',
+    image: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80',
+    isAvailable: true,
+    isPopular: true,
+    preparationTimeMinutes: 20,
+    tags: ['Yoff Plage', 'Thiéb Blanc', 'Thiof Quai'],
+  },
+  {
+    id: 'menu-yoff-dibi',
+    restaurantId: 'resto-yoff-1',
+    name: 'Dibi Agneau Braisé de Yoff',
+    description: 'Viande d’agneau braisée au charbon de bois, servie avec oignons doux confits, moutarde forte de Dijon et piment dakarois.',
+    price: 4500,
+    category: 'cat-dibi',
+    image: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=800&q=80',
+    isAvailable: true,
+    isPopular: true,
+    preparationTimeMinutes: 15,
+    tags: ['Dibi Chaud', 'Agneau Frais', 'Yoff'],
+  },
+  // Plats de Ouakam (resto-ouakam-1)
+  {
+    id: 'menu-ouakam-yassa',
+    restaurantId: 'resto-ouakam-1',
+    name: 'Yassa Poulet Braisé Ouakam',
+    description: 'Cuisse de poulet fermier braisée au feu vif, fondue d’oignons au citron vert et moutarde, accompagnée de riz blanc brisé.',
+    price: 3000,
+    category: 'cat-yassa',
+    image: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=800&q=80',
+    isAvailable: true,
+    isPopular: true,
+    preparationTimeMinutes: 20,
+    tags: ['Ouakam', 'Yassa Citron', 'Poulet Braisé'],
+  },
   // Plats du resto-1 (Le Thiéb Royal)
   {
     id: 'menu-1',

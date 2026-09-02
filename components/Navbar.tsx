@@ -98,22 +98,20 @@ export default function Navbar({
           {/* Logo Thiob-Dakar */}
           <div className="flex items-center gap-3">
             <motion.div 
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.96 }}
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
               onClick={() => setCurrentRole('client')} 
-              className="cursor-pointer flex items-center gap-2.5 group"
+              className="cursor-pointer flex items-center gap-2 group"
             >
-              <div className="w-11 h-11 rounded-2xl brand-gradient flex items-center justify-center text-white shadow-md">
-                <span className="text-2xl font-black tracking-tighter">TD</span>
-              </div>
-              <div>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-2xl font-extrabold tracking-tight text-[#07431E]">
-                    Thiob<span className="text-[#FA8038]">.</span>Dakar
-                  </span>
-                </div>
-                <p className="text-[11px] font-medium text-[#576A5E] tracking-wider uppercase">
-                  Gastronomie & Livraison
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img 
+                src="/brand/logo-thiob.png" 
+                alt="Thiob Express" 
+                className="h-10 w-auto object-contain drop-shadow-xs" 
+              />
+              <div className="hidden sm:block">
+                <p className="text-[10px] font-bold text-[#FF7824] tracking-wider uppercase">
+                  Dakar Express
                 </p>
               </div>
             </motion.div>

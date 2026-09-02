@@ -10,14 +10,18 @@ import {
   Courier, 
   PlatformMetrics, 
   OrderStatus,
-  PaymentMethod 
+  PaymentMethod,
+  Reservation,
+  OutingPlan
 } from './types';
 import { 
   RESTAURANTS as initialRestaurants, 
   MENU_ITEMS as initialMenuItems, 
   INITIAL_ORDERS, 
   INITIAL_COURIERS, 
-  INITIAL_METRICS 
+  INITIAL_METRICS,
+  INITIAL_RESERVATIONS,
+  INITIAL_OUTING_PLANS
 } from './mock-data';
 
 interface CartItem {
@@ -37,6 +41,9 @@ interface AppContextType {
   orders: Order[];
   couriers: Courier[];
   metrics: PlatformMetrics;
+  reservations: Reservation[];
+  outingPlans: OutingPlan[];
+  favoriteRestaurantIds: string[];
 
   // Client Cart & Orders
   cart: CartItem[];
@@ -56,10 +63,18 @@ interface AppContextType {
     paymentMethod: PaymentMethod;
   }) => Order;
 
+  // Reservations & Outings
+  createReservation: (data: Omit<Reservation, 'id' | 'reservationNumber' | 'status' | 'createdAt'>) => Reservation;
+  cancelReservation: (id: string) => void;
+  createOutingPlan: (data: Omit<OutingPlan, 'id' | 'createdAt'>) => OutingPlan;
+  deleteOutingPlan: (id: string) => void;
+  toggleFavoriteRestaurant: (id: string) => void;
+
   // Restaurant Actions
   updateOrderStatus: (orderId: string, newStatus: OrderStatus) => void;
   toggleMenuItemAvailability: (itemId: string) => void;
   addMenuItem: (item: Omit<MenuItem, 'id'>) => void;
+  updateRestaurantShowcase: (restoId: string, updates: Partial<Restaurant>) => void;
 
   // Courier Actions
   toggleCourierOnline: (courierId: string) => void;
@@ -80,6 +95,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [orders, setOrders] = useState<Order[]>(INITIAL_ORDERS);
   const [couriers, setCouriers] = useState<Courier[]>(INITIAL_COURIERS);
   const [metrics, setMetrics] = useState<PlatformMetrics>(INITIAL_METRICS);
+  const [reservations, setReservations] = useState<Reservation[]>(INITIAL_RESERVATIONS);
+  const [outingPlans, setOutingPlans] = useState<OutingPlan[]>(INITIAL_OUTING_PLANS);
+  const [favoriteRestaurantIds, setFavoriteRestaurantIds] = useState<string[]>(['resto-kamiss', 'resto-1']);
 
   const [cart, setCart] = useState<CartItem[]>([]);
   const [activeTrackingOrder, setActiveTrackingOrder] = useState<Order | null>(null);
@@ -191,6 +209,54 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return newOrder;
   };
 
+  // Reservations
+  const createReservation = (data: Omit<Reservation, 'id' | 'reservationNumber' | 'status' | 'createdAt'>): Reservation => {
+    const newRes: Reservation = {
+      ...data,
+      id: `res-${Date.now()}`,
+      reservationNumber: `RES-${Math.floor(1000 + Math.random() * 9000)}`,
+      status: 'confirmed',
+      createdAt: new Date().toISOString(),
+    };
+    setReservations((prev) => [newRes, ...prev]);
+    return newRes;
+  };
+
+  const cancelReservation = (id: string) => {
+    setReservations((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, status: 'cancelled' } : r))
+    );
+  };
+
+  // Outing Plans
+  const createOutingPlan = (data: Omit<OutingPlan, 'id' | 'createdAt'>): OutingPlan => {
+    const newPlan: OutingPlan = {
+      ...data,
+      id: `outing-${Date.now()}`,
+      createdAt: new Date().toISOString(),
+    };
+    setOutingPlans((prev) => [newPlan, ...prev]);
+    return newPlan;
+  };
+
+  const deleteOutingPlan = (id: string) => {
+    setOutingPlans((prev) => prev.filter((p) => p.id !== id));
+  };
+
+  // Favorite Restaurants
+  const toggleFavoriteRestaurant = (id: string) => {
+    setFavoriteRestaurantIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  // Update Restaurant Showcase (for Dashboard)
+  const updateRestaurantShowcase = (restoId: string, updates: Partial<Restaurant>) => {
+    setRestaurants((prev) =>
+      prev.map((r) => (r.id === restoId ? { ...r, ...updates } : r))
+    );
+  };
+
   const updateOrderStatus = (orderId: string, newStatus: OrderStatus) => {
     setOrders((prev) =>
       prev.map((o) => {
@@ -277,6 +343,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         orders,
         couriers,
         metrics,
+        reservations,
+        outingPlans,
+        favoriteRestaurantIds,
         cart,
         addToCart,
         removeFromCart,
@@ -286,9 +355,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         cartTotal,
         cartCount,
         placeOrder,
+        createReservation,
+        cancelReservation,
+        createOutingPlan,
+        deleteOutingPlan,
+        toggleFavoriteRestaurant,
         updateOrderStatus,
         toggleMenuItemAvailability,
         addMenuItem,
+        updateRestaurantShowcase,
         toggleCourierOnline,
         acceptDeliveryMission,
         completeDeliveryMission,

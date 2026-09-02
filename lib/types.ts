@@ -33,17 +33,38 @@ export interface MenuItem {
   tags?: string[];
 }
 
+export interface RestaurantReview {
+  id: string;
+  author: string;
+  rating: number;
+  date: string;
+  comment: string;
+  avatar?: string;
+}
+
 export interface Restaurant {
   id: string;
   name: string;
   tagline: string;
   description: string;
   coverImage: string;
+  gallery: string[]; // Photos de la façade, terrasse, intérieur, ambiance
   logo: string;
   rating: number;
   reviewCount: number;
-  neighborhood: string; // Ex: Almadies, Plateau, Point E, Mermoz
+  reviews?: RestaurantReview[];
+  neighborhood: string; // Ex: Almadies, Plateau, Point E, Mermoz, Ngor, Yoff, Pikine
   address: string;
+  coordinates?: {
+    lat: number;
+    lng: number;
+  };
+  priceRange?: string;
+  ambianceTags?: string[]; // Ex: "Vue Océan", "Romantique", "Sortie Couple", "Rooftop", "Ambiance Teranga", "Cosy"
+  amenities?: string[]; // Ex: "Terrasse vue mer", "Climatisation", "Parking gardé", "Wifi haut débit", "Espace VIP"
+  openingHours?: string | {
+    [key: string]: string; // Ex: "Lundi - Dimanche": "11h30 - 23h30"
+  };
   deliveryTimeEstimate: string; // Ex: "25-35 min"
   deliveryFee: number; // en FCFA
   minOrder: number; // en FCFA
@@ -51,6 +72,36 @@ export interface Restaurant {
   featuredTags: string[];
   ownerName: string;
   phone: string;
+  whatsapp?: string;
+  instagram?: string;
+}
+
+export interface Reservation {
+  id: string;
+  reservationNumber: string;
+  restaurantId: string;
+  restaurantName: string;
+  clientName: string;
+  clientPhone: string;
+  date: string; // Ex: "2026-09-05"
+  time: string; // Ex: "20:00"
+  guestsCount: number; // Ex: 2
+  occasion: string; // Ex: "Sortie avec ma copine", "Anniversaire", "Dîner d'affaires", "Dîner en amoureux", "Famille"
+  status: 'confirmed' | 'pending' | 'cancelled';
+  notes?: string;
+  createdAt: string;
+}
+
+export interface OutingPlan {
+  id: string;
+  title: string; // Ex: "Sortie aux Almadies en amoureux"
+  restaurantId: string;
+  restaurantName: string;
+  neighborhood: string;
+  plannedDate: string; // Ex: "Samedi 5 Septembre 20h00"
+  targetTag: string; // Ex: "Sortie Couple"
+  notes?: string;
+  createdAt: string;
 }
 
 export interface OrderItem {

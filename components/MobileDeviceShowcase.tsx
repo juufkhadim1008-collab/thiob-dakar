@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useApp } from '@/lib/store';
 import { UserRole } from '@/lib/types';
@@ -34,15 +34,29 @@ import {
   ArrowRight,
   TrendingUp,
   SlidersHorizontal,
-  X
+  X,
+  Heart,
+  ChevronRight,
+  ChevronDown,
+  Gift,
+  Percent,
+  Calendar,
+  Users,
+  ExternalLink,
+  MessageCircle,
+  Map,
+  Camera,
+  Bookmark,
+  Share2,
+  Info
 } from 'lucide-react';
-import { CATEGORIES, DAKAR_NEIGHBORHOODS } from '@/lib/mock-data';
-import { MenuItem, Restaurant, Order, OrderStatus, PaymentMethod } from '@/lib/types';
+import { CATEGORIES, DAKAR_NEIGHBORHOODS, DAKAR_ZONES } from '@/lib/mock-data';
+import { MenuItem, Restaurant, Order, OrderStatus, PaymentMethod, Reservation, OutingPlan } from '@/lib/types';
 import { formatFCFA, getStatusBadge } from '@/lib/utils';
 import confetti from 'canvas-confetti';
 
 // =========================================================================
-// 1. MOBILE APP CLIENT VIEW (Marketplace, Cart, Tracking, Profile)
+// 1. MOBILE APP CLIENT VIEW (INSPIRÉ DES MAQUETTES FOODKO, KFC & DELICIOUS FOOD)
 // =========================================================================
 function MobileClientApp({ onOpenTracking }: { onOpenTracking: (ord: Order) => void }) {
   const { 
@@ -59,340 +73,1047 @@ function MobileClientApp({ onOpenTracking }: { onOpenTracking: (ord: Order) => v
     placeOrder,
     orders,
     activeTrackingOrder,
-    setActiveTrackingOrder
+    setActiveTrackingOrder,
+    reservations,
+    outingPlans,
+    favoriteRestaurantIds,
+    createReservation,
+    cancelReservation,
+    createOutingPlan,
+    deleteOutingPlan,
+    toggleFavoriteRestaurant,
+    updateRestaurantShowcase,
   } = useApp();
 
-  const [activeTab, setActiveTab] = useState<'home' | 'search' | 'orders' | 'profile'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'menu' | 'orders' | 'favorites' | 'profile'>('home');
   const [selectedCat, setSelectedCat] = useState<string>('all');
   const [selectedNeighborhood, setSelectedNeighborhood] = useState('Tous les quartiers');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDish, setSelectedDish] = useState<MenuItem | null>(null);
+  const [dishQuantity, setDishQuantity] = useState(1);
   const [dishNotes, setDishNotes] = useState('');
   const [isCartSheetOpen, setIsCartSheetOpen] = useState(false);
+  const [isNeighborhoodPickerOpen, setIsNeighborhoodPickerOpen] = useState(false);
   const [checkoutStep, setCheckoutStep] = useState<'cart' | 'payment' | 'done'>('cart');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('wave');
   const [clientName, setClientName] = useState('Moussa Diop');
   const [clientPhone, setClientPhone] = useState('+221 77 654 32 10');
-  const [deliveryStreet, setDeliveryStreet] = useState('Route des Almadies');
+  const [deliveryStreet, setDeliveryStreet] = useState('Ngor Virage, Corniche Ouest');
+  
+  // Yango / Yassir style Live GPS & Locality Filter
+  const [userLiveLocation, setUserLiveLocation] = useState('Pikine'); // Example user at Pikine who wants to explore Almadies or Ngor!
+  const [localitySearchQuery, setLocalitySearchQuery] = useState('');
+
+  // 🏛️ Vitrine Numérique Dédiée (Showcase Modal)
+  const [selectedShowcaseResto, setSelectedShowcaseResto] = useState<Restaurant | null>(null);
+  const [showcaseSubTab, setShowcaseSubTab] = useState<'menu' | 'gallery' | 'location' | 'reviews' | 'hours'>('menu');
+  const [selectedGalleryImage, setSelectedGalleryImage] = useState<string | null>(null);
+
+  // 📅 Réservation de Table
+  const [isReservationModalOpen, setIsReservationModalOpen] = useState(false);
+  const [reservationResto, setReservationResto] = useState<Restaurant | null>(null);
+  const [reservationDate, setReservationDate] = useState('Samedi 5 Septembre');
+  const [reservationTime, setReservationTime] = useState('20:00');
+  const [reservationGuests, setReservationGuests] = useState(2);
+  const [reservationOccasion, setReservationOccasion] = useState('Sortie avec ma copine');
+  const [reservationNotes, setReservationNotes] = useState('');
+  const [confirmedReservationCode, setConfirmedReservationCode] = useState<string | null>(null);
+
+  // ❤️ Programmer une Sortie
+  const [isOutingModalOpen, setIsOutingModalOpen] = useState(false);
+  const [outingResto, setOutingResto] = useState<Restaurant | null>(null);
+  const [outingTitle, setOutingTitle] = useState('Sortie en amoureux aux Almadies');
+  const [outingDate, setOutingDate] = useState('Samedi 5 Septembre • 20h00');
+  const [outingNotes, setOutingNotes] = useState('');
+
+  // 🌟 Filtres de Découverte des Restaurants
+  const [restoDiscoveryFilter, setRestoDiscoveryFilter] = useState<'all' | 'rated' | 'ocean' | 'couple' | 'grill' | 'budget'>('all');
+  const [favoritesSubTab, setFavoritesSubTab] = useState<'outings' | 'dishes'>('outings');
+  const [routeModalResto, setRouteModalResto] = useState<Restaurant | null>(null);
+
+  // Interactive state
+  const [favoriteIds, setFavoriteIds] = useState<string[]>(['menu-thieb-jeun', 'menu-dibi-agneau']);
+  const [isMenuDrawerOpen, setIsMenuDrawerOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [showAllDishes, setShowAllDishes] = useState(false);
+  const [quickAddedId, setQuickAddedId] = useState<string | null>(null);
+
+  // =========================================================================
+  // ⚡ CALCULATEUR DE DISTANCE & TRAJET (GPS DAKAR)
+  // =========================================================================
+  const getDistanceEstimate = (userLoc: string, restoLoc: string) => {
+    const u = userLoc.toLowerCase();
+    const r = restoLoc.toLowerCase();
+    if (u === r) return { dist: '850 m', time: '10 min', route: 'Proximité immédiate', cost: '~1 000 FCFA Tiak-Tiak' };
+    if (u.includes('pikine') || u.includes('guediawaye') || u.includes('massar')) {
+      if (r.includes('almadies') || r.includes('ngor')) return { dist: '18.4 km', time: '25 min via VDN', route: 'Autoroute de l\'Avenir ➔ Échangeur VDN', cost: '~2 500 FCFA VTC / Taxi' };
+      if (r.includes('plateau')) return { dist: '14.2 km', time: '20 min via Autoroute', route: 'Autoroute vers Centre-ville', cost: '~2 000 FCFA' };
+      if (r.includes('mermoz') || r.includes('ouakam')) return { dist: '15.0 km', time: '22 min via VDN', route: 'Patte d\'Oie ➔ VDN', cost: '~2 000 FCFA' };
+      if (r.includes('yoff')) return { dist: '16.5 km', time: '25 min', route: 'Route de l\'Aéroport', cost: '~2 200 FCFA' };
+      return { dist: '12.0 km', time: '20 min', route: 'Trajet urbain rapide', cost: '~1 800 FCFA' };
+    }
+    if (u.includes('ngor') || u.includes('almadies')) {
+      if (r.includes('almadies') || r.includes('ngor')) return { dist: '1.8 km', time: '5 min', route: 'Corniche des Almadies', cost: '~1 000 FCFA' };
+      if (r.includes('yoff')) return { dist: '4.2 km', time: '10 min', route: 'Route du Virage', cost: '~1 200 FCFA' };
+      if (r.includes('plateau')) return { dist: '15.5 km', time: '25 min', route: 'Corniche Ouest', cost: '~2 500 FCFA' };
+    }
+    return { dist: '6.5 km', time: '15 min', route: 'Presqu\'île de Dakar', cost: '~1 500 FCFA' };
+  };
+
+  // =========================================================================
+  // ⚡ DIAPORAMA AUTOMATIQUE DES RESTAURANTS À PROXIMITÉ (TOUTES LES 2 SECONDES)
+  // =========================================================================
+  const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
+  const [isSlideshowPaused, setIsSlideshowPaused] = useState(false);
+
+  // Multi-criteria natural query parsing
+  const cleanSearchQuery = searchQuery.trim().toLowerCase();
+  const isSearchMatchingAlmadies = cleanSearchQuery.includes('almadies');
+  const isSearchMatchingNgor = cleanSearchQuery.includes('ngor');
+  const isSearchMatchingPlateau = cleanSearchQuery.includes('plateau');
+  const isSearchMatchingYoff = cleanSearchQuery.includes('yoff');
+  const isSearchMatchingMermoz = cleanSearchQuery.includes('mermoz');
+  const isSearchMatchingOuakam = cleanSearchQuery.includes('ouakam');
+
+  const activeRestaurants = restaurants.filter((resto) => {
+    if (selectedNeighborhood !== 'Tous les quartiers') {
+      return resto.neighborhood.toLowerCase().includes(selectedNeighborhood.toLowerCase());
+    }
+    if (isSearchMatchingAlmadies) return resto.neighborhood.toLowerCase().includes('almadies');
+    if (isSearchMatchingNgor) return resto.neighborhood.toLowerCase().includes('ngor');
+    if (isSearchMatchingPlateau) return resto.neighborhood.toLowerCase().includes('plateau');
+    if (isSearchMatchingYoff) return resto.neighborhood.toLowerCase().includes('yoff');
+    if (isSearchMatchingMermoz) return resto.neighborhood.toLowerCase().includes('mermoz');
+    if (isSearchMatchingOuakam) return resto.neighborhood.toLowerCase().includes('ouakam');
+    return true;
+  });
+
+  const featuredRestaurants = activeRestaurants.length > 0 ? activeRestaurants : restaurants;
+
+  useEffect(() => {
+    if (isSlideshowPaused || featuredRestaurants.length <= 1) return;
+    const timer = setInterval(() => {
+      setCurrentSlideIndex((prev) => (prev + 1) % featuredRestaurants.length);
+    }, 2000); // Défilement automatique toutes les 2 secondes
+
+    return () => clearInterval(timer);
+  }, [isSlideshowPaused, featuredRestaurants.length]);
+
+  const currentRestaurant = featuredRestaurants[currentSlideIndex % featuredRestaurants.length];
+
+  const toggleFavorite = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setFavoriteIds((prev) => 
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
 
   // Filtered dishes
   const filteredDishes = menuItems.filter((dish) => {
     const matchCat = selectedCat === 'all' || dish.category === selectedCat;
-    const matchSearch = searchQuery === '' || 
-      dish.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-      dish.description.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchCat && matchSearch;
+    const matchSearch = cleanSearchQuery === '' || 
+      dish.name.toLowerCase().includes(cleanSearchQuery) || 
+      dish.description.toLowerCase().includes(cleanSearchQuery);
+    const matchNeighborhood = selectedNeighborhood === 'Tous les quartiers' || 
+      restaurants.find(r => r.id === dish.restaurantId)?.neighborhood.toLowerCase().includes(selectedNeighborhood.toLowerCase());
+    return matchCat && matchSearch && (selectedNeighborhood === 'Tous les quartiers' || matchNeighborhood);
   });
 
-  const filteredRestaurants = restaurants.filter((resto) => {
-    const matchNeighborhood = selectedNeighborhood === 'Tous les quartiers' || resto.neighborhood === selectedNeighborhood;
-    const matchSearch = searchQuery === '' || resto.name.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchNeighborhood && matchSearch;
-  });
+  const displayedDishes = showAllDishes ? filteredDishes : filteredDishes.slice(0, 6);
+  const favoriteDishes = menuItems.filter((dish) => favoriteIds.includes(dish.id));
+  const favoriteRestoList = restaurants.filter((r) => favoriteRestaurantIds.includes(r.id));
 
-  const deliveryFee = cartRestaurant?.deliveryFee || 1500;
+  const deliveryFee = cartRestaurant?.deliveryFee || 1000;
   const platformFee = 500;
   const grandTotal = cartTotal + deliveryFee + platformFee;
+
+  const handleQuickAdd = (dish: MenuItem, e: React.MouseEvent) => {
+    e.stopPropagation();
+    addToCart(dish);
+    setQuickAddedId(dish.id);
+    setTimeout(() => setQuickAddedId(null), 1200);
+  };
+
+  const handleAddDishModal = () => {
+    if (!selectedDish) return;
+    for (let i = 0; i < dishQuantity; i++) {
+      addToCart(selectedDish);
+    }
+    setQuickAddedId(selectedDish.id);
+    setSelectedDish(null);
+    setDishQuantity(1);
+    try {
+      confetti({
+        particleCount: 50,
+        spread: 60,
+        origin: { y: 0.7 },
+        colors: ['#0A6E3B', '#10B981', '#FF7824']
+      });
+    } catch {}
+  };
+
+  const handleOpenShowcase = (resto: Restaurant) => {
+    setSelectedShowcaseResto(resto);
+    setShowcaseSubTab('menu');
+  };
+
+  const handleOpenReservation = (resto: Restaurant) => {
+    setReservationResto(resto);
+    setConfirmedReservationCode(null);
+    setIsReservationModalOpen(true);
+  };
+
+  const handleConfirmReservation = () => {
+    if (!reservationResto) return;
+    const res = createReservation({
+      restaurantId: reservationResto.id,
+      restaurantName: reservationResto.name,
+      clientName,
+      clientPhone,
+      date: reservationDate,
+      time: reservationTime,
+      guestsCount: reservationGuests,
+      occasion: reservationOccasion,
+      notes: reservationNotes,
+    });
+    setConfirmedReservationCode(res.reservationNumber);
+    try {
+      confetti({
+        particleCount: 80,
+        spread: 70,
+        origin: { y: 0.5 },
+        colors: ['#064E2B', '#0A6E3B', '#FF7824', '#F5B738']
+      });
+    } catch {}
+  };
+
+  const handleOpenOuting = (resto: Restaurant) => {
+    setOutingResto(resto);
+    setOutingTitle(`Sortie à ${resto.name} (${resto.neighborhood})`);
+    setIsOutingModalOpen(true);
+  };
+
+  const handleConfirmOuting = () => {
+    if (!outingResto) return;
+    createOutingPlan({
+      title: outingTitle,
+      restaurantId: outingResto.id,
+      restaurantName: outingResto.name,
+      neighborhood: outingResto.neighborhood,
+      plannedDate: outingDate,
+      targetTag: 'Sortie Dakar',
+      notes: outingNotes,
+    });
+    setIsOutingModalOpen(false);
+    setActiveTab('favorites');
+    setFavoritesSubTab('outings');
+    try {
+      confetti({
+        particleCount: 60,
+        spread: 60,
+        origin: { y: 0.6 },
+        colors: ['#064E2B', '#0A6E3B', '#FF7824']
+      });
+    } catch {}
+  };
 
   const handleCheckout = (e: React.FormEvent) => {
     e.preventDefault();
     const order = placeOrder({
       clientName,
       clientPhone,
-      neighborhood: selectedNeighborhood === 'Tous les quartiers' ? 'Almadies' : selectedNeighborhood,
+      neighborhood: selectedNeighborhood === 'Tous les quartiers' ? userLiveLocation : selectedNeighborhood,
       street: deliveryStreet,
       paymentMethod,
     });
     setCheckoutStep('done');
     try {
       confetti({
-        particleCount: 80,
-        spread: 60,
+        particleCount: 100,
+        spread: 80,
         origin: { y: 0.6 },
-        colors: ['#07431E', '#008235', '#FA8038'],
+        colors: ['#064E2B', '#0A6E3B', '#FF7824', '#F5B738'],
       });
     } catch {}
   };
 
   return (
-    <div className="h-full flex flex-col bg-[#F7FAF7] relative overflow-hidden">
-      {/* Top Header Client */}
-      <div className="pt-2 px-4 pb-3 bg-white border-b border-[#E2ECE5] flex items-center justify-between shrink-0 shadow-2xs z-20">
-        <div>
-          <span className="text-[10px] font-bold text-[#008235] uppercase tracking-wider block">
-            Livraison à Dakar
-          </span>
-          <div className="flex items-center gap-1 cursor-pointer">
-            <MapPin className="w-3.5 h-3.5 text-[#FA8038]" />
-            <select
-              value={selectedNeighborhood}
-              onChange={(e) => setSelectedNeighborhood(e.target.value)}
-              className="bg-transparent text-xs font-black text-[#07431E] focus:outline-hidden cursor-pointer"
+    <div className="h-full flex flex-col bg-[#F0F5F2] relative overflow-hidden font-sans select-none">
+      
+      {/* Dynamic Ambient Glow Backdrops for True Glassmorphism Refraction */}
+      <div className="absolute -top-12 -right-12 w-64 h-64 bg-gradient-to-br from-emerald-400/25 to-teal-500/15 rounded-full blur-3xl pointer-events-none animate-pulse-subtle" />
+      <div className="absolute top-1/3 -left-16 w-56 h-56 bg-gradient-to-tr from-amber-400/20 to-orange-500/15 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-16 right-0 w-60 h-60 bg-gradient-to-tl from-emerald-500/20 to-green-300/15 rounded-full blur-3xl pointer-events-none animate-pulse-subtle" />
+
+      {/* =========================================================================
+          1. HEADER YANGO FOOD & YASSIR STYLE (FROSTED GLASS & GPS LIVE)
+         ========================================================================= */}
+      <div className="pt-3 px-4 pb-3 bg-white/75 backdrop-blur-2xl border-b border-white/80 shrink-0 z-30 space-y-2.5 shadow-[0_8px_30px_rgba(4,31,17,0.06)]">
+        
+        {/* Top line: GPS Live + Locality Filter + Icons */}
+        <div className="flex items-center justify-between">
+          
+          {/* User Live GPS + Locality Filter Trigger */}
+          <motion.div 
+            whileHover={{ scale: 1.01 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={() => setIsNeighborhoodPickerOpen(true)}
+            className="flex items-center gap-2.5 cursor-pointer group flex-1 mr-2"
+          >
+            <div className="relative w-9 h-9 rounded-2xl bg-gradient-to-tr from-[#064E2B] to-[#10B981] p-0.5 shadow-md shrink-0">
+              <div className="w-full h-full rounded-[14px] bg-white flex items-center justify-center text-[#0A6E3B]">
+                <Navigation className="w-4 h-4 fill-[#0A6E3B] text-[#0A6E3B]" />
+              </div>
+              <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full ring-2 ring-white animate-pulse" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[9px] font-black text-emerald-800 bg-emerald-100/80 px-2 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1 border border-emerald-300/30">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-ping" />
+                  GPS : {userLiveLocation}
+                </span>
+              </div>
+              <div className="flex items-center gap-1 mt-0.5">
+                <p className="text-xs font-black text-[#081A10] group-hover:text-[#0A6E3B] transition-colors truncate">
+                  {selectedNeighborhood === 'Tous les quartiers' 
+                    ? 'Tous les restaurants (Dakar)' 
+                    : `Restos de ${selectedNeighborhood}`}
+                </p>
+                <ChevronDown className="w-3.5 h-3.5 text-gray-400 group-hover:text-[#0A6E3B] transition-colors shrink-0" />
+              </div>
+            </div>
+          </motion.div>
+
+          {/* Action Icons: Notifications & Cart with Glassmorphism */}
+          <div className="flex items-center gap-2 shrink-0">
+            
+            {/* Notification Bell */}
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.92 }}
+              onClick={() => setIsNotificationsOpen(true)}
+              className="relative w-9 h-9 rounded-2xl bg-white/80 backdrop-blur-md border border-white/90 flex items-center justify-center text-gray-700 hover:text-[#0A6E3B] shadow-2xs transition-all"
             >
-              {DAKAR_NEIGHBORHOODS.map((n) => (
-                <option key={n} value={n}>{n}</option>
-              ))}
-            </select>
+              <Bell className="w-4 h-4" />
+              <span className="absolute top-1 right-1 w-2 h-2 bg-[#FF7824] rounded-full ring-2 ring-white" />
+            </motion.button>
+
+            {/* Green Cart Bag with Badge */}
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.92 }}
+              onClick={() => { setIsCartSheetOpen(true); setCheckoutStep('cart'); }}
+              className="relative w-9 h-9 rounded-2xl brand-gradient text-white flex items-center justify-center shadow-md shadow-emerald-950/20 border border-emerald-400/30 sheen-effect transition-all"
+            >
+              <ShoppingBag className="w-4 h-4" />
+              {cartCount > 0 && (
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#FF7824] text-white text-[9px] font-black rounded-full flex items-center justify-center animate-bounce shadow-xs ring-2 ring-white">
+                  {cartCount}
+                </span>
+              )}
+            </motion.button>
           </div>
         </div>
 
-        {/* Live Order Shortcut if active */}
-        {activeTrackingOrder && (
+        {/* Search input line with Frosted Glass */}
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-800/60" />
+            <input
+              type="text"
+              placeholder="Rechercher resto, plat ou zone (ex: Restaurants aux Almadies)..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') setActiveTab('menu');
+              }}
+              className="w-full pl-10 pr-8 py-2.5 bg-white/70 backdrop-blur-md border border-white/90 rounded-2xl text-xs text-[#081A10] placeholder-gray-400 focus:bg-white focus:border-[#0A6E3B] focus:ring-2 focus:ring-[#0A6E3B]/20 focus:outline-hidden transition-all shadow-inner"
+            />
+            {searchQuery && (
+              <button 
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-0.5"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* Filter button with Glass */}
           <motion.button
-            whileTap={{ scale: 0.9 }}
-            onClick={() => onOpenTracking(activeTrackingOrder)}
-            className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#EBF7EE] text-[#008235] border border-[#008235]/30 text-[10px] font-bold"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.92 }}
+            onClick={() => setIsFilterOpen(true)}
+            className={`w-9 h-9 rounded-2xl border flex items-center justify-center transition-all shadow-md ${
+              isFilterOpen || selectedNeighborhood !== 'Tous les quartiers' || selectedCat !== 'all'
+                ? 'brand-gradient text-white border-emerald-400/40 shadow-emerald-950/20'
+                : 'bg-white/80 backdrop-blur-md text-gray-700 border-white/90 hover:bg-white shadow-2xs'
+            }`}
+            aria-label="Filtres"
           >
-            <span className="w-1.5 h-1.5 rounded-full bg-[#FA8038] animate-ping" />
-            <span>Suivi {activeTrackingOrder.orderNumber}</span>
+            <SlidersHorizontal className="w-4 h-4" />
           </motion.button>
-        )}
+        </div>
+
+        {/* Quick Natural Discovery Suggestion Chips (Frosted Ice Pills) */}
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pt-0.5 pb-0.5 text-[10px]">
+          <span className="text-gray-400 font-bold shrink-0">💡 Suggestions :</span>
+          {[
+            { label: '📍 Restaurants aux Almadies', query: 'Restaurants aux Almadies', zone: 'Almadies' },
+            { label: '✨ Sortie Couple (Vue Mer)', query: 'Sortie Couple', zone: 'Ngor' },
+            { label: '🍲 Thiébou jeun à Ngor', query: 'Thiéboudienne', zone: 'Ngor' },
+            { label: '🔥 Dibi chaud au Plateau', query: 'Dibi', zone: 'Plateau' },
+            { label: '🌊 Plage de Yoff', query: 'Yoff', zone: 'Yoff' },
+          ].map((pill, i) => (
+            <motion.button
+              key={i}
+              whileHover={{ scale: 1.04, y: -1 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => {
+                setSearchQuery(pill.query);
+                if (pill.zone) setSelectedNeighborhood(pill.zone);
+                setActiveTab('menu');
+              }}
+              className="px-2.5 py-1 rounded-full bg-white/80 backdrop-blur-md hover:bg-white border border-white/90 text-gray-700 hover:text-[#0A6E3B] hover:border-emerald-400/30 shrink-0 font-bold transition-all shadow-2xs"
+            >
+              {pill.label}
+            </motion.button>
+          ))}
+        </div>
+
       </div>
 
-      {/* Main Tab Content */}
-      <div className="flex-1 overflow-y-auto no-scrollbar pb-20">
+      {/* =========================================================================
+          2. MAIN TAB CONTENT AREA
+         ========================================================================= */}
+      <div className="flex-1 overflow-y-auto no-scrollbar pb-28 relative">
         
-        {/* TAB 1: HOME */}
+        {/* =====================================================================
+            TAB 1: HOME (ACCUEIL & DIAPORAMA 2 SECONDES)
+           ===================================================================== */}
         {activeTab === 'home' && (
-          <div className="p-4 space-y-5">
-            {/* Promo Hero Banner */}
-            <motion.div 
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="brand-gradient rounded-2xl p-4 text-white shadow-md relative overflow-hidden"
-            >
-              <div className="relative z-10 space-y-1.5">
-                <span className="px-2 py-0.5 rounded-full bg-[#FA8038] text-[9px] font-black uppercase tracking-wider inline-block">
-                  🔥 Teranga Dakaroise
-                </span>
-                <h3 className="text-base font-black leading-tight">
-                  Ceebu Jën Rouge & Blanc
-                </h3>
-                <p className="text-[11px] text-white/80 line-clamp-2">
-                  Le goût authentique de Saint-Louis et Dakar livré chaud en 25-35 min.
-                </p>
-                <div className="pt-2 flex items-center justify-between">
-                  <span className="text-xs font-black text-[#FA8038]">Dès 3 800 FCFA</span>
-                  <button 
-                    onClick={() => setSelectedCat('cat-thieb')}
-                    className="px-3 py-1 bg-white text-[#07431E] rounded-full text-[10px] font-bold shadow-xs active:scale-95"
+          <div className="relative z-10 pb-8 space-y-4 pt-3">
+            
+            {/* Locality Filter Active Banner */}
+            {selectedNeighborhood !== 'Tous les quartiers' && (
+              <motion.div
+                initial={{ opacity: 0, y: -5 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="px-4"
+              >
+                <div className="bg-[#E6F5EC] border border-[#0A6E3B]/30 rounded-2xl p-2.5 px-3 flex items-center justify-between text-xs shadow-2xs">
+                  <div className="flex items-center gap-2 text-[#081A10]">
+                    <MapPin className="w-3.5 h-3.5 text-[#0A6E3B] shrink-0" />
+                    <span className="text-[11px]">
+                      Restos à <strong>{selectedNeighborhood}</strong> ({activeRestaurants.length} trouvé{activeRestaurants.length > 1 ? 's' : ''})
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => setSelectedNeighborhood('Tous les quartiers')}
+                    className="text-[10px] font-black text-[#0A6E3B] bg-white px-2 py-0.5 rounded-lg border border-[#0A6E3B]/20 hover:bg-gray-50 shadow-2xs"
                   >
-                    Voir les Thiébs
+                    Tout Dakar ✕
                   </button>
                 </div>
-              </div>
-            </motion.div>
+              </motion.div>
+            )}
 
-            {/* Categories Scroll */}
-            <div className="space-y-2">
-              <h4 className="text-xs font-black text-[#07431E] uppercase tracking-wider">
-                Spécialités Populaires
-              </h4>
-              <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
-                <button
-                  onClick={() => setSelectedCat('all')}
-                  className={`px-3 py-1.5 rounded-xl text-[11px] font-bold whitespace-nowrap transition-all ${
-                    selectedCat === 'all'
-                      ? 'brand-gradient text-white shadow-xs'
-                      : 'bg-white text-gray-700 border border-[#E2ECE5]'
-                  }`}
+            {/* Live Order Ribbon if tracking active */}
+            {activeTrackingOrder && (
+              <div className="px-4">
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  onClick={() => onOpenTracking(activeTrackingOrder)}
+                  className="p-3 rounded-2xl brand-gradient text-white flex items-center justify-between cursor-pointer shadow-md border border-white/20"
                 >
-                  Tous
-                </button>
-                {CATEGORIES.map((c) => (
-                  <button
-                    key={c.id}
-                    onClick={() => setSelectedCat(c.id)}
-                    className={`px-3 py-1.5 rounded-xl text-[11px] font-bold whitespace-nowrap flex items-center gap-1 transition-all ${
-                      selectedCat === c.id
-                        ? 'brand-gradient text-white shadow-xs'
-                        : 'bg-white text-gray-700 border border-[#E2ECE5]'
-                    }`}
-                  >
-                    <span>{c.icon}</span>
-                    <span>{c.name}</span>
-                  </button>
-                ))}
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#FF7824] animate-ping"></span>
+                    <span className="text-xs font-bold">Commande en cours • {activeTrackingOrder.orderNumber}</span>
+                  </div>
+                  <span className="text-[10px] bg-white/20 px-2.5 py-1 rounded-full font-bold">Suivre ➔</span>
+                </motion.div>
+              </div>
+            )}
+
+            {/* =================================================================
+                🌟 HERO : RESTAURANTS À PROXIMITÉ EN DIAPORAMA (TOUTES LES 2s)
+               ================================================================= */}
+            <div className="px-4 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-black text-[#081A10] tracking-tight">
+                    Restos à proximité
+                  </h3>
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#E6F5EC] text-[#0A6E3B] text-[10px] font-black border border-[#0A6E3B]/20">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#0A6E3B] animate-ping"></span>
+                    Diaporama 2s
+                  </span>
+                </div>
+                
+                {/* Slide indicator dots */}
+                <div className="flex items-center gap-1">
+                  {featuredRestaurants.map((_, idx) => (
+                    <button
+                      key={`dot-${idx}`}
+                      onClick={() => setCurrentSlideIndex(idx)}
+                      className={`h-1.5 rounded-full transition-all duration-300 ${
+                        idx === (currentSlideIndex % featuredRestaurants.length)
+                          ? 'w-5 bg-[#0A6E3B]'
+                          : 'w-1.5 bg-gray-300'
+                      }`}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              {/* SLIDESHOW CARD ANIMATED */}
+              <div 
+                onMouseEnter={() => setIsSlideshowPaused(true)}
+                onMouseLeave={() => setIsSlideshowPaused(false)}
+                onTouchStart={() => setIsSlideshowPaused(true)}
+                onTouchEnd={() => setIsSlideshowPaused(false)}
+                className="relative h-52 rounded-3xl overflow-hidden shadow-lg border border-[#D8EADB] bg-black text-white group cursor-pointer"
+                onClick={() => {
+                  if (currentRestaurant) {
+                    setSelectedNeighborhood(currentRestaurant.neighborhood);
+                    setSearchQuery(currentRestaurant.name);
+                  }
+                }}
+              >
+                <AnimatePresence mode="wait">
+                  {currentRestaurant && (
+                    <motion.div
+                      key={currentRestaurant.id}
+                      initial={{ opacity: 0, scale: 1.05 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.98 }}
+                      transition={{ duration: 0.45, ease: 'easeInOut' }}
+                      className="absolute inset-0"
+                    >
+                      {/* Cover Photo */}
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img 
+                        src={currentRestaurant.coverImage} 
+                        alt={currentRestaurant.name}
+                        className="w-full h-full object-cover brightness-[0.78] group-hover:scale-105 transition-transform duration-700"
+                      />
+
+                      {/* Gradient Overlay */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent"></div>
+
+                      {/* Top Badges */}
+                      <div className="absolute top-3.5 left-3.5 right-3.5 flex items-center justify-between z-10">
+                        <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-black/60 text-white text-[10px] font-black backdrop-blur-md border border-white/20">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                          <span>{currentRestaurant.neighborhood}</span>
+                        </div>
+
+                        <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#0A6E3B] text-white text-[10px] font-black shadow-md">
+                          <Star className="w-3 h-3 fill-amber-300 text-amber-300" />
+                          <span>{currentRestaurant.rating} ({currentRestaurant.reviewCount})</span>
+                        </div>
+                      </div>
+
+                      {/* Bottom Content Info */}
+                      <div className="absolute bottom-3.5 left-3.5 right-3.5 z-10 space-y-1.5">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-[#F5B738] bg-black/50 px-2 py-0.5 rounded-md backdrop-blur-xs">
+                          {currentRestaurant.featuredTags?.[0] || 'Cuisine Teranga'}
+                        </span>
+                        
+                        <div className="flex items-end justify-between gap-2">
+                          <div>
+                            <h4 className="text-lg font-black text-white leading-tight drop-shadow-md">
+                              {currentRestaurant.name}
+                            </h4>
+                            <p className="text-[11px] text-white/80 line-clamp-1">
+                              {currentRestaurant.tagline}
+                            </p>
+                          </div>
+
+                          <div className="shrink-0">
+                            <span className="px-3 py-1.5 rounded-xl brand-gradient text-white text-xs font-black shadow-md inline-flex items-center gap-1 group-hover:bg-[#064E2B] transition-colors">
+                              Menu ➔
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Delivery perks info */}
+                        <div className="pt-1 flex items-center gap-3 text-[10px] text-white/70 font-medium">
+                          <span className="flex items-center gap-1">
+                            <Clock className="w-3 h-3 text-emerald-400" />
+                            {currentRestaurant.deliveryTimeEstimate}
+                          </span>
+                          <span>•</span>
+                          <span className="flex items-center gap-1 text-emerald-300 font-bold">
+                            <Bike className="w-3 h-3" />
+                            Livraison Tiak-Tiak
+                          </span>
+                        </div>
+                      </div>
+
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Progress bar for 2s timer */}
+                <div className="absolute bottom-0 inset-x-0 h-1 bg-white/20 z-20 overflow-hidden">
+                  <motion.div
+                    key={currentSlideIndex}
+                    initial={{ width: '0%' }}
+                    animate={{ width: isSlideshowPaused ? '0%' : '100%' }}
+                    transition={{ duration: 2, ease: 'linear' }}
+                    className="h-full bg-[#10B981]"
+                  />
+                </div>
               </div>
             </div>
 
-            {/* Popular Dishes Mobile Cards */}
-            <div className="space-y-2.5">
-              <div className="flex items-center justify-between">
-                <h4 className="text-xs font-black text-[#07431E] uppercase tracking-wider">
-                  Les Incontournables
-                </h4>
-                <span className="text-[10px] font-bold text-[#008235]">
-                  {filteredDishes.length} plats
+            {/* =================================================================
+                🍲 SECTION 2 : CATÉGORIES CIRCULAIRES 3D AVEC GLASSMORPHISME & MICRO-INTERACTIONS
+               ================================================================= */}
+            <div className="space-y-2 pt-1">
+              <div className="px-4 flex items-center justify-between">
+                <span className="text-xs font-black text-[#081A10] uppercase tracking-wider">
+                  Catégories de Plats
+                </span>
+                <span className="text-[11px] font-bold text-[#0A6E3B] cursor-pointer hover:underline" onClick={() => setSelectedCat('all')}>
+                  Tout voir
                 </span>
               </div>
 
-              <div className="space-y-3">
-                {filteredDishes.map((dish) => (
-                  <motion.div
-                    key={dish.id}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => setSelectedDish(dish)}
-                    className="bg-white p-3 rounded-2xl border border-[#E2ECE5] flex gap-3 cursor-pointer shadow-2xs"
-                  >
-                    <img
-                      src={dish.image}
-                      alt={dish.name}
-                      className="w-20 h-20 rounded-xl object-cover shrink-0"
-                    />
-                    <div className="flex-1 flex flex-col justify-between min-w-0">
-                      <div>
-                        <div className="flex items-center justify-between gap-1">
-                          <h5 className="font-bold text-xs text-[#0D1C12] truncate">{dish.name}</h5>
-                          {dish.isPopular && (
-                            <span className="text-[9px] font-black text-[#FA8038] bg-[#FA8038]/10 px-1.5 py-0.5 rounded">
-                              Top
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-[10px] text-gray-500 line-clamp-2 mt-0.5">
-                          {dish.description}
-                        </p>
-                      </div>
+              <div className="flex items-start gap-3 overflow-x-auto no-scrollbar px-4 pb-2 pt-1">
+                {/* 1. All categories */}
+                <motion.div
+                  whileHover={{ y: -3, scale: 1.05 }}
+                  whileTap={{ scale: 0.92 }}
+                  onClick={() => setSelectedCat('all')}
+                  className="flex flex-col items-center gap-1.5 cursor-pointer shrink-0"
+                >
+                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-xl transition-all ${
+                    selectedCat === 'all'
+                      ? 'brand-gradient text-white ring-4 ring-[#0A6E3B]/25 shadow-lg shadow-emerald-950/30 scale-105 border border-emerald-400/40 sheen-effect'
+                      : 'bg-white/80 backdrop-blur-md text-gray-700 border border-white/90 shadow-[0_8px_20px_rgba(6,78,43,0.06)] hover:bg-white'
+                  }`}>
+                    🍲
+                  </div>
+                  <span className={`text-[10px] font-black text-center max-w-[64px] line-clamp-1 ${
+                    selectedCat === 'all' ? 'text-[#0A6E3B]' : 'text-gray-600'
+                  }`}>
+                    Tous
+                  </span>
+                </motion.div>
 
-                      <div className="flex items-center justify-between pt-1">
-                        <span className="text-xs font-black text-[#07431E]">
-                          {formatFCFA(dish.price)}
-                        </span>
+                {/* Categories mapped */}
+                {CATEGORIES.map((cat) => {
+                  const isCatSelected = selectedCat === cat.id;
+                  return (
+                    <motion.div
+                      key={cat.id}
+                      whileHover={{ y: -3, scale: 1.05 }}
+                      whileTap={{ scale: 0.92 }}
+                      onClick={() => setSelectedCat(cat.id)}
+                      className="flex flex-col items-center gap-1.5 cursor-pointer shrink-0"
+                    >
+                      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-xl transition-all ${
+                        isCatSelected
+                          ? 'brand-gradient text-white ring-4 ring-[#0A6E3B]/25 shadow-lg shadow-emerald-950/30 scale-105 border border-emerald-400/40 sheen-effect'
+                          : 'bg-white/80 backdrop-blur-md text-gray-700 border border-white/90 shadow-[0_8px_20px_rgba(6,78,43,0.06)] hover:bg-white'
+                      }`}>
+                        {cat.icon}
+                      </div>
+                      <span className={`text-[10px] font-black text-center max-w-[64px] line-clamp-1 ${
+                        isCatSelected ? 'text-[#0A6E3B]' : 'text-gray-600'
+                      }`}>
+                        {cat.name.split(' ')[0]}
+                      </span>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* =================================================================
+                🎁 SECTION 3 : CARTE FIDÉLITÉ TÉRANGA DAKAR (OBSIDIAN GREEN & GLASS)
+               ================================================================= */}
+            <div className="px-4">
+              <motion.div
+                whileHover={{ scale: 1.01, y: -2 }}
+                className="dark-green-obsidian rounded-3xl p-4 text-white shadow-xl shadow-emerald-950/30 border border-emerald-400/30 flex items-center justify-between gap-3 relative overflow-hidden sheen-effect"
+              >
+                <div className="space-y-1 relative z-10">
+                  <div className="flex items-center gap-1.5">
+                    <Gift className="w-4 h-4 text-[#F5B738]" />
+                    <span className="text-[10px] font-black uppercase tracking-wider text-[#F5B738]">Programme Téranga Privilège</span>
+                  </div>
+                  <p className="text-xs font-black text-white">
+                    Plus vous commandez, plus vous gagnez !
+                  </p>
+                  <div className="flex items-center gap-1 pt-1.5">
+                    <span className="text-xs bg-white/10 p-1 rounded-lg">🍲</span>
+                    <span className="text-xs bg-white/10 p-1 rounded-lg">🍲</span>
+                    <span className="text-xs bg-white/10 p-1 rounded-lg">🍲</span>
+                    <span className="text-xs bg-white/5 p-1 rounded-lg opacity-40">🍲</span>
+                    <span className="text-[10px] text-emerald-200 font-bold ml-1">1 commande avant le plat offert</span>
+                  </div>
+                </div>
+                <div className="w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center text-2xl shrink-0 border border-white/25 shadow-inner">
+                  🎁
+                </div>
+              </motion.div>
+            </div>
+
+            {/* =================================================================
+                🔥 SECTION 4 : PLATS POPULAIRES DU JOUR (Style KFC & Delicious Food)
+               ================================================================= */}
+            <div className="px-4 space-y-3 pt-1">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-black text-[#081A10] tracking-tight">
+                    Plats Populaires & Recommandés
+                  </h3>
+                  <p className="text-[10px] text-gray-400">Préparés minute par les meilleurs chefs de Dakar</p>
+                </div>
+                <span className="text-xs font-bold text-[#0A6E3B] cursor-pointer hover:underline" onClick={() => setShowAllDishes(!showAllDishes)}>
+                  {showAllDishes ? 'Voir moins' : 'Voir tout'}
+                </span>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-3">
+                {displayedDishes.map((dish) => {
+                  const isItemFav = favoriteIds.includes(dish.id);
+                  return (
+                    <motion.div
+                      key={dish.id}
+                      whileHover={{ y: -3 }}
+                      whileTap={{ scale: 0.97 }}
+                      onClick={() => { setSelectedDish(dish); setDishQuantity(1); }}
+                      className="relative bg-white rounded-3xl p-3 shadow-xs hover:shadow-md border border-[#D8EADB] flex flex-col justify-between cursor-pointer group transition-all"
+                    >
+                      {/* Badge Promo / Bestseller */}
+                      {dish.isPopular && (
+                        <div className="absolute top-2.5 left-2.5 z-10 px-2 py-0.5 rounded-full bg-[#FF7824] text-white text-[9px] font-black shadow-xs">
+                          Bestseller
+                        </div>
+                      )}
+
+                      {/* Photo du plat */}
+                      <div className="w-full aspect-square rounded-2xl overflow-hidden relative mb-2 bg-gray-50">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img 
+                          src={dish.image} 
+                          alt={dish.name} 
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                        
+                        {/* Favorite Button */}
                         <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            addToCart(dish);
-                          }}
-                          className="w-6 h-6 rounded-lg brand-gradient-orange text-white flex items-center justify-center shadow-xs active:scale-90"
+                          onClick={(e) => toggleFavorite(dish.id, e)}
+                          className="absolute top-1.5 right-1.5 w-6.5 h-6.5 rounded-full bg-white/90 backdrop-blur-xs flex items-center justify-center text-xs shadow-xs active:scale-75 transition-transform"
+                          aria-label="Favori"
                         >
-                          <Plus className="w-3.5 h-3.5" />
+                          <Heart className={`w-3.5 h-3.5 ${isItemFav ? 'fill-rose-500 text-rose-500' : 'text-gray-400'}`} />
                         </button>
                       </div>
-                    </div>
-                  </motion.div>
-                ))}
+
+                      {/* Info plat */}
+                      <div className="space-y-1">
+                        <h5 className="font-bold text-xs text-[#081A10] leading-tight line-clamp-1">
+                          {dish.name}
+                        </h5>
+                        <p className="text-[10px] text-gray-400 line-clamp-1">
+                          {dish.description}
+                        </p>
+
+                        <div className="flex items-center justify-between pt-1.5">
+                          <span className="text-xs font-black text-[#0A6E3B]">
+                            {formatFCFA(dish.price)}
+                          </span>
+
+                          <button
+                            onClick={(e) => handleQuickAdd(dish, e)}
+                            className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all shadow-2xs ${
+                              quickAddedId === dish.id
+                                ? 'bg-emerald-600 text-white scale-110'
+                                : 'bg-[#0A6E3B] text-white hover:bg-[#064E2B]'
+                            }`}
+                            aria-label="Ajouter au panier"
+                          >
+                            {quickAddedId === dish.id ? <Check className="w-3.5 h-3.5" /> : <Plus className="w-3.5 h-3.5" />}
+                          </button>
+                        </div>
+                      </div>
+                    </motion.div>
+                  );
+                })}
               </div>
+
             </div>
 
-            {/* Restaurants Carousel */}
-            <div className="space-y-2.5 pt-2">
-              <h4 className="text-xs font-black text-[#07431E] uppercase tracking-wider">
-                Restaurants à {selectedNeighborhood}
-              </h4>
-              <div className="space-y-3">
-                {filteredRestaurants.map((resto) => (
-                  <div
-                    key={resto.id}
-                    className="bg-white rounded-2xl border border-[#E2ECE5] overflow-hidden shadow-2xs"
-                  >
-                    <div className="h-28 relative">
-                      <img src={resto.coverImage} alt={resto.name} className="w-full h-full object-cover" />
-                      <div className="absolute top-2 left-2 px-2 py-0.5 rounded-md bg-white/90 backdrop-blur-xs text-[#07431E] font-bold text-[10px] flex items-center gap-1">
-                        <Star className="w-3 h-3 text-[#F5B738] fill-[#F5B738]" />
-                        <span>{resto.rating}</span>
-                      </div>
-                    </div>
-                    <div className="p-3">
-                      <h5 className="font-bold text-xs text-[#07431E]">{resto.name}</h5>
-                      <p className="text-[10px] text-gray-500 line-clamp-1">{resto.tagline}</p>
-                      <div className="flex items-center justify-between text-[10px] text-gray-500 mt-2 pt-2 border-t border-[#E2ECE5]">
-                        <span className="text-[#008235] font-semibold">📍 {resto.neighborhood}</span>
-                        <span>{resto.deliveryTimeEstimate} • {formatFCFA(resto.deliveryFee)}</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
           </div>
         )}
 
-        {/* TAB 2: SEARCH */}
-        {activeTab === 'search' && (
-          <div className="p-4 space-y-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input
-                type="text"
-                autoFocus
-                placeholder="Rechercher un plat (Dibi, Thiéb, Pastels...)"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-2.5 bg-white border border-[#E2ECE5] rounded-xl text-xs focus:border-[#008235] focus:outline-hidden shadow-2xs"
-              />
+        {/* =====================================================================
+            TAB 2: DÉCOUVERTE RESTAURANTS & SORTIES À DAKAR (SHOWCASE HUB)
+           ===================================================================== */}
+        {activeTab === 'menu' && (
+          <div className="p-4 space-y-4 pb-12">
+            
+            {/* Header with search context & live counter */}
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-black text-sm text-[#081A10]">
+                  {selectedNeighborhood !== 'Tous les quartiers'
+                    ? `Restaurants à ${selectedNeighborhood}`
+                    : 'Explorer Dakar & ses Restaurants'}
+                </h3>
+                <p className="text-[10px] text-gray-400">
+                  {userLiveLocation ? `Depuis ${userLiveLocation} • ` : ''}
+                  {activeRestaurants.length} établissement{activeRestaurants.length > 1 ? 's' : ''} trouvé{activeRestaurants.length > 1 ? 's' : ''}
+                </p>
+              </div>
+
+              {selectedNeighborhood !== 'Tous les quartiers' && (
+                <button
+                  onClick={() => setSelectedNeighborhood('Tous les quartiers')}
+                  className="px-2 py-1 rounded-lg bg-gray-100 text-[10px] font-bold text-gray-600 hover:text-[#0A6E3B]"
+                >
+                  Tout Dakar ✕
+                </button>
+              )}
             </div>
 
-            <div className="space-y-2">
-              <h5 className="text-[11px] font-bold text-gray-500 uppercase">
-                {searchQuery ? `Résultats (${filteredDishes.length})` : 'Suggestions du chef'}
-              </h5>
-              <div className="space-y-2">
-                {filteredDishes.map((dish) => (
-                  <div
-                    key={dish.id}
-                    onClick={() => setSelectedDish(dish)}
-                    className="bg-white p-2.5 rounded-xl border border-[#E2ECE5] flex items-center justify-between gap-3 cursor-pointer"
+            {/* Ambiance & Lifestyle Discovery Filter Pills */}
+            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1">
+              {[
+                { id: 'all', label: 'Tous' },
+                { id: 'rated', label: '⭐ Mieux Notés (4.8+)' },
+                { id: 'ocean', label: '🌊 Vue Mer & Plage' },
+                { id: 'couple', label: '❤️ Sortie Couple & Romantique' },
+                { id: 'grill', label: '🔥 Grillades & Dibi' },
+                { id: 'budget', label: '💰 Prix Doux' },
+              ].map((flt) => {
+                const isSel = restoDiscoveryFilter === flt.id;
+                return (
+                  <button
+                    key={flt.id}
+                    onClick={() => setRestoDiscoveryFilter(flt.id as any)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-bold shrink-0 transition-all border ${
+                      isSel
+                        ? 'bg-[#0A6E3B] text-white border-[#0A6E3B] shadow-xs'
+                        : 'bg-white text-gray-600 border-[#D8EADB] hover:border-gray-300'
+                    }`}
                   >
-                    <div className="min-w-0">
-                      <p className="font-bold text-xs text-[#0D1C12] truncate">{dish.name}</p>
-                      <p className="text-[10px] text-[#FA8038] font-bold">{formatFCFA(dish.price)}</p>
-                    </div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        addToCart(dish);
-                      }}
-                      className="px-2.5 py-1 rounded-lg brand-gradient-orange text-white text-[10px] font-bold"
-                    >
-                      + Ajouter
-                    </button>
-                  </div>
-                ))}
-              </div>
+                    {flt.label}
+                  </button>
+                );
+              })}
             </div>
+
+            {/* Restaurant Cards List */}
+            {activeRestaurants.length === 0 ? (
+              <div className="text-center py-16 space-y-3 bg-white rounded-3xl border border-[#D8EADB] p-6 shadow-2xs">
+                <span className="text-4xl">🔍</span>
+                <p className="font-bold text-xs text-gray-700">Aucun restaurant trouvé pour cette recherche</p>
+                <button
+                  onClick={() => { setSelectedNeighborhood('Tous les quartiers'); setSearchQuery(''); setRestoDiscoveryFilter('all'); }}
+                  className="px-4 py-2 rounded-full brand-gradient text-white text-xs font-bold shadow-xs"
+                >
+                  Réinitialiser les filtres
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {activeRestaurants
+                  .filter((resto) => {
+                    if (restoDiscoveryFilter === 'rated') return resto.rating >= 4.85;
+                    if (restoDiscoveryFilter === 'ocean') return resto.ambianceTags?.some(t => t.toLowerCase().includes('océan') || t.toLowerCase().includes('mer') || t.toLowerCase().includes('plage'));
+                    if (restoDiscoveryFilter === 'couple') return resto.ambianceTags?.some(t => t.toLowerCase().includes('romantique') || t.toLowerCase().includes('couple') || t.toLowerCase().includes('coucher'));
+                    if (restoDiscoveryFilter === 'grill') return resto.featuredTags?.some(t => t.toLowerCase().includes('dibi') || t.toLowerCase().includes('grillades')) || resto.ambianceTags?.some(t => t.toLowerCase().includes('dibi'));
+                    if (restoDiscoveryFilter === 'budget') return resto.priceRange?.includes('1000') || resto.priceRange?.includes('2500');
+                    return true;
+                  })
+                  .map((resto) => {
+                    const distanceInfo = getDistanceEstimate(userLiveLocation, resto.neighborhood);
+                    const isFav = favoriteRestaurantIds.includes(resto.id);
+
+                    return (
+                      <motion.div
+                        key={resto.id}
+                        whileHover={{ y: -2 }}
+                        className="bg-white rounded-3xl overflow-hidden border border-[#D8EADB] shadow-xs hover:shadow-md transition-all group"
+                      >
+                        {/* Cover image banner with overlays */}
+                        <div className="relative h-44 w-full bg-gray-100 overflow-hidden cursor-pointer" onClick={() => handleOpenShowcase(resto)}>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={resto.coverImage}
+                            alt={resto.name}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+
+                          {/* Top Badges */}
+                          <div className="absolute top-3 left-3 flex items-center gap-1.5">
+                            <span className="px-2.5 py-1 rounded-full bg-white/95 text-[#0A6E3B] text-[10px] font-black shadow-xs flex items-center gap-1 backdrop-blur-xs">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                              Ouvert
+                            </span>
+                            <span className="px-2.5 py-1 rounded-full bg-black/60 text-white text-[10px] font-bold backdrop-blur-md">
+                              📍 {resto.neighborhood}
+                            </span>
+                          </div>
+
+                          {/* Top Right Favorite Button */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleFavoriteRestaurant(resto.id);
+                            }}
+                            className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/90 text-gray-600 hover:text-rose-500 flex items-center justify-center text-xs shadow-md transition-transform active:scale-75"
+                            aria-label="Ajouter aux favoris"
+                          >
+                            <Heart className={`w-4 h-4 ${isFav ? 'fill-rose-500 text-rose-500' : 'text-gray-400'}`} />
+                          </button>
+
+                          {/* Bottom info on Image */}
+                          <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between text-white">
+                            <div>
+                              <div className="flex items-center gap-1.5">
+                                <h4 className="font-black text-sm text-white drop-shadow-sm leading-tight">{resto.name}</h4>
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                              </div>
+                              <p className="text-[10px] text-gray-200 line-clamp-1">{resto.tagline}</p>
+                            </div>
+                            <div className="px-2 py-1 rounded-xl bg-[#0A6E3B] text-white text-xs font-black shrink-0 flex items-center gap-1 shadow-md">
+                              ⭐ {resto.rating}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Content & Discovery Details */}
+                        <div className="p-3.5 space-y-3">
+                          
+                          {/* Distance, Trajet & Gamme de Prix */}
+                          <div className="flex items-center justify-between text-[11px] text-gray-500 pb-1 border-b border-gray-100">
+                            <div className="flex items-center gap-1.5 text-gray-700">
+                              <Navigation className="w-3 h-3 text-[#0A6E3B]" />
+                              <span className="font-bold">Depuis {userLiveLocation} : <strong>{distanceInfo.dist}</strong> ({distanceInfo.time})</span>
+                            </div>
+                            <span className="text-[10px] font-extrabold text-[#0A6E3B] bg-[#E6F5EC] px-2 py-0.5 rounded-md">
+                              {resto.priceRange || '2500 - 6000 FCFA'}
+                            </span>
+                          </div>
+
+                          {/* Ambiance tags */}
+                          <div className="flex flex-wrap gap-1.5">
+                            {resto.ambianceTags?.slice(0, 3).map((tag, idx) => (
+                              <span
+                                key={idx}
+                                className="px-2 py-0.5 rounded-lg bg-[#F4F7F4] border border-[#D8EADB] text-[#081A10] text-[10px] font-bold"
+                              >
+                                {tag}
+                              </span>
+                            ))}
+                            {resto.gallery && resto.gallery.length > 0 && (
+                              <span className="px-2 py-0.5 rounded-lg bg-gray-100 text-gray-600 text-[10px] font-semibold flex items-center gap-1">
+                                <Camera className="w-2.5 h-2.5" />
+                                {resto.gallery.length} photos
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Action Buttons */}
+                          <div className="pt-1 flex items-center gap-2">
+                            <button
+                              onClick={() => handleOpenShowcase(resto)}
+                              className="flex-1 py-2.5 rounded-xl brand-gradient text-white text-xs font-black shadow-xs flex items-center justify-center gap-1.5 hover:opacity-95 transition-opacity"
+                            >
+                              <span>👁️ Visiter la vitrine</span>
+                            </button>
+                            <button
+                              onClick={() => handleOpenReservation(resto)}
+                              className="px-3 py-2.5 rounded-xl bg-[#E6F5EC] border border-[#0A6E3B]/30 text-[#0A6E3B] text-xs font-black hover:bg-[#d5eedf] transition-colors flex items-center gap-1"
+                            >
+                              <Calendar className="w-3.5 h-3.5" />
+                              <span>Réserver</span>
+                            </button>
+                          </div>
+
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+              </div>
+            )}
+
           </div>
         )}
 
-        {/* TAB 3: ORDERS */}
+        {/* =====================================================================
+            TAB 3: ORDERS (MES COMMANDES)
+           ===================================================================== */}
         {activeTab === 'orders' && (
           <div className="p-4 space-y-4">
-            <h4 className="text-xs font-black text-[#07431E] uppercase tracking-wider">
-              Mes Commandes Récentes
-            </h4>
+            <div className="flex items-center justify-between">
+              <h3 className="font-black text-sm text-[#081A10]">Mes Commandes</h3>
+              <span className="text-[10px] font-bold text-[#0A6E3B] bg-[#E6F5EC] px-2 py-0.5 rounded-full">
+                {orders.length} au total
+              </span>
+            </div>
+
             {orders.length === 0 ? (
-              <div className="text-center py-12 text-xs text-gray-400">
-                Aucune commande pour le moment.
+              <div className="text-center py-16 space-y-3 bg-white rounded-3xl border border-[#D8EADB] p-6">
+                <span className="text-4xl">📦</span>
+                <p className="font-bold text-xs text-gray-700">Aucune commande en cours</p>
+                <button
+                  onClick={() => setActiveTab('home')}
+                  className="px-5 py-2 rounded-full brand-gradient text-white text-xs font-bold shadow-md"
+                >
+                  Commander mon premier Thiéb
+                </button>
               </div>
             ) : (
               <div className="space-y-3">
                 {orders.map((ord) => {
-                  const badge = getStatusBadge(ord.status);
+                  const isPreparing = ord.status === 'preparing' || ord.status === 'ready_for_pickup' || ord.status === 'in_transit';
                   return (
-                    <motion.div
+                    <div
                       key={ord.id}
-                      whileTap={{ scale: 0.98 }}
-                      onClick={() => onOpenTracking(ord)}
-                      className="bg-white p-3.5 rounded-2xl border border-[#E2ECE5] space-y-2.5 cursor-pointer shadow-2xs"
+                      className="bg-white p-3.5 rounded-2xl border border-[#D8EADB] space-y-2.5 shadow-xs"
                     >
                       <div className="flex items-center justify-between">
-                        <span className="font-black text-xs text-[#07431E]">{ord.orderNumber}</span>
-                        <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${badge.bg} ${badge.text} ${badge.border}`}>
-                          {badge.label}
+                        <div>
+                          <span className="text-xs font-black text-[#081A10]">Commande {ord.orderNumber}</span>
+                          <p className="text-[10px] text-gray-400">{ord.restaurantName}</p>
+                        </div>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          isPreparing ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'
+                        }`}>
+                          {isPreparing ? 'En préparation' : 'Livrée'}
                         </span>
                       </div>
-                      <div className="text-xs text-gray-600">
-                        <p className="font-bold text-[#0D1C12]">{ord.restaurantName}</p>
-                        <p className="text-[10px] text-gray-400">{ord.items.length} articles • {ord.createdAt}</p>
+
+                      <div className="text-[11px] text-gray-600 divide-y divide-gray-100">
+                        {ord.items.map((it, i) => (
+                          <div key={i} className="py-1 flex justify-between">
+                            <span>{it.quantity}x {it.name}</span>
+                            <span className="font-bold">{formatFCFA(it.price * it.quantity)}</span>
+                          </div>
+                        ))}
                       </div>
-                      <div className="flex items-center justify-between pt-2 border-t border-[#E2ECE5] text-xs">
-                        <span className="font-black text-[#FA8038]">{formatFCFA(ord.total)}</span>
-                        <span className="text-[10px] font-bold text-[#008235] flex items-center gap-1">
-                          <span>Suivre en direct</span>
-                          <ArrowRight className="w-3 h-3" />
-                        </span>
+
+                      <div className="flex items-center justify-between pt-1 border-t border-gray-100">
+                        <span className="text-xs font-black text-[#0A6E3B]">Total : {formatFCFA(ord.total)}</span>
+                        <button
+                          onClick={() => onOpenTracking(ord)}
+                          className="px-3 py-1.5 rounded-xl brand-gradient text-white text-[11px] font-bold shadow-xs"
+                        >
+                          Suivre ma commande ➔
+                        </button>
                       </div>
-                    </motion.div>
+                    </div>
                   );
                 })}
               </div>
@@ -400,34 +1121,268 @@ function MobileClientApp({ onOpenTracking }: { onOpenTracking: (ord: Order) => v
           </div>
         )}
 
-        {/* TAB 4: PROFILE */}
+        {/* =====================================================================
+            TAB 4: MES SORTIES, RÉSERVATIONS & FAVORIS
+           ===================================================================== */}
+        {activeTab === 'favorites' && (
+          <div className="p-4 space-y-4 pb-12">
+            
+            {/* Sub-tabs: Mes Sorties / Plats Favoris */}
+            <div className="flex bg-gray-200/70 p-1 rounded-2xl">
+              <button
+                onClick={() => setFavoritesSubTab('outings')}
+                className={`flex-1 py-2 rounded-xl text-xs font-black transition-all ${
+                  favoritesSubTab === 'outings'
+                    ? 'bg-white text-[#0A6E3B] shadow-xs'
+                    : 'text-gray-500 hover:text-gray-800'
+                }`}
+              >
+                ❤️ Mes Sorties & Tables ({reservations.length + outingPlans.length})
+              </button>
+              <button
+                onClick={() => setFavoritesSubTab('dishes')}
+                className={`flex-1 py-2 rounded-xl text-xs font-black transition-all ${
+                  favoritesSubTab === 'dishes'
+                    ? 'bg-white text-[#0A6E3B] shadow-xs'
+                    : 'text-gray-500 hover:text-gray-800'
+                }`}
+              >
+                🍲 Plats Favoris ({favoriteDishes.length})
+              </button>
+            </div>
+
+            {/* Sub-tab 1: Outings, Reservations, and Saved Restaurants */}
+            {favoritesSubTab === 'outings' && (
+              <div className="space-y-4">
+                
+                {/* 1. Mes Réservations de Table Confirmées */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-black text-[#081A10] uppercase tracking-wider flex items-center gap-1.5">
+                      <Calendar className="w-3.5 h-3.5 text-[#0A6E3B]" />
+                      <span>Tables Réservées ({reservations.length})</span>
+                    </h4>
+                  </div>
+
+                  {reservations.length === 0 ? (
+                    <div className="p-4 text-center bg-white rounded-2xl border border-[#D8EADB] text-xs text-gray-500 space-y-1">
+                      <p>Aucune réservation en cours.</p>
+                      <button
+                        onClick={() => setActiveTab('menu')}
+                        className="text-[11px] text-[#0A6E3B] font-bold underline"
+                      >
+                        Réserver une table aux Almadies ou Ngor
+                      </button>
+                    </div>
+                  ) : (
+                    reservations.map((res) => (
+                      <div
+                        key={res.id}
+                        className="bg-white p-3.5 rounded-2xl border border-[#D8EADB] space-y-2 shadow-xs"
+                      >
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              <h5 className="font-black text-xs text-[#081A10]">{res.restaurantName}</h5>
+                              <span className="px-2 py-0.2 rounded-full bg-emerald-100 text-emerald-800 text-[9px] font-black">
+                                {res.status === 'confirmed' ? '✓ Confirmée' : res.status}
+                              </span>
+                            </div>
+                            <span className="text-[10px] text-gray-400 font-mono">Code : {res.reservationNumber}</span>
+                          </div>
+                          <span className="text-[11px] font-bold text-[#FF7824] bg-[#FF7824]/10 px-2 py-0.5 rounded-full">
+                            {res.occasion}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 text-[11px] bg-[#F4F7F4] p-2 rounded-xl border border-[#D8EADB]">
+                          <div>
+                            <span className="text-gray-400 block text-[9px] font-bold">Date & Heure</span>
+                            <span className="font-black text-[#081A10]">{res.date} • {res.time}</span>
+                          </div>
+                          <div>
+                            <span className="text-gray-400 block text-[9px] font-bold">Convives</span>
+                            <span className="font-black text-[#081A10]">{res.guestsCount} personne{res.guestsCount > 1 ? 's' : ''}</span>
+                          </div>
+                        </div>
+
+                        {res.notes && (
+                          <p className="text-[10px] text-gray-500 italic bg-amber-50 p-1.5 rounded-lg border border-amber-200/50">
+                            📝 Note : {res.notes}
+                          </p>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                {/* 2. Sorties Programmées */}
+                <div className="space-y-2 pt-2">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-black text-[#081A10] uppercase tracking-wider flex items-center gap-1.5">
+                      <span>✨ Sorties Prévues ({outingPlans.length})</span>
+                    </h4>
+                  </div>
+
+                  {outingPlans.map((plan) => (
+                    <div
+                      key={plan.id}
+                      className="bg-white p-3.5 rounded-2xl border border-[#D8EADB] space-y-2 shadow-xs"
+                    >
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <h5 className="font-black text-xs text-[#081A10]">{plan.title}</h5>
+                          <p className="text-[10px] text-gray-400">{plan.restaurantName} • {plan.neighborhood}</p>
+                        </div>
+                        <span className="text-[10px] font-bold text-[#0A6E3B] bg-[#E6F5EC] px-2 py-0.5 rounded-full">
+                          {plan.plannedDate}
+                        </span>
+                      </div>
+
+                      {plan.notes && (
+                        <p className="text-[10px] text-gray-600 bg-gray-50 p-2 rounded-xl">
+                          {plan.notes}
+                        </p>
+                      )}
+
+                      <div className="flex gap-2 pt-1">
+                        <button
+                          onClick={() => {
+                            const r = restaurants.find(item => item.id === plan.restaurantId);
+                            if (r) handleOpenShowcase(r);
+                          }}
+                          className="flex-1 py-1.5 rounded-xl brand-gradient text-white text-[11px] font-bold shadow-2xs"
+                        >
+                          Voir la vitrine du resto ➔
+                        </button>
+                        <button
+                          onClick={() => deleteOutingPlan(plan.id)}
+                          className="px-2.5 py-1.5 rounded-xl bg-gray-100 text-gray-400 hover:text-rose-500 text-xs"
+                          title="Supprimer"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* 3. Restaurants Favoris Enregistrés */}
+                <div className="space-y-2 pt-2">
+                  <h4 className="text-xs font-black text-[#081A10] uppercase tracking-wider">
+                    ❤️ Restaurants Favoris ({favoriteRestoList.length})
+                  </h4>
+
+                  <div className="space-y-2.5">
+                    {favoriteRestoList.map((resto) => (
+                      <div
+                        key={resto.id}
+                        onClick={() => handleOpenShowcase(resto)}
+                        className="bg-white p-3 rounded-2xl border border-[#D8EADB] flex items-center justify-between gap-3 shadow-2xs cursor-pointer hover:border-[#0A6E3B] transition-colors"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={resto.coverImage} alt={resto.name} className="w-14 h-14 rounded-xl object-cover shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <h5 className="font-bold text-xs text-[#081A10] truncate">{resto.name}</h5>
+                          <p className="text-[10px] text-gray-400">📍 {resto.neighborhood} • ⭐ {resto.rating}</p>
+                        </div>
+                        <button className="px-3 py-1.5 rounded-xl bg-[#E6F5EC] text-[#0A6E3B] text-[11px] font-bold">
+                          Vitrine ➔
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+              </div>
+            )}
+
+            {/* Sub-tab 2: Favorite Dishes */}
+            {favoritesSubTab === 'dishes' && (
+              <div className="space-y-2.5">
+                {favoriteDishes.length === 0 ? (
+                  <div className="text-center py-16 space-y-2 bg-white rounded-3xl border border-[#D8EADB] p-6">
+                    <span className="text-3xl">🤍</span>
+                    <p className="font-bold text-xs text-gray-700">Aucun plat favori pour l'instant</p>
+                    <button
+                      onClick={() => setActiveTab('home')}
+                      className="px-4 py-2 rounded-full brand-gradient text-white text-xs font-bold mt-2 shadow-xs"
+                    >
+                      Découvrir les plats
+                    </button>
+                  </div>
+                ) : (
+                  favoriteDishes.map((dish, idx) => (
+                    <div
+                      key={`${dish.id}-fav-${idx}`}
+                      onClick={() => { setSelectedDish(dish); setDishQuantity(1); }}
+                      className="bg-white p-3 rounded-2xl border border-[#D8EADB] flex items-center justify-between gap-3 shadow-2xs cursor-pointer"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={dish.image} alt={dish.name} className="w-14 h-14 rounded-xl object-cover shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <h5 className="font-bold text-xs text-[#081A10] truncate">{dish.name}</h5>
+                        <p className="text-[11px] font-black text-[#0A6E3B]">{formatFCFA(dish.price)}</p>
+                      </div>
+                      <button
+                        onClick={(e) => handleQuickAdd(dish, e)}
+                        className="px-3 py-1.5 rounded-xl brand-gradient text-white text-xs font-bold shadow-xs active:scale-95"
+                      >
+                        + Ajouter
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+
+          </div>
+        )}
+
+        {/* =====================================================================
+            TAB 5: PROFIL
+           ===================================================================== */}
         {activeTab === 'profile' && (
           <div className="p-4 space-y-4">
-            <div className="bg-white p-4 rounded-2xl border border-[#E2ECE5] text-center space-y-2 shadow-2xs">
+            <div className="bg-white p-4 rounded-3xl border border-[#D8EADB] text-center space-y-2 shadow-2xs">
               <div className="w-14 h-14 rounded-full brand-gradient text-white flex items-center justify-center font-black text-lg mx-auto shadow-sm">
                 MD
               </div>
               <div>
-                <h4 className="font-bold text-sm text-[#07431E]">Moussa Diop</h4>
+                <h4 className="font-bold text-sm text-[#081A10]">Moussa Diop</h4>
                 <p className="text-xs text-gray-500">+221 77 654 32 10</p>
               </div>
-              <span className="inline-block px-2.5 py-0.5 rounded-full bg-[#EBF7EE] text-[#008235] text-[10px] font-bold">
-                🇸🇳 Client Fidèle Dakar
-              </span>
+              <div className="flex justify-center gap-2 pt-1">
+                <span className="px-2.5 py-0.5 rounded-full bg-[#E6F5EC] text-[#0A6E3B] text-[10px] font-bold">
+                  🇸🇳 Dakar, Sénégal
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full bg-[#FF7824]/10 text-[#FF7824] text-[10px] font-bold">
+                  Membre VIP Téranga
+                </span>
+              </div>
             </div>
 
-            <div className="bg-white rounded-2xl border border-[#E2ECE5] divide-y divide-[#E2ECE5] text-xs">
-              <div className="p-3 flex justify-between items-center cursor-pointer hover:bg-gray-50">
-                <span>📍 Adresses enregistrées (Almadies, Plateau)</span>
+            <div className="bg-white rounded-3xl border border-[#D8EADB] divide-y divide-[#D8EADB] text-xs shadow-2xs overflow-hidden">
+              <div className="p-3.5 flex justify-between items-center cursor-pointer hover:bg-gray-50">
+                <div className="flex items-center gap-2">
+                  <span>📍</span>
+                  <span className="font-semibold text-gray-700">Adresses enregistrées</span>
+                </div>
                 <ArrowRight className="w-3.5 h-3.5 text-gray-400" />
               </div>
-              <div className="p-3 flex justify-between items-center cursor-pointer hover:bg-gray-50">
-                <span>💳 Mode de paiement par défaut (Wave)</span>
-                <ArrowRight className="w-3.5 h-3.5 text-gray-400" />
+              <div className="p-3.5 flex justify-between items-center cursor-pointer hover:bg-gray-50">
+                <div className="flex items-center gap-2">
+                  <span>🌊</span>
+                  <span className="font-semibold text-gray-700">Wave & Orange Money</span>
+                </div>
+                <span className="text-[10px] font-bold text-[#0A6E3B]">Connecté</span>
               </div>
-              <div className="p-3 flex justify-between items-center cursor-pointer hover:bg-gray-50">
-                <span>📞 Support & Service Client Thiob</span>
-                <ArrowRight className="w-3.5 h-3.5 text-gray-400" />
+              <div className="p-3.5 flex justify-between items-center cursor-pointer hover:bg-gray-50">
+                <div className="flex items-center gap-2">
+                  <span>📞</span>
+                  <span className="font-semibold text-gray-700">Support Thiob Express</span>
+                </div>
+                <span className="text-[10px] text-gray-400">+221 33 800 00 00</span>
               </div>
             </div>
           </div>
@@ -435,62 +1390,157 @@ function MobileClientApp({ onOpenTracking }: { onOpenTracking: (ord: Order) => v
 
       </div>
 
-      {/* Floating Bottom Cart Bar (if items exist) */}
+      {/* =========================================================================
+          FLOATING BOTTOM CART BUTTON (IF CART > 0)
+         ========================================================================= */}
       {cartCount > 0 && !isCartSheetOpen && (
-        <div className="absolute bottom-16 left-3 right-3 z-30">
+        <div className="absolute bottom-20 left-4 right-4 z-30">
           <motion.button
             initial={{ scale: 0.9, y: 20 }}
             animate={{ scale: 1, y: 0 }}
             whileTap={{ scale: 0.96 }}
-            onClick={() => setIsCartSheetOpen(true)}
-            className="w-full py-3 px-4 rounded-2xl brand-gradient-orange text-white font-extrabold text-xs shadow-xl flex items-center justify-between"
+            onClick={() => { setIsCartSheetOpen(true); setCheckoutStep('cart'); }}
+            className="w-full py-3 px-4 rounded-2xl brand-gradient text-white font-extrabold text-xs shadow-xl flex items-center justify-between"
           >
             <div className="flex items-center gap-2">
-              <span className="w-5 h-5 rounded-full bg-black/20 text-white flex items-center justify-center text-[10px]">
+              <span className="w-5 h-5 rounded-full bg-white/20 text-white flex items-center justify-center text-[10px] font-black">
                 {cartCount}
               </span>
-              <span>Voir le panier</span>
+              <span>Voir mon panier</span>
             </div>
             <span>{formatFCFA(cartTotal)}</span>
           </motion.button>
         </div>
       )}
 
-      {/* Mobile Bottom Tab Bar */}
-      <div className="absolute bottom-0 inset-x-0 h-14 bg-white/95 backdrop-blur-md border-t border-[#E2ECE5] flex items-center justify-around z-30 px-2 shadow-lg">
-        {[
-          { tab: 'home', label: 'Découvrir', icon: <Compass className="w-4 h-4" /> },
-          { tab: 'search', label: 'Recherche', icon: <Search className="w-4 h-4" /> },
-          { tab: 'orders', label: 'Commandes', icon: <ShoppingBag className="w-4 h-4" />, badge: orders.length },
-          { tab: 'profile', label: 'Profil', icon: <User className="w-4 h-4" /> },
-        ].map((item) => {
-          const isActive = activeTab === item.tab;
-          return (
-            <button
-              key={item.tab}
-              onClick={() => setActiveTab(item.tab as any)}
-              className={`flex flex-col items-center justify-center flex-1 py-1 transition-all ${
-                isActive ? 'text-[#008235] font-black scale-105' : 'text-gray-400 hover:text-gray-600'
-              }`}
-            >
-              <div className="relative">
-                {item.icon}
-                {Boolean(item.badge && item.badge > 0) && (
-                  <span className="absolute -top-1 -right-2 w-3.5 h-3.5 bg-[#FA8038] text-white text-[8px] font-black rounded-full flex items-center justify-center">
-                    {item.badge}
-                  </span>
-                )}
-              </div>
-              <span className="text-[9px] mt-0.5">{item.label}</span>
-            </button>
-          );
-        })}
+      {/* =========================================================================
+          FLOATING ORGANIC BOTTOM DOCK NAVIGATION (FROSTED GLASS PILL WITH SPRING PHYSICS)
+         ========================================================================= */}
+      <div className="absolute bottom-2 inset-x-3 h-16 bg-white/80 backdrop-blur-2xl rounded-[28px] border border-white/90 flex items-center justify-around z-30 px-2 shadow-[0_15px_35px_rgba(4,31,17,0.16)]">
+        
+        {/* 1. Home */}
+        <motion.button
+          whileTap={{ scale: 0.9 }}
+          onClick={() => setActiveTab('home')}
+          className="relative flex flex-col items-center justify-center flex-1 py-1 transition-all"
+        >
+          {activeTab === 'home' && (
+            <motion.div
+              layoutId="activeMobileDockTab"
+              className="absolute inset-0 bg-[#E6F5EC] rounded-2xl border border-[#0A6E3B]/20 -z-10 shadow-xs"
+              transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+            />
+          )}
+          <div className="w-8 h-8 rounded-xl flex items-center justify-center text-sm">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill={activeTab === 'home' ? '#0A6E3B' : '#9CA3AF'} xmlns="http://www.w3.org/2000/svg">
+              <path d="M10 20V14H14V20H19V12H22L12 3L2 12H5V20H10Z"/>
+            </svg>
+          </div>
+          <span className={`text-[9px] font-black ${activeTab === 'home' ? 'text-[#0A6E3B]' : 'text-gray-400'}`}>
+            Accueil
+          </span>
+        </motion.button>
+
+        {/* 2. Menu */}
+        <motion.button
+          whileTap={{ scale: 0.9 }}
+          onClick={() => setActiveTab('menu')}
+          className="relative flex flex-col items-center justify-center flex-1 py-1 transition-all"
+        >
+          {activeTab === 'menu' && (
+            <motion.div
+              layoutId="activeMobileDockTab"
+              className="absolute inset-0 bg-[#E6F5EC] rounded-2xl border border-[#0A6E3B]/20 -z-10 shadow-xs"
+              transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+            />
+          )}
+          <div className="w-8 h-8 rounded-xl flex items-center justify-center text-sm">
+            <UtensilsCrossed className={`w-4 h-4 ${activeTab === 'menu' ? 'text-[#0A6E3B]' : 'text-gray-400'}`} />
+          </div>
+          <span className={`text-[9px] font-black ${activeTab === 'menu' ? 'text-[#0A6E3B]' : 'text-gray-400'}`}>
+            Restos
+          </span>
+        </motion.button>
+
+        {/* 3. Orders / Commandes */}
+        <motion.button
+          whileTap={{ scale: 0.9 }}
+          onClick={() => setActiveTab('orders')}
+          className="relative flex flex-col items-center justify-center flex-1 py-1 transition-all"
+        >
+          {activeTab === 'orders' && (
+            <motion.div
+              layoutId="activeMobileDockTab"
+              className="absolute inset-0 bg-[#E6F5EC] rounded-2xl border border-[#0A6E3B]/20 -z-10 shadow-xs"
+              transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+            />
+          )}
+          <div className="relative w-8 h-8 rounded-xl flex items-center justify-center text-sm">
+            <ShoppingBag className={`w-4 h-4 ${activeTab === 'orders' ? 'text-[#0A6E3B]' : 'text-gray-400'}`} />
+            {orders.length > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-[#FF7824] rounded-full ring-2 ring-white" />
+            )}
+          </div>
+          <span className={`text-[9px] font-black ${activeTab === 'orders' ? 'text-[#0A6E3B]' : 'text-gray-400'}`}>
+            Commandes
+          </span>
+        </motion.button>
+
+        {/* 4. Favoris */}
+        <motion.button
+          whileTap={{ scale: 0.9 }}
+          onClick={() => setActiveTab('favorites')}
+          className="relative flex flex-col items-center justify-center flex-1 py-1 transition-all"
+        >
+          {activeTab === 'favorites' && (
+            <motion.div
+              layoutId="activeMobileDockTab"
+              className="absolute inset-0 bg-[#E6F5EC] rounded-2xl border border-[#0A6E3B]/20 -z-10 shadow-xs"
+              transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+            />
+          )}
+          <div className="relative w-8 h-8 rounded-xl flex items-center justify-center text-sm">
+            <Heart className={`w-4 h-4 ${activeTab === 'favorites' ? 'fill-[#0A6E3B] text-[#0A6E3B]' : 'text-gray-400'}`} />
+            {favoriteIds.length > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-[#FF7824] text-white text-[8px] font-black rounded-full flex items-center justify-center ring-1 ring-white">
+                {favoriteIds.length}
+              </span>
+            )}
+          </div>
+          <span className={`text-[9px] font-black ${activeTab === 'favorites' ? 'text-[#0A6E3B]' : 'text-gray-400'}`}>
+            Favoris
+          </span>
+        </motion.button>
+
+        {/* 5. Profil */}
+        <motion.button
+          whileTap={{ scale: 0.9 }}
+          onClick={() => setActiveTab('profile')}
+          className="relative flex flex-col items-center justify-center flex-1 py-1 transition-all"
+        >
+          {activeTab === 'profile' && (
+            <motion.div
+              layoutId="activeMobileDockTab"
+              className="absolute inset-0 bg-[#E6F5EC] rounded-2xl border border-[#0A6E3B]/20 -z-10 shadow-xs"
+              transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+            />
+          )}
+          <div className="w-8 h-8 rounded-xl flex items-center justify-center text-sm">
+            <User className={`w-4 h-4 ${activeTab === 'profile' ? 'text-[#0A6E3B]' : 'text-gray-400'}`} />
+          </div>
+          <span className={`text-[9px] font-black ${activeTab === 'profile' ? 'text-[#0A6E3B]' : 'text-gray-400'}`}>
+            Profil
+          </span>
+        </motion.button>
+
       </div>
 
-      {/* Dish Detail Bottom Sheet Modal */}
+      {/* =========================================================================
+          3. MODAL PRODUCT DETAIL (INSPIRÉ DE L'ÉCRAN "DETAILS" DES MAQUETTES)
+         ========================================================================= */}
       <AnimatePresence>
         {selectedDish && (
-          <div className="absolute inset-0 z-40 flex flex-col justify-end">
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -502,61 +1552,242 @@ function MobileClientApp({ onOpenTracking }: { onOpenTracking: (ord: Order) => v
               initial={{ y: '100%' }}
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
-              transition={{ type: 'spring', damping: 28, stiffness: 350 }}
-              className="relative z-10 bg-white rounded-t-3xl overflow-hidden max-h-[85%] flex flex-col shadow-2xl"
+              transition={{ type: 'spring', damping: 25, stiffness: 280 }}
+              className="relative z-10 w-full max-w-sm bg-white rounded-t-[36px] sm:rounded-3xl overflow-hidden shadow-2xl max-h-[85vh] flex flex-col"
             >
-              <div className="h-40 relative shrink-0">
+              {/* Header Image with close button */}
+              <div className="relative h-56 w-full shrink-0 bg-gray-100">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={selectedDish.image} alt={selectedDish.name} className="w-full h-full object-cover" />
                 <button
                   onClick={() => setSelectedDish(null)}
-                  className="absolute top-3 right-3 w-7 h-7 rounded-full bg-black/50 text-white flex items-center justify-center text-xs"
+                  className="absolute top-4 right-4 w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center text-xs backdrop-blur-xs shadow-md"
+                >
+                  ✕
+                </button>
+                <div className="absolute bottom-3 left-4 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/60 text-white text-[10px] font-bold backdrop-blur-md">
+                  <span>Authentique Sénégalais</span>
+                </div>
+              </div>
+
+              {/* Dish Content Details */}
+              <div className="p-5 space-y-4 overflow-y-auto flex-1">
+                <div>
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-base font-black text-[#081A10]">{selectedDish.name}</h3>
+                    <span className="text-base font-black text-[#0A6E3B]">{formatFCFA(selectedDish.price)}</span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1 leading-relaxed">{selectedDish.description}</p>
+                </div>
+
+                {/* Nutrition / Spice meters */}
+                <div className="grid grid-cols-3 gap-2 text-center text-[10px]">
+                  <div className="p-2 rounded-xl bg-[#F4F7F4] border border-[#D8EADB]">
+                    <span className="text-gray-400 block font-bold">Épices</span>
+                    <span className="font-extrabold text-[#FF7824]">🌶️ Doux / Piment</span>
+                  </div>
+                  <div className="p-2 rounded-xl bg-[#F4F7F4] border border-[#D8EADB]">
+                    <span className="text-gray-400 block font-bold">Cuisson</span>
+                    <span className="font-extrabold text-[#0A6E3B]">🔥 Minute</span>
+                  </div>
+                  <div className="p-2 rounded-xl bg-[#F4F7F4] border border-[#D8EADB]">
+                    <span className="text-gray-400 block font-bold">Temps</span>
+                    <span className="font-extrabold text-[#081A10]">⏱️ 20 min</span>
+                  </div>
+                </div>
+
+                {/* Quantity selector & Add CTA */}
+                <div className="pt-2 flex items-center gap-3">
+                  <div className="flex items-center bg-[#F4F7F4] rounded-2xl border border-[#D8EADB] p-1 shrink-0">
+                    <button
+                      onClick={() => setDishQuantity((q) => Math.max(1, q - 1))}
+                      className="w-8 h-8 rounded-xl bg-white flex items-center justify-center text-xs font-black text-[#081A10] shadow-2xs"
+                    >
+                      <Minus className="w-3.5 h-3.5" />
+                    </button>
+                    <span className="w-8 text-center text-xs font-black">{dishQuantity}</span>
+                    <button
+                      onClick={() => setDishQuantity((q) => q + 1)}
+                      className="w-8 h-8 rounded-xl bg-white flex items-center justify-center text-xs font-black text-[#081A10] shadow-2xs"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  <button
+                    onClick={handleAddDishModal}
+                    className="flex-1 py-3 rounded-2xl brand-gradient text-white text-xs font-black shadow-md flex items-center justify-between px-4 hover:opacity-95 transition-opacity"
+                  >
+                    <span>Ajouter au panier</span>
+                    <span>{formatFCFA(selectedDish.price * dishQuantity)}</span>
+                  </button>
+                </div>
+              </div>
+
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* =========================================================================
+          4. MODAL FILTRE DES RESTAURANTS PAR LOCALITÉ (STYLE YANGO FOOD & YASSIR)
+         ========================================================================= */}
+      <AnimatePresence>
+        {isNeighborhoodPickerOpen && (
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsNeighborhoodPickerOpen(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-xs"
+            />
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              className="relative z-10 w-full max-w-sm bg-white rounded-t-[36px] sm:rounded-3xl p-5 space-y-3.5 shadow-2xl max-h-[85vh] flex flex-col"
+            >
+              {/* Modal Header */}
+              <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                <div>
+                  <h3 className="text-sm font-black text-[#081A10]">Filtrer les restaurants par localité</h3>
+                  <p className="text-[10px] text-gray-400">Position GPS en direct & secteurs de Dakar</p>
+                </div>
+                <button
+                  onClick={() => setIsNeighborhoodPickerOpen(false)}
+                  className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-xs text-gray-500 hover:bg-gray-200 transition-colors"
                 >
                   ✕
                 </button>
               </div>
-              <div className="p-4 overflow-y-auto space-y-3">
-                <div>
-                  <span className="text-[9px] font-bold uppercase text-[#008235]">Spécialité Dakaroise</span>
-                  <h3 className="font-extrabold text-sm text-[#07431E]">{selectedDish.name}</h3>
-                  <p className="text-xs text-gray-600 mt-1">{selectedDish.description}</p>
-                </div>
-                <div>
-                  <label className="block text-[11px] font-bold text-gray-700 mb-1">Instructions pour le chef :</label>
-                  <textarea
-                    rows={2}
-                    value={dishNotes}
-                    onChange={(e) => setDishNotes(e.target.value)}
-                    placeholder="Piment bien séparé, sauce tamarin..."
-                    className="w-full p-2 bg-[#F7FAF7] border border-[#E2ECE5] rounded-xl text-xs focus:outline-hidden"
-                  />
-                </div>
-                <div className="pt-2 flex items-center justify-between border-t border-[#E2ECE5]">
-                  <div>
-                    <span className="text-[9px] text-gray-400 uppercase font-bold block">Prix</span>
-                    <span className="text-sm font-black text-[#FA8038]">{formatFCFA(selectedDish.price)}</span>
+
+              {/* 1-Click GPS Quick Location Button (Style Yango / Yassir) */}
+              <motion.div
+                whileTap={{ scale: 0.98 }}
+                onClick={() => {
+                  setSelectedNeighborhood('Ngor');
+                  setIsNeighborhoodPickerOpen(false);
+                }}
+                className="p-3.5 rounded-2xl bg-gradient-to-r from-[#064E2B] to-[#0A6E3B] text-white flex items-center justify-between cursor-pointer shadow-md"
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-white/15 flex items-center justify-center shrink-0">
+                    <Navigation className="w-4 h-4 fill-white text-white animate-pulse" />
                   </div>
-                  <motion.button
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => {
-                      addToCart(selectedDish, dishNotes);
-                      setDishNotes('');
-                      setSelectedDish(null);
-                    }}
-                    className="px-5 py-2.5 rounded-full brand-gradient-orange text-white text-xs font-bold shadow-md"
-                  >
-                    Ajouter au panier
-                  </motion.button>
+                  <div>
+                    <span className="text-[9px] uppercase tracking-wider text-emerald-200 font-extrabold block">
+                      Ma position GPS en direct
+                    </span>
+                    <h4 className="text-xs font-black">{userLiveLocation} (Autour de moi)</h4>
+                  </div>
                 </div>
+                <span className="text-[10px] bg-white/20 px-2.5 py-1 rounded-full font-black text-white shrink-0">
+                  Filtrer ➔
+                </span>
+              </motion.div>
+
+              {/* Search for Locality / Neighborhood */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Rechercher une zone (ex: Yoff, Almadies, Plateau...)"
+                  value={localitySearchQuery}
+                  onChange={(e) => setLocalitySearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-7 py-2 bg-[#F4F7F4] border border-[#D8EADB] rounded-xl text-xs text-[#081A10] placeholder-gray-400 focus:bg-white focus:border-[#0A6E3B] focus:outline-hidden transition-colors"
+                />
+                {localitySearchQuery && (
+                  <button
+                    onClick={() => setLocalitySearchQuery('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-0.5 text-xs"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+
+              {/* List of Neighborhoods with live restaurant counters */}
+              <div className="space-y-2 overflow-y-auto flex-1 max-h-[45vh] pr-0.5">
+                {/* Option: Tout Dakar */}
+                <div
+                  onClick={() => {
+                    setSelectedNeighborhood('Tous les quartiers');
+                    setIsNeighborhoodPickerOpen(false);
+                  }}
+                  className={`p-3 rounded-2xl flex items-center justify-between cursor-pointer border transition-all ${
+                    selectedNeighborhood === 'Tous les quartiers'
+                      ? 'bg-[#E6F5EC] border-[#0A6E3B] text-[#0A6E3B] font-black shadow-2xs'
+                      : 'bg-white border-[#D8EADB] text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-base">🌍</span>
+                    <div>
+                      <span className="text-xs font-bold block">Tous les quartiers de Dakar</span>
+                      <span className="text-[10px] text-gray-400 font-medium">{restaurants.length} restaurants disponibles</span>
+                    </div>
+                  </div>
+                  {selectedNeighborhood === 'Tous les quartiers' && (
+                    <Check className="w-4 h-4 text-[#0A6E3B] shrink-0" />
+                  )}
+                </div>
+
+                {/* Filtered Neighborhoods */}
+                {DAKAR_NEIGHBORHOODS.filter((nh) => nh !== 'Tous les quartiers' && (localitySearchQuery === '' || nh.toLowerCase().includes(localitySearchQuery.toLowerCase()))).map((nh) => {
+                  const isSel = selectedNeighborhood.toLowerCase() === nh.toLowerCase();
+                  const count = restaurants.filter((r) => r.neighborhood.toLowerCase().includes(nh.toLowerCase())).length;
+                  const isUserLocation = nh.toLowerCase() === 'ngor';
+
+                  return (
+                    <div
+                      key={nh}
+                      onClick={() => {
+                        setSelectedNeighborhood(nh);
+                        setIsNeighborhoodPickerOpen(false);
+                      }}
+                      className={`p-3 rounded-2xl flex items-center justify-between cursor-pointer border transition-all ${
+                        isSel 
+                          ? 'bg-[#E6F5EC] border-[#0A6E3B] text-[#0A6E3B] font-black shadow-2xs' 
+                          : 'bg-white border-[#D8EADB] text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <div className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 ${
+                          isSel ? 'bg-[#0A6E3B] text-white' : 'bg-gray-100 text-gray-500'
+                        }`}>
+                          <MapPin className="w-3.5 h-3.5" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-bold">{nh}</span>
+                            {isUserLocation && (
+                              <span className="text-[8px] font-extrabold uppercase bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded-md">
+                                Ma position
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[10px] text-gray-400 font-medium">
+                            {count > 0 ? `${count} restaurant${count > 1 ? 's' : ''} • 20-30 min` : 'Livraison express disponible'}
+                          </span>
+                        </div>
+                      </div>
+                      {isSel && <Check className="w-4 h-4 text-[#0A6E3B] shrink-0" />}
+                    </div>
+                  );
+                })}
               </div>
             </motion.div>
           </div>
         )}
       </AnimatePresence>
 
-      {/* Cart & Checkout Sheet */}
+      {/* =========================================================================
+          5. CART & CHECKOUT SHEET (INSPIRÉ DE L'ÉCRAN PAIEMENT DES MAQUETTES)
+         ========================================================================= */}
       <AnimatePresence>
         {isCartSheetOpen && (
-          <div className="absolute inset-0 z-40 flex flex-col justify-end">
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -568,281 +1799,1770 @@ function MobileClientApp({ onOpenTracking }: { onOpenTracking: (ord: Order) => v
               initial={{ y: '100%' }}
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
-              transition={{ type: 'spring', damping: 28, stiffness: 350 }}
-              className="relative z-10 bg-white rounded-t-3xl overflow-hidden max-h-[90%] flex flex-col shadow-2xl"
+              className="relative z-10 w-full max-w-sm bg-white rounded-t-[36px] sm:rounded-3xl p-5 space-y-4 shadow-2xl max-h-[85vh] flex flex-col"
             >
-              <div className="p-3.5 border-b border-[#E2ECE5] flex items-center justify-between bg-[#F7FAF7]">
-                <h4 className="font-extrabold text-xs text-[#07431E]">
-                  {checkoutStep === 'cart' && `Mon Panier (${cartCount})`}
-                  {checkoutStep === 'payment' && 'Règlement & Adresse'}
-                  {checkoutStep === 'done' && 'Commande Validée 🎉'}
-                </h4>
+              <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <ShoppingBag className="w-4 h-4 text-[#0A6E3B]" />
+                  <h3 className="text-sm font-black text-[#081A10]">Mon Panier Thiob</h3>
+                </div>
                 <button
                   onClick={() => setIsCartSheetOpen(false)}
-                  className="w-6 h-6 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center text-xs"
+                  className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-xs text-gray-500"
                 >
                   ✕
                 </button>
               </div>
 
-              <div className="p-4 overflow-y-auto space-y-3">
-                {checkoutStep === 'cart' && (
-                  <>
-                    {cart.map((c) => (
-                      <div key={c.item.id} className="p-2.5 rounded-xl bg-[#F7FAF7] border border-[#E2ECE5] flex justify-between items-center">
-                        <div className="min-w-0 flex-1">
-                          <p className="font-bold text-xs text-[#0D1C12] truncate">{c.item.name}</p>
-                          <p className="text-[10px] text-[#FA8038] font-bold">{formatFCFA(c.item.price)}</p>
+              {checkoutStep === 'done' ? (
+                <div className="text-center py-8 space-y-3">
+                  <div className="w-16 h-16 rounded-full bg-[#E6F5EC] text-[#0A6E3B] flex items-center justify-center mx-auto text-2xl">
+                    ✓
+                  </div>
+                  <h4 className="text-base font-black text-[#081A10]">Commande Confirmée !</h4>
+                  <p className="text-xs text-gray-500">
+                    Votre Thiéb est en cours de préparation en cuisine. Un livreur Tiak-Tiak est en route.
+                  </p>
+                  <button
+                    onClick={() => {
+                      setIsCartSheetOpen(false);
+                      if (activeTrackingOrder) onOpenTracking(activeTrackingOrder);
+                    }}
+                    className="w-full py-3 rounded-2xl brand-gradient text-white text-xs font-black shadow-md mt-2"
+                  >
+                    Suivre ma commande en direct ➔
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-4 overflow-y-auto flex-1">
+                  {/* Cart items */}
+                  {cart.length === 0 ? (
+                    <div className="text-center py-10 space-y-2">
+                      <span className="text-3xl">🍲</span>
+                      <p className="font-bold text-xs text-gray-600">Votre panier est vide</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2.5 divide-y divide-gray-100">
+                      {cart.map((it) => (
+                        <div key={it.item.id} className="pt-2 flex items-center justify-between gap-3 text-xs">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={it.item.image} alt={it.item.name} className="w-12 h-12 rounded-xl object-cover shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <h5 className="font-bold text-[#081A10] truncate">{it.item.name}</h5>
+                            <span className="text-[11px] font-black text-[#0A6E3B]">{formatFCFA(it.item.price * it.quantity)}</span>
+                          </div>
+                          <div className="flex items-center gap-1 bg-[#F4F7F4] rounded-xl p-1 border border-[#D8EADB]">
+                            <button
+                              onClick={() => updateCartQuantity(it.item.id, -1)}
+                              className="w-5 h-5 bg-white rounded-md flex items-center justify-center text-xs font-bold"
+                            >
+                              -
+                            </button>
+                            <span className="w-5 text-center text-xs font-black">{it.quantity}</span>
+                            <button
+                              onClick={() => updateCartQuantity(it.item.id, 1)}
+                              className="w-5 h-5 bg-white rounded-md flex items-center justify-center text-xs font-bold"
+                            >
+                              +
+                            </button>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-1.5 bg-white px-2 py-1 rounded-lg border border-[#E2ECE5]">
-                          <button onClick={() => updateCartQuantity(c.item.id, -1)} className="text-gray-500 font-bold text-xs">-</button>
-                          <span className="text-xs font-bold w-4 text-center">{c.quantity}</span>
-                          <button onClick={() => updateCartQuantity(c.item.id, 1)} className="text-gray-500 font-bold text-xs">+</button>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Payment method selector */}
+                  {cart.length > 0 && (
+                    <div className="space-y-3 pt-2 border-t border-gray-100">
+                      <span className="text-[11px] font-black text-gray-400 uppercase tracking-wider block">Mode de paiement</span>
+                      <div className="grid grid-cols-3 gap-2">
+                        {[
+                          { id: 'wave', label: 'Wave', color: 'bg-sky-500' },
+                          { id: 'orange_money', label: 'Orange M.', color: 'bg-orange-500' },
+                          { id: 'cash', label: 'Espèces', color: 'bg-emerald-600' },
+                        ].map((pm) => (
+                          <div
+                            key={pm.id}
+                            onClick={() => setPaymentMethod(pm.id as PaymentMethod)}
+                            className={`p-2 rounded-xl text-center cursor-pointer border text-xs font-bold transition-all ${
+                              paymentMethod === pm.id
+                                ? 'border-[#0A6E3B] bg-[#E6F5EC] text-[#0A6E3B]'
+                                : 'border-[#D8EADB] bg-white text-gray-600'
+                            }`}
+                          >
+                            {pm.label}
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Recup Totals */}
+                      <div className="bg-[#F4F7F4] p-3 rounded-2xl border border-[#D8EADB] space-y-1.5 text-xs">
+                        <div className="flex justify-between text-gray-500">
+                          <span>Sous-total</span>
+                          <span>{formatFCFA(cartTotal)}</span>
+                        </div>
+                        <div className="flex justify-between text-gray-500">
+                          <span>Livraison Tiak-Tiak</span>
+                          <span>{formatFCFA(deliveryFee)}</span>
+                        </div>
+                        <div className="flex justify-between text-[#081A10] font-black text-sm pt-1 border-t border-gray-200">
+                          <span>Total</span>
+                          <span className="text-[#0A6E3B]">{formatFCFA(grandTotal)}</span>
                         </div>
                       </div>
-                    ))}
 
-                    <div className="pt-2 border-t border-[#E2ECE5] space-y-1 text-[11px] text-gray-600">
-                      <div className="flex justify-between"><span>Sous-total</span><span>{formatFCFA(cartTotal)}</span></div>
-                      <div className="flex justify-between"><span>Livraison Dakar</span><span>{formatFCFA(deliveryFee)}</span></div>
-                      <div className="flex justify-between font-black text-xs text-[#07431E] pt-1">
-                        <span>Total</span>
-                        <span className="text-[#FA8038]">{formatFCFA(grandTotal)}</span>
-                      </div>
+                      <button
+                        onClick={handleCheckout}
+                        className="w-full py-3.5 rounded-2xl brand-gradient text-white text-xs font-black shadow-md flex items-center justify-between px-5 hover:opacity-95"
+                      >
+                        <span>Confirmer & Commander</span>
+                        <span>{formatFCFA(grandTotal)}</span>
+                      </button>
                     </div>
+                  )}
 
+                </div>
+              )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* =========================================================================
+          6. DEDICATED RESTAURANT DIGITAL SHOWCASE (VITRINE NUMÉRIQUE IMMERSIVE)
+         ========================================================================= */}
+      <AnimatePresence>
+        {selectedShowcaseResto && (
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSelectedShowcaseResto(null)}
+              className="absolute inset-0 bg-black/70 backdrop-blur-xs"
+            />
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 280 }}
+              className="relative z-10 w-full max-w-md bg-white rounded-t-[36px] sm:rounded-3xl overflow-hidden shadow-2xl max-h-[92vh] flex flex-col"
+            >
+              
+              {/* Showcase Cover Header with Hero Image & Back Button */}
+              <div className="relative h-48 w-full shrink-0 bg-gray-900">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={selectedShowcaseResto.coverImage}
+                  alt={selectedShowcaseResto.name}
+                  className="w-full h-full object-cover opacity-90"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
+
+                {/* Top Actions: Close, Favorite */}
+                <div className="absolute top-4 inset-x-4 flex items-center justify-between">
+                  <button
+                    onClick={() => setSelectedShowcaseResto(null)}
+                    className="w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center text-xs backdrop-blur-xs shadow-md active:scale-90"
+                  >
+                    ✕
+                  </button>
+                  <div className="flex items-center gap-2">
                     <button
-                      onClick={() => setCheckoutStep('payment')}
-                      className="w-full py-2.5 rounded-xl brand-gradient-orange text-white text-xs font-black shadow-md mt-2"
+                      onClick={() => toggleFavoriteRestaurant(selectedShowcaseResto.id)}
+                      className="w-8 h-8 rounded-full bg-white/90 text-gray-700 hover:text-rose-500 flex items-center justify-center text-xs shadow-md active:scale-90"
                     >
-                      Continuer vers le paiement ({formatFCFA(grandTotal)})
-                    </button>
-                  </>
-                )}
-
-                {checkoutStep === 'payment' && (
-                  <form onSubmit={handleCheckout} className="space-y-3 text-xs">
-                    <div>
-                      <label className="block text-[10px] font-bold text-gray-700 mb-1">Téléphone Wave / OM</label>
-                      <input
-                        type="tel"
-                        required
-                        value={clientPhone}
-                        onChange={(e) => setClientPhone(e.target.value)}
-                        className="w-full p-2 bg-[#F7FAF7] border border-[#E2ECE5] rounded-xl text-xs"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-bold text-gray-700 mb-1">Adresse à {selectedNeighborhood}</label>
-                      <input
-                        type="text"
-                        required
-                        value={deliveryStreet}
-                        onChange={(e) => setDeliveryStreet(e.target.value)}
-                        className="w-full p-2 bg-[#F7FAF7] border border-[#E2ECE5] rounded-xl text-xs"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-bold text-gray-700 mb-1">Mode de règlement</label>
-                      <div className="grid grid-cols-2 gap-2">
-                        <div
-                          onClick={() => setPaymentMethod('wave')}
-                          className={`p-2 rounded-xl border text-center cursor-pointer ${paymentMethod === 'wave' ? 'border-[#3FB9F7] bg-[#3FB9F7]/10 font-bold' : 'border-gray-200'}`}
-                        >
-                          🌊 Wave
-                        </div>
-                        <div
-                          onClick={() => setPaymentMethod('orange_money')}
-                          className={`p-2 rounded-xl border text-center cursor-pointer ${paymentMethod === 'orange_money' ? 'border-[#FF7900] bg-[#FF7900]/10 font-bold' : 'border-gray-200'}`}
-                        >
-                          🟠 Orange Money
-                        </div>
-                      </div>
-                    </div>
-
-                    <button
-                      type="submit"
-                      className="w-full py-3 rounded-xl brand-gradient text-white font-black text-xs shadow-md mt-3"
-                    >
-                      Payer {formatFCFA(grandTotal)} & Commander
-                    </button>
-                  </form>
-                )}
-
-                {checkoutStep === 'done' && (
-                  <div className="text-center py-6 space-y-3">
-                    <CheckCircle2 className="w-12 h-12 text-[#008235] mx-auto" />
-                    <h4 className="font-extrabold text-sm text-[#07431E]">Commande confirmée !</h4>
-                    <p className="text-[11px] text-gray-500">Le restaurant prépare vos délices.</p>
-                    <button
-                      onClick={() => {
-                        setIsCartSheetOpen(false);
-                        setCheckoutStep('cart');
-                        setActiveTab('orders');
-                      }}
-                      className="w-full py-2.5 rounded-xl brand-gradient text-white text-xs font-bold"
-                    >
-                      Voir mes commandes
+                      <Heart className={`w-4 h-4 ${favoriteRestaurantIds.includes(selectedShowcaseResto.id) ? 'fill-rose-500 text-rose-500' : ''}`} />
                     </button>
                   </div>
+                </div>
+
+                {/* Restaurant Brand Identity in Cover */}
+                <div className="absolute bottom-3 inset-x-4 flex items-end gap-3 text-white">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={selectedShowcaseResto.logo}
+                    alt={selectedShowcaseResto.name}
+                    className="w-14 h-14 rounded-2xl object-cover border-2 border-white shadow-md shrink-0 bg-white"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <h3 className="text-base font-black text-white leading-tight truncate">
+                        {selectedShowcaseResto.name}
+                      </h3>
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                    </div>
+                    <p className="text-[10px] text-gray-200 line-clamp-1">{selectedShowcaseResto.tagline}</p>
+                    <div className="flex items-center gap-2 text-[10px] text-emerald-300 pt-0.5 font-bold">
+                      <span>⭐ {selectedShowcaseResto.rating} ({selectedShowcaseResto.reviewCount} avis)</span>
+                      <span>•</span>
+                      <span>📍 {selectedShowcaseResto.neighborhood}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Showcase Navigation Sub-Tabs */}
+              <div className="flex bg-[#F4F7F4] border-b border-[#D8EADB] p-1 shrink-0 overflow-x-auto no-scrollbar">
+                {[
+                  { id: 'menu', label: '🍽️ Carte & Menu' },
+                  { id: 'gallery', label: '📸 Galerie & Ambiance' },
+                  { id: 'location', label: '📍 Localisation' },
+                  { id: 'reviews', label: '⭐ Avis & Infos' },
+                ].map((tab) => {
+                  const isSel = showcaseSubTab === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => setShowcaseSubTab(tab.id as any)}
+                      className={`flex-1 min-w-[90px] py-2 rounded-xl text-xs font-black transition-all ${
+                        isSel
+                          ? 'bg-white text-[#0A6E3B] shadow-2xs border border-[#0A6E3B]/20'
+                          : 'text-gray-500 hover:text-gray-800'
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Showcase Content Container */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-24">
+                
+                {/* 1. SUB-TAB: MENU & CARTE */}
+                {showcaseSubTab === 'menu' && (
+                  <div className="space-y-4">
+                    {/* Header info badge */}
+                    <div className="bg-[#E6F5EC] p-3 rounded-2xl border border-[#0A6E3B]/20 flex items-center justify-between text-xs">
+                      <div>
+                        <span className="font-bold text-[#081A10]">Commandez en ligne ou sur place</span>
+                        <p className="text-[10px] text-gray-500">Livraison Tiak-Tiak en {selectedShowcaseResto.deliveryTimeEstimate}</p>
+                      </div>
+                      <span className="text-[10px] font-black text-[#0A6E3B] bg-white px-2.5 py-1 rounded-full shadow-2xs">
+                        {selectedShowcaseResto.priceRange || '2500 - 6000 FCFA'}
+                      </span>
+                    </div>
+
+                    {/* Menu Items List */}
+                    <div className="space-y-2.5">
+                      {menuItems
+                        .filter((m) => m.restaurantId === selectedShowcaseResto.id)
+                        .map((dish) => (
+                          <div
+                            key={dish.id}
+                            onClick={() => { setSelectedDish(dish); setDishQuantity(1); }}
+                            className="bg-white p-3 rounded-2xl border border-[#D8EADB] flex items-center justify-between gap-3 shadow-2xs cursor-pointer hover:border-[#0A6E3B] transition-colors group"
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={dish.image} alt={dish.name} className="w-16 h-16 rounded-xl object-cover shrink-0 group-hover:scale-105 transition-transform" />
+                            <div className="flex-1 min-w-0">
+                              <h5 className="font-bold text-xs text-[#081A10] truncate">{dish.name}</h5>
+                              <p className="text-[10px] text-gray-400 line-clamp-1">{dish.description}</p>
+                              <span className="text-xs font-black text-[#0A6E3B] mt-0.5 block">{formatFCFA(dish.price)}</span>
+                            </div>
+                            <button
+                              onClick={(e) => handleQuickAdd(dish, e)}
+                              className="w-8 h-8 rounded-full bg-[#0A6E3B] text-white flex items-center justify-center text-xs font-black shadow-2xs shrink-0 hover:bg-[#064E2B]"
+                            >
+                              +
+                            </button>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
                 )}
+
+                {/* 2. SUB-TAB: GALERIE & AMBIANCE */}
+                {showcaseSubTab === 'gallery' && (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-black text-xs text-[#081A10] uppercase">
+                        Ambiance, Décoration & Terrasse ({selectedShowcaseResto.gallery?.length || 0} photos)
+                      </h4>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2.5">
+                      {selectedShowcaseResto.gallery?.map((imgUrl, i) => (
+                        <div
+                          key={i}
+                          onClick={() => setSelectedGalleryImage(imgUrl)}
+                          className="relative aspect-4/3 rounded-2xl overflow-hidden bg-gray-100 shadow-2xs cursor-pointer group"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={imgUrl}
+                            alt={`${selectedShowcaseResto.name} photo ${i + 1}`}
+                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                          />
+                          <div className="absolute inset-0 bg-black/20 group-hover:bg-black/0 transition-colors" />
+                          <div className="absolute bottom-1.5 left-2 text-[9px] text-white font-bold drop-shadow-sm bg-black/40 px-1.5 py-0.2 rounded-md backdrop-blur-xs">
+                            {i === 0 ? 'Façade' : i === 1 ? 'Terrasse' : i === 2 ? 'Intérieur' : 'Cuisine'}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Ambiance Highlights */}
+                    <div className="bg-[#F4F7F4] p-3.5 rounded-2xl border border-[#D8EADB] space-y-2">
+                      <h5 className="text-xs font-black text-[#081A10]">Points forts de l'établissement</h5>
+                      <div className="flex flex-wrap gap-1.5">
+                        {selectedShowcaseResto.amenities?.map((amenity, idx) => (
+                          <span key={idx} className="px-2.5 py-1 rounded-xl bg-white border border-[#D8EADB] text-xs font-bold text-[#081A10]">
+                            ✨ {amenity}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 3. SUB-TAB: LOCALISATION & ACCÈS */}
+                {showcaseSubTab === 'location' && (
+                  <div className="space-y-4">
+                    
+                    {/* Location Box with Distance calculation from user live GPS */}
+                    <div className="bg-[#E6F5EC] p-3.5 rounded-2xl border border-[#0A6E3B]/20 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-4 h-4 text-[#0A6E3B]" />
+                        <div>
+                          <span className="text-[10px] text-gray-500 font-bold block">Adresse exacte</span>
+                          <h5 className="font-black text-xs text-[#081A10]">{selectedShowcaseResto.address}</h5>
+                        </div>
+                      </div>
+
+                      {/* Calculated Distance from User (ex: from Pikine) */}
+                      {(() => {
+                        const dist = getDistanceEstimate(userLiveLocation, selectedShowcaseResto.neighborhood);
+                        return (
+                          <div className="pt-2 border-t border-[#0A6E3B]/20 grid grid-cols-2 gap-2 text-xs">
+                            <div className="bg-white p-2 rounded-xl border border-[#0A6E3B]/10">
+                              <span className="text-[9px] text-gray-400 block">Distance depuis {userLiveLocation}</span>
+                              <span className="font-black text-[#0A6E3B]">{dist.dist}</span>
+                            </div>
+                            <div className="bg-white p-2 rounded-xl border border-[#0A6E3B]/10">
+                              <span className="text-[9px] text-gray-400 block">Temps de trajet</span>
+                              <span className="font-black text-[#081A10]">{dist.time}</span>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+
+                    {/* Interactive Dakar Map Simulation */}
+                    <div className="relative h-44 w-full rounded-2xl overflow-hidden border border-[#D8EADB] bg-slate-100 flex flex-col justify-between p-3 shadow-inner">
+                      {/* Decorative map grid */}
+                      <div className="absolute inset-0 bg-[radial-gradient(#0A6E3B_1px,transparent_1px)] [background-size:16px_16px] opacity-20" />
+                      
+                      <div className="relative z-10 flex justify-between items-center">
+                        <span className="px-2.5 py-1 rounded-full bg-white/90 text-xs font-black text-[#0A6E3B] shadow-xs">
+                          📍 {selectedShowcaseResto.neighborhood}, Dakar
+                        </span>
+                        <span className="px-2 py-0.5 rounded-md bg-black/60 text-white text-[9px] font-mono">
+                          GPS : {selectedShowcaseResto.coordinates?.lat}, {selectedShowcaseResto.coordinates?.lng}
+                        </span>
+                      </div>
+
+                      <div className="relative z-10 text-center space-y-1 my-auto">
+                        <div className="w-10 h-10 rounded-full bg-[#0A6E3B] text-white flex items-center justify-center mx-auto shadow-lg animate-bounce">
+                          <MapPin className="w-5 h-5" />
+                        </div>
+                        <span className="text-xs font-black text-[#081A10] block bg-white/80 py-0.5 rounded-md mx-auto max-w-[200px]">
+                          {selectedShowcaseResto.name}
+                        </span>
+                      </div>
+
+                      <div className="relative z-10">
+                        <button
+                          onClick={() => {
+                            window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedShowcaseResto.name + ' ' + selectedShowcaseResto.address)}`, '_blank');
+                          }}
+                          className="w-full py-2.5 rounded-xl bg-[#0A6E3B] text-white text-xs font-black shadow-md flex items-center justify-center gap-1.5 hover:bg-[#064E2B]"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                          <span>📍 Voir l'itinéraire (Google Maps / Waze)</span>
+                        </button>
+                      </div>
+                    </div>
+
+                  </div>
+                )}
+
+                {/* 4. SUB-TAB: AVIS & HORAIRES */}
+                {showcaseSubTab === 'reviews' && (
+                  <div className="space-y-4">
+                    {/* Opening hours card */}
+                    <div className="bg-white p-3.5 rounded-2xl border border-[#D8EADB] space-y-2">
+                      <div className="flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-[#0A6E3B]" />
+                        <h5 className="font-black text-xs text-[#081A10]">Horaires d'ouverture</h5>
+                      </div>
+                      <div className="text-xs text-gray-600 space-y-1 divide-y divide-gray-100 pt-1">
+                        {selectedShowcaseResto.openingHours ? (
+                          Object.entries(selectedShowcaseResto.openingHours).map(([days, hours], idx) => (
+                            <div key={idx} className="flex justify-between py-1">
+                              <span>{days}</span>
+                              <span className="font-bold text-[#081A10]">{hours}</span>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="flex justify-between py-1">
+                            <span>Lundi - Dimanche</span>
+                            <span className="font-bold text-[#081A10]">11h30 - 23h30</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Customer reviews */}
+                    <div className="space-y-2.5">
+                      <h5 className="font-black text-xs text-[#081A10]">Avis clients vérifiés ⭐ {selectedShowcaseResto.rating}</h5>
+                      {selectedShowcaseResto.reviews?.map((rev) => (
+                        <div key={rev.id} className="bg-[#F4F7F4] p-3 rounded-2xl border border-[#D8EADB] space-y-1">
+                          <div className="flex justify-between items-center text-xs">
+                            <span className="font-black text-[#081A10]">{rev.author}</span>
+                            <span className="text-[10px] text-gray-400">{rev.date}</span>
+                          </div>
+                          <p className="text-xs text-gray-600 leading-relaxed">{rev.comment}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+              </div>
+
+              {/* Fixed Bottom Action Dock on Showcase (Commander / Réserver / Sortie) */}
+              <div className="absolute bottom-0 inset-x-0 bg-white/95 backdrop-blur-md border-t border-[#D8EADB] p-3 flex items-center gap-2 shadow-2xl z-20">
+                <button
+                  onClick={() => {
+                    handleOpenReservation(selectedShowcaseResto);
+                  }}
+                  className="flex-1 py-3 rounded-2xl bg-[#E6F5EC] border border-[#0A6E3B]/30 text-[#0A6E3B] text-xs font-black shadow-xs flex items-center justify-center gap-1.5 hover:bg-[#d5eedf] transition-colors"
+                >
+                  <Calendar className="w-3.5 h-3.5" />
+                  <span>Réserver une table</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    handleOpenOuting(selectedShowcaseResto);
+                  }}
+                  className="px-3 py-3 rounded-2xl bg-[#F4F7F4] border border-[#D8EADB] text-gray-700 text-xs font-bold hover:bg-gray-100 flex items-center gap-1"
+                  title="Programmer une sortie"
+                >
+                  <Heart className="w-3.5 h-3.5 text-[#0A6E3B]" />
+                  <span>Sortie</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setShowcaseSubTab('menu');
+                  }}
+                  className="flex-1 py-3 rounded-2xl brand-gradient text-white text-xs font-black shadow-md flex items-center justify-center gap-1.5 hover:opacity-95"
+                >
+                  <ShoppingBag className="w-3.5 h-3.5" />
+                  <span>Commander</span>
+                </button>
+              </div>
+
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* =========================================================================
+          7. TABLE RESERVATION MODAL (RÉSERVER UNE TABLE AUX ALMADIES / NGOR / DAKAR)
+         ========================================================================= */}
+      <AnimatePresence>
+        {isReservationModalOpen && reservationResto && (
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsReservationModalOpen(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-xs"
+            />
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              className="relative z-10 w-full max-w-sm bg-white rounded-t-[36px] sm:rounded-3xl p-5 space-y-4 shadow-2xl max-h-[90vh] flex flex-col"
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-[#E6F5EC] text-[#0A6E3B] flex items-center justify-center">
+                    <Calendar className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black text-[#081A10]">Réserver une table</h3>
+                    <p className="text-[10px] text-gray-400">{reservationResto.name} • {reservationResto.neighborhood}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsReservationModalOpen(false)}
+                  className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-xs text-gray-500"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* If already confirmed */}
+              {confirmedReservationCode ? (
+                <div className="text-center py-6 space-y-3">
+                  <div className="w-14 h-14 rounded-full bg-[#E6F5EC] text-[#0A6E3B] flex items-center justify-center mx-auto text-xl font-black">
+                    ✓
+                  </div>
+                  <h4 className="text-base font-black text-[#081A10]">Table Réservée avec Succès !</h4>
+                  <div className="bg-[#F4F7F4] p-3 rounded-2xl border border-[#D8EADB] text-xs space-y-1">
+                    <p className="font-bold text-[#081A10]">{reservationResto.name}</p>
+                    <p className="text-gray-500">{reservationDate} à {reservationTime} • {reservationGuests} personnes</p>
+                    <span className="text-[11px] font-mono font-black text-[#0A6E3B] block pt-1">
+                      Numéro : {confirmedReservationCode}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-gray-500">
+                    Le restaurant a bien reçu votre demande et vous attend avec la Teranga sénégalaise.
+                  </p>
+                  <button
+                    onClick={() => {
+                      setIsReservationModalOpen(false);
+                      setActiveTab('favorites');
+                      setFavoritesSubTab('outings');
+                    }}
+                    className="w-full py-3 rounded-2xl brand-gradient text-white text-xs font-black shadow-md"
+                  >
+                    Voir dans Mes Sorties & Tables ➔
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-3.5 overflow-y-auto flex-1">
+                  
+                  {/* Number of guests */}
+                  <div className="space-y-1.5">
+                    <span className="text-[11px] font-black text-gray-400 uppercase tracking-wider block">Nombre de convives</span>
+                    <div className="grid grid-cols-4 gap-2">
+                      {[1, 2, 4, 6].map((count) => (
+                        <button
+                          key={count}
+                          type="button"
+                          onClick={() => setReservationGuests(count)}
+                          className={`py-2 rounded-xl text-xs font-bold border transition-all ${
+                            reservationGuests === count
+                              ? 'bg-[#0A6E3B] text-white border-[#0A6E3B] shadow-xs'
+                              : 'bg-[#F4F7F4] text-gray-700 border-[#D8EADB]'
+                          }`}
+                        >
+                          {count === 2 ? '2 (Couple)' : `${count} pers.`}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Date choice */}
+                  <div className="space-y-1.5">
+                    <span className="text-[11px] font-black text-gray-400 uppercase tracking-wider block">Date</span>
+                    <div className="grid grid-cols-2 gap-2">
+                      {['Ce soir', 'Demain soir', 'Samedi 5 Sept', 'Dimanche 6 Sept'].map((d) => (
+                        <button
+                          key={d}
+                          type="button"
+                          onClick={() => setReservationDate(d)}
+                          className={`py-2 px-2 rounded-xl text-xs font-bold border text-left truncate transition-all ${
+                            reservationDate === d
+                              ? 'bg-[#E6F5EC] text-[#0A6E3B] border-[#0A6E3B]'
+                              : 'bg-white text-gray-700 border-[#D8EADB]'
+                          }`}
+                        >
+                          {d}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Time slots */}
+                  <div className="space-y-1.5">
+                    <span className="text-[11px] font-black text-gray-400 uppercase tracking-wider block">Heure souhaitée</span>
+                    <div className="grid grid-cols-4 gap-2">
+                      {['12:30', '19:30', '20:00', '20:30', '21:00', '21:30', '22:00', '22:30'].map((slot) => (
+                        <button
+                          key={slot}
+                          type="button"
+                          onClick={() => setReservationTime(slot)}
+                          className={`py-1.5 rounded-xl text-xs font-bold border text-center transition-all ${
+                            reservationTime === slot
+                              ? 'bg-[#0A6E3B] text-white border-[#0A6E3B]'
+                              : 'bg-[#F4F7F4] text-gray-700 border-[#D8EADB]'
+                          }`}
+                        >
+                          {slot}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Occasion tag */}
+                  <div className="space-y-1.5">
+                    <span className="text-[11px] font-black text-gray-400 uppercase tracking-wider block">Occasion</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {[
+                        '❤️ Sortie avec ma copine',
+                        '🎂 Anniversaire',
+                        '💼 Repas d\'affaires',
+                        '👨‍👩‍👧‍👦 Famille',
+                        '🥂 Sortie entre amis',
+                      ].map((occ) => (
+                        <button
+                          key={occ}
+                          type="button"
+                          onClick={() => setReservationOccasion(occ)}
+                          className={`px-2.5 py-1 rounded-xl text-[11px] font-bold border transition-all ${
+                            reservationOccasion === occ
+                              ? 'bg-[#FF7824] text-white border-[#FF7824]'
+                              : 'bg-white text-gray-600 border-[#D8EADB]'
+                          }`}
+                        >
+                          {occ}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Special Note */}
+                  <div className="space-y-1.5">
+                    <span className="text-[11px] font-black text-gray-400 uppercase tracking-wider block">Précisions (Optionnel)</span>
+                    <input
+                      type="text"
+                      placeholder="Ex: Table en terrasse face au coucher de soleil"
+                      value={reservationNotes}
+                      onChange={(e) => setReservationNotes(e.target.value)}
+                      className="w-full p-2.5 bg-[#F4F7F4] border border-[#D8EADB] rounded-xl text-xs text-[#081A10] focus:bg-white focus:border-[#0A6E3B] focus:outline-hidden"
+                    />
+                  </div>
+
+                  {/* Submit CTA */}
+                  <button
+                    onClick={handleConfirmReservation}
+                    className="w-full py-3.5 rounded-2xl brand-gradient text-white text-xs font-black shadow-md mt-2 flex items-center justify-between px-4 hover:opacity-95"
+                  >
+                    <span>Confirmer la réservation</span>
+                    <span>{reservationGuests} convives ➔</span>
+                  </button>
+
+                </div>
+              )}
+
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* =========================================================================
+          8. OUTING PLANNER MODAL (PROGRAMMER UNE SORTIE)
+         ========================================================================= */}
+      <AnimatePresence>
+        {isOutingModalOpen && outingResto && (
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsOutingModalOpen(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-xs"
+            />
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              className="relative z-10 w-full max-w-sm bg-white rounded-t-[36px] sm:rounded-3xl p-5 space-y-4 shadow-2xl max-h-[85vh] flex flex-col"
+            >
+              <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-[#E6F5EC] text-[#0A6E3B] flex items-center justify-center">
+                    <Heart className="w-4 h-4 fill-[#0A6E3B]" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black text-[#081A10]">Programmer une sortie</h3>
+                    <p className="text-[10px] text-gray-400">{outingResto.name} • {outingResto.neighborhood}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsOutingModalOpen(false)}
+                  className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-xs text-gray-500"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="space-y-3 overflow-y-auto flex-1 text-xs">
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-gray-500">Titre de la sortie</label>
+                  <input
+                    type="text"
+                    value={outingTitle}
+                    onChange={(e) => setOutingTitle(e.target.value)}
+                    className="w-full p-2.5 bg-[#F4F7F4] border border-[#D8EADB] rounded-xl font-bold text-[#081A10]"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-gray-500">Date prévue</label>
+                  <input
+                    type="text"
+                    value={outingDate}
+                    onChange={(e) => setOutingDate(e.target.value)}
+                    className="w-full p-2.5 bg-[#F4F7F4] border border-[#D8EADB] rounded-xl font-bold text-[#081A10]"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-gray-500">Notes & Idées (Ex: Prendre la table coucher de soleil)</label>
+                  <textarea
+                    rows={3}
+                    value={outingNotes}
+                    onChange={(e) => setOutingNotes(e.target.value)}
+                    placeholder="Tester le Thiébou jeun royal et les cocktails au crépuscule..."
+                    className="w-full p-2.5 bg-[#F4F7F4] border border-[#D8EADB] rounded-xl text-xs text-[#081A10]"
+                  />
+                </div>
+
+                <button
+                  onClick={handleConfirmOuting}
+                  className="w-full py-3 rounded-2xl brand-gradient text-white font-black text-xs shadow-md mt-2"
+                >
+                  Enregistrer dans Mes Sorties ➔
+                </button>
               </div>
             </motion.div>
           </div>
         )}
       </AnimatePresence>
+
+      {/* =========================================================================
+          9. FULL SCREEN IMAGE VIEWER
+         ========================================================================= */}
+      <AnimatePresence>
+        {selectedGalleryImage && (
+          <div
+            onClick={() => setSelectedGalleryImage(null)}
+            className="fixed inset-0 z-60 bg-black/90 backdrop-blur-md flex items-center justify-center p-4 cursor-pointer"
+          >
+            <div className="relative max-w-lg w-full">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={selectedGalleryImage}
+                alt="Ambiance restaurant Dakar"
+                className="w-full h-auto max-h-[80vh] rounded-3xl object-contain shadow-2xl border border-white/10"
+              />
+              <button
+                onClick={() => setSelectedGalleryImage(null)}
+                className="absolute top-4 right-4 w-9 h-9 rounded-full bg-black/60 text-white flex items-center justify-center text-sm"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 }
 
 // =========================================================================
-// 2. MOBILE APP RESTAURANT VIEW (Kitchen Orders, Menu stock, Caisse)
+// 2. MOBILE APP RESTAURANT VIEW (Cuisine Dashboard & Vitrine Pro)
 // =========================================================================
 function MobileRestaurantApp() {
-  const { restaurants, menuItems, orders, updateOrderStatus, toggleMenuItemAvailability } = useApp();
-  const currentResto = restaurants[0];
-  const restoOrders = orders.filter((o) => o.restaurantId === currentResto.id);
-  const restoDishes = menuItems.filter((m) => m.restaurantId === currentResto.id);
+  const { 
+    orders, 
+    updateOrderStatus, 
+    reservations, 
+    restaurants, 
+    menuItems, 
+    updateRestaurantShowcase,
+    toggleMenuItemAvailability,
+    addMenuItem,
+  } = useApp();
 
-  const [restoTab, setRestoTab] = useState<'live' | 'menu' | 'stats'>('live');
-  const [isOpen, setIsOpen] = useState(true);
+  const [mobileMode, setMobileMode] = useState<'vitrine' | 'dashboard'>('vitrine');
+  const [selectedRestoId, setSelectedRestoId] = useState('resto-kamiss');
+  const [restoTab, setRestoTab] = useState<'showcase' | 'orders' | 'reservations' | 'menu' | 'stats'>('showcase');
+  const [isServiceActive, setIsServiceActive] = useState(true);
+  const [vitrineCategory, setVitrineCategory] = useState('all');
+  
+  // Table reservation assignment state
+  const [assignedTables, setAssignedTables] = useState<{ [resId: string]: string }>({
+    'res-1': 'Table 4 (Terrasse Vue Mer)',
+    'res-2': 'Table 12 (Salon VIP Climatisation)',
+  });
 
-  const pending = restoOrders.filter((o) => o.status === 'pending');
-  const preparing = restoOrders.filter((o) => o.status === 'preparing');
-  const ready = restoOrders.filter((o) => o.status === 'ready_for_pickup' || o.status === 'in_transit');
+  // Client Preview Modal for Restaurant Manager
+  const [isPreviewClientModalOpen, setIsPreviewClientModalOpen] = useState(false);
 
-  const totalCA = restoOrders.reduce((acc, o) => acc + o.subtotal, 0);
+  // Vitrine Customization Modals & States
+  const [isEditGeneralModalOpen, setIsEditGeneralModalOpen] = useState(false);
+  const [isEditCoverModalOpen, setIsEditCoverModalOpen] = useState(false);
+  const [isEditLogoModalOpen, setIsEditLogoModalOpen] = useState(false);
+  const [isAddGalleryPhotoModalOpen, setIsAddGalleryPhotoModalOpen] = useState(false);
+  const [isManageTagsModalOpen, setIsManageTagsModalOpen] = useState(false);
+  const [saveFeedback, setSaveFeedback] = useState<string | null>(null);
+
+  // Edit general info form state
+  const [editName, setEditName] = useState('');
+  const [editTagline, setEditTagline] = useState('');
+  const [editPriceRange, setEditPriceRange] = useState('');
+  const [editHours, setEditHours] = useState('');
+  const [editAddress, setEditAddress] = useState('');
+  const [editNeighborhood, setEditNeighborhood] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+
+  // Gallery photo state
+  const [newPhotoUrl, setNewPhotoUrl] = useState('');
+  const [newPhotoLabel, setNewPhotoLabel] = useState('Terrasse Panoramique');
+
+  // New tag input
+  const [customTagInput, setCustomTagInput] = useState('');
+
+  // New Dish modal state
+  const [isAddDishModalOpen, setIsAddDishModalOpen] = useState(false);
+  const [newDishName, setNewDishName] = useState('');
+  const [newDishCategory, setNewDishCategory] = useState('cat-thieb');
+  const [newDishPrice, setNewDishPrice] = useState(4000);
+  const [newDishDesc, setNewDishDesc] = useState('');
+  const [newDishImage, setNewDishImage] = useState('https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80');
+
+  // Active restaurant
+  const currentResto = restaurants.find((r) => r.id === selectedRestoId) || restaurants[0];
+  const myOrders = orders.filter((o) => o.restaurantId === currentResto.id);
+  const myReservations = reservations.filter((res) => res.restaurantId === currentResto.id || res.restaurantName.toLowerCase().includes(currentResto.name.toLowerCase()));
+  const myDishes = menuItems.filter((d) => d.restaurantId === currentResto.id);
+
+  // Sync edit form on restaurant select or modal open
+  const openEditGeneralModal = () => {
+    setEditName(currentResto.name);
+    setEditTagline(currentResto.tagline || '');
+    setEditPriceRange(currentResto.priceRange || '2 500 - 6 500 FCFA');
+    setEditHours(typeof currentResto.openingHours === 'string' ? currentResto.openingHours : '11h30 - 23h30 (7j/7)');
+    setEditAddress(currentResto.address);
+    setEditNeighborhood(currentResto.neighborhood);
+    setEditPhone(currentResto.phone || '+221 77 000 00 00');
+    setIsEditGeneralModalOpen(true);
+  };
+
+  const handleSaveGeneralInfo = (e: React.FormEvent) => {
+    e.preventDefault();
+    updateRestaurantShowcase(currentResto.id, {
+      name: editName,
+      tagline: editTagline,
+      priceRange: editPriceRange,
+      openingHours: editHours,
+      address: editAddress,
+      neighborhood: editNeighborhood,
+      phone: editPhone,
+    });
+    setIsEditGeneralModalOpen(false);
+    triggerSuccessFeedback('Informations générales mises à jour avec succès !');
+  };
+
+  const triggerSuccessFeedback = (msg: string) => {
+    setSaveFeedback(msg);
+    setTimeout(() => setSaveFeedback(null), 3000);
+    try {
+      confetti({
+        particleCount: 40,
+        spread: 60,
+        origin: { y: 0.6 },
+        colors: ['#064E2B', '#0A6E3B', '#10B981']
+      });
+    } catch {}
+  };
+
+  const handleSelectCover = (imgUrl: string) => {
+    updateRestaurantShowcase(currentResto.id, { coverImage: imgUrl });
+    setIsEditCoverModalOpen(false);
+    triggerSuccessFeedback('Photo de couverture mise à jour !');
+  };
+
+  const handleSelectLogo = (logoUrl: string) => {
+    updateRestaurantShowcase(currentResto.id, { logo: logoUrl });
+    setIsEditLogoModalOpen(false);
+    triggerSuccessFeedback('Logo du restaurant mis à jour !');
+  };
+
+  const handleAddGalleryPhoto = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPhotoUrl) return;
+    const currentGallery = currentResto.gallery || [];
+    updateRestaurantShowcase(currentResto.id, {
+      gallery: [...currentGallery, newPhotoUrl]
+    });
+    setNewPhotoUrl('');
+    setIsAddGalleryPhotoModalOpen(false);
+    triggerSuccessFeedback('Nouvelle photo ajoutée à la galerie !');
+  };
+
+  const handleDeleteGalleryPhoto = (indexToDelete: number) => {
+    const currentGallery = currentResto.gallery || [];
+    const updated = currentGallery.filter((_, i) => i !== indexToDelete);
+    updateRestaurantShowcase(currentResto.id, { gallery: updated });
+    triggerSuccessFeedback('Photo retirée de la galerie.');
+  };
+
+  const handleToggleAmenity = (amenity: string) => {
+    const currentAmenities = currentResto.amenities || [];
+    let updated: string[];
+    if (currentAmenities.includes(amenity)) {
+      updated = currentAmenities.filter((a) => a !== amenity);
+    } else {
+      updated = [...currentAmenities, amenity];
+    }
+    updateRestaurantShowcase(currentResto.id, { amenities: updated });
+  };
+
+  const handleAddTag = (tag: string) => {
+    if (!tag.trim()) return;
+    const currentTags = currentResto.ambianceTags || [];
+    if (!currentTags.includes(tag.trim())) {
+      updateRestaurantShowcase(currentResto.id, {
+        ambianceTags: [...currentTags, tag.trim()]
+      });
+      triggerSuccessFeedback(`Badge "${tag.trim()}" ajouté !`);
+    }
+    setCustomTagInput('');
+  };
+
+  const handleRemoveTag = (tagToRemove: string) => {
+    const currentTags = currentResto.ambianceTags || [];
+    updateRestaurantShowcase(currentResto.id, {
+      ambianceTags: currentTags.filter((t) => t !== tagToRemove)
+    });
+  };
+
+  // Stats calculation
+  const totalRevenue = myOrders
+    .filter((o) => o.status !== 'cancelled')
+    .reduce((acc, o) => acc + o.subtotal, 0);
+
+  const pendingOrders = myOrders.filter((o) => o.status === 'pending' || o.status === 'accepted');
+  const preparingOrders = myOrders.filter((o) => o.status === 'preparing');
+  const readyOrders = myOrders.filter((o) => o.status === 'ready_for_pickup' || o.status === 'in_transit');
+  const deliveredOrders = myOrders.filter((o) => o.status === 'delivered');
+
+  const handleAddDish = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newDishName) return;
+    addMenuItem({
+      restaurantId: currentResto.id,
+      name: newDishName,
+      category: newDishCategory,
+      price: Number(newDishPrice),
+      description: newDishDesc || 'Préparé avec les ingrédients frais du terroir sénégalais.',
+      image: newDishImage,
+      isAvailable: true,
+      preparationTimeMinutes: 25,
+      isPopular: true,
+    });
+    setNewDishName('');
+    setNewDishDesc('');
+    setIsAddDishModalOpen(false);
+    triggerSuccessFeedback('Nouveau plat ajouté au menu avec succès !');
+  };
+
+  const handleAssignTable = (resId: string, tableName: string) => {
+    setAssignedTables((prev) => ({ ...prev, [resId]: tableName }));
+  };
+
+  // Preset covers & logos for quick picker
+  const presetCovers = [
+    { label: 'Terrasse Mer Almadies', url: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1200&q=80' },
+    { label: 'Ngor Sunset Lounge', url: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=1200&q=80' },
+    { label: 'Plateau Chic Gastronomie', url: 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=1200&q=80' },
+    { label: 'Teranga Sénégal Gourmande', url: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=1200&q=80' },
+    { label: 'Dibi Grillades en plein air', url: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=1200&q=80' },
+    { label: 'Jardin Cosy & Végétal', url: 'https://images.unsplash.com/photo-1550966871-3ed3cdb5ed0c?auto=format&fit=crop&w=1200&q=80' },
+  ];
+
+  const presetLogos = [
+    { label: 'Kamiss Gourmet Gold', url: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=300&q=80' },
+    { label: 'Thiéb Royal Sceau', url: 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=300&q=80' },
+    { label: 'Teranga Dakar Emblème', url: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=300&q=80' },
+    { label: 'Almadies Ocean Club', url: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=300&q=80' },
+    { label: 'Dibi Centrale Grill', url: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=300&q=80' },
+    { label: 'Pastels & Délices', url: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=300&q=80' },
+  ];
+
+  const presetAmbianceSuggestions = [
+    'Vue Océan', 'Sortie Romantique', 'Coucher de Soleil', 'Terrasse Lounge',
+    'Famille & Enfants', 'Musique Live', 'Cadre Végétalisé', 'Business Lunch',
+    'Spécialité Thiéboudienne', 'Grillades Dibi Nocturne', 'Climatisé VIP'
+  ];
+
+  const allAvailableAmenities = [
+    { id: 'Wifi Fibre Gratuit', icon: '📶' },
+    { id: 'Parking Privé Gardé', icon: '🚗' },
+    { id: 'Terrasse Panoramique', icon: '🌊' },
+    { id: 'Salle Climatisée', icon: '❄️' },
+    { id: 'Paiement Wave & OM', icon: '💳' },
+    { id: 'Accès PMR', icon: '♿' },
+    { id: 'Espace Prière', icon: '🕌' },
+    { id: 'Cocktails & Jus Locaux', icon: '🍹' },
+  ];
 
   return (
-    <div className="h-full flex flex-col bg-[#F7FAF7] relative overflow-hidden">
-      {/* Resto Mobile Header */}
-      <div className="pt-2 px-4 pb-3 bg-[#07431E] text-white flex items-center justify-between shrink-0 shadow-md z-20">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center font-bold text-sm">
-            👨‍🍳
+    <div className="h-full flex flex-col bg-[#F4F7F4] relative overflow-hidden font-sans select-none">
+      
+      {/* Save feedback toast */}
+      <AnimatePresence>
+        {saveFeedback && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="absolute top-2 inset-x-4 z-50 bg-[#064E2B] text-white p-2.5 rounded-2xl shadow-xl flex items-center gap-2 text-xs border border-emerald-400/40"
+          >
+            <span className="text-base">✨</span>
+            <span className="font-bold flex-1">{saveFeedback}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* 1. Ultra-Clean Minimalist Header: Just Logo & Name */}
+      <div className="pt-3 px-4 pb-3 bg-white border-b border-[#D8EADB] shrink-0 flex items-center justify-between shadow-2xs">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#064E2B] to-[#10B981] p-0.5 shadow-sm shrink-0">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={currentResto.logo}
+              alt={currentResto.name}
+              className="w-full h-full rounded-[14px] object-cover bg-white"
+            />
           </div>
-          <div>
-            <h4 className="font-extrabold text-xs leading-tight">{currentResto.name}</h4>
-            <span className="text-[10px] text-emerald-300">Cuisine Direct Dakar</span>
+          <div className="min-w-0">
+            <h2 className="font-black text-sm text-[#081A10] truncate leading-tight">{currentResto.name}</h2>
+            <p className="text-[10px] text-gray-400 truncate">📍 {currentResto.neighborhood} • Dakar</p>
           </div>
         </div>
 
-        <button
-          onClick={() => setIsOpen(!isOpen)}
-          className={`px-2.5 py-1 rounded-full text-[10px] font-bold border ${isOpen ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/40' : 'bg-rose-500/20 text-rose-300 border-rose-400/40'}`}
+        <select
+          value={selectedRestoId}
+          onChange={(e) => setSelectedRestoId(e.target.value)}
+          className="bg-[#F4F7F4] text-[#081A10] font-bold text-[10px] rounded-xl px-2 py-1 border border-[#D8EADB] focus:outline-hidden max-w-[120px] truncate"
         >
-          {isOpen ? '🟢 Ouvert' : '🔴 Fermé'}
-        </button>
+          {restaurants.map((r) => (
+            <option key={r.id} value={r.id}>
+              {r.name}
+            </option>
+          ))}
+        </select>
       </div>
 
-      {/* Main Content */}
-      <div className="flex-1 overflow-y-auto no-scrollbar p-4 pb-20 space-y-4">
+      {/* 2. THE TWO CLEAN BUTTONS: Vitrine vs Dashboard */}
+      <div className="bg-[#F4F7F4] px-3 py-2 border-b border-[#D8EADB] shrink-0">
+        <div className="p-1 bg-white/90 backdrop-blur-md rounded-2xl border border-white/80 shadow-xs flex items-center gap-1.5">
+          <button
+            onClick={() => setMobileMode('vitrine')}
+            className={`flex-1 py-2 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${
+              mobileMode === 'vitrine'
+                ? 'brand-gradient text-white shadow-md'
+                : 'text-gray-500 hover:text-[#081A10]'
+            }`}
+          >
+            <span>🏛️ Vitrine</span>
+            {mobileMode === 'vitrine' && <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />}
+          </button>
+          <button
+            onClick={() => setMobileMode('dashboard')}
+            className={`flex-1 py-2 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${
+              mobileMode === 'dashboard'
+                ? 'bg-[#0B1E13] text-white shadow-md'
+                : 'text-gray-500 hover:text-[#081A10]'
+            }`}
+          >
+            <span>📊 Dashboard</span>
+            {mobileMode === 'dashboard' && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />}
+          </button>
+        </div>
+      </div>
+
+      {/* 3. Dashboard KPI Strip & Sub-tabs (Only shown when Dashboard mode is active) */}
+      {mobileMode === 'dashboard' && (
+        <div className="bg-white border-b border-[#D8EADB] p-2 space-y-2 shrink-0">
+          
+          {/* Dashboard KPI Strip */}
+          <div className="grid grid-cols-4 gap-1.5 text-center">
+            <div className="bg-[#F4F7F4] rounded-xl p-1.5 border border-[#D8EADB]">
+              <span className="text-[8px] uppercase block text-gray-400 font-bold">Revenus</span>
+              <span className="text-[10px] font-black text-[#0A6E3B] truncate block">{formatFCFA(totalRevenue)}</span>
+            </div>
+            <div className="bg-[#F4F7F4] rounded-xl p-1.5 border border-[#D8EADB]">
+              <span className="text-[8px] uppercase block text-gray-400 font-bold">Commandes</span>
+              <span className="text-[11px] font-black text-[#081A10]">{myOrders.length}</span>
+            </div>
+            <div className="bg-[#F4F7F4] rounded-xl p-1.5 border border-[#D8EADB]">
+              <span className="text-[8px] uppercase block text-gray-400 font-bold">Tables</span>
+              <span className="text-[11px] font-black text-[#FF7824]">{myReservations.length}</span>
+            </div>
+            <div className="bg-[#F4F7F4] rounded-xl p-1.5 border border-[#D8EADB]">
+              <span className="text-[8px] uppercase block text-gray-400 font-bold">Note Avis</span>
+              <span className="text-[11px] font-black text-amber-500">⭐ {currentResto.rating}</span>
+            </div>
+          </div>
+
+          {/* Sub-tabs */}
+          <div className="flex overflow-x-auto no-scrollbar gap-1 pt-1">
+            {[
+              { id: 'showcase', label: '🏛️ Modifier Vitrine' },
+              { id: 'orders', label: `📦 KDS (${myOrders.length})` },
+              { id: 'reservations', label: `📅 Tables (${myReservations.length})` },
+              { id: 'menu', label: `🍽️ Carte (${myDishes.length})` },
+              { id: 'stats', label: '⭐ Chiffres' },
+            ].map((tab) => {
+              const isSel = restoTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setRestoTab(tab.id as any)}
+                  className={`px-2.5 py-1 rounded-xl text-[10px] font-black shrink-0 transition-all ${
+                    isSel
+                      ? 'bg-[#E6F5EC] text-[#0A6E3B] border border-[#0A6E3B]/20 shadow-2xs'
+                      : 'text-gray-500 hover:text-gray-800'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* 4. Tab Content Area */}
+      <div className="flex-1 overflow-y-auto no-scrollbar p-3.5 pb-24 space-y-3.5">
         
-        {/* TAB 1 : COMMANDES LIVE */}
-        {restoTab === 'live' && (
-          <div className="space-y-4">
-            {/* Quick KPI pills */}
-            <div className="grid grid-cols-3 gap-2 text-center text-[10px]">
-              <div className="bg-white p-2 rounded-xl border border-[#E2ECE5]">
-                <span className="text-gray-400 block font-semibold">En attente</span>
-                <span className="font-black text-amber-600 text-xs">{pending.length}</span>
-              </div>
-              <div className="bg-white p-2 rounded-xl border border-[#E2ECE5]">
-                <span className="text-gray-400 block font-semibold">En cuisine</span>
-                <span className="font-black text-orange-600 text-xs">{preparing.length}</span>
-              </div>
-              <div className="bg-white p-2 rounded-xl border border-[#E2ECE5]">
-                <span className="text-gray-400 block font-semibold">Prêtes</span>
-                <span className="font-black text-[#008235] text-xs">{ready.length}</span>
+        {/* =====================================================================
+            MODE 1: VITRINE PUBLIQUE CLIENT (100% PROPRE, SANS BOUTON ADMIN)
+           ===================================================================== */}
+        {mobileMode === 'vitrine' && (
+          <div className="space-y-3.5">
+            
+            {/* Live Client Hero Banner */}
+            <div className="relative h-44 rounded-3xl overflow-hidden bg-gray-900 shadow-md">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={currentResto.coverImage}
+                alt={currentResto.name}
+                className="w-full h-full object-cover opacity-90"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
+
+              <div className="absolute bottom-3 inset-x-3 flex items-end gap-3 text-white">
+                <div className="w-14 h-14 rounded-2xl overflow-hidden border-2 border-white shadow-md bg-white shrink-0">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={currentResto.logo} alt={currentResto.name} className="w-full h-full object-cover" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <h3 className="font-black text-sm text-white truncate">{currentResto.name}</h3>
+                    <span className="px-1.5 py-0.5 rounded-md bg-amber-400 text-black font-black text-[9px]">
+                      ⭐ {currentResto.rating}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-gray-200 line-clamp-1 italic">
+                    "{currentResto.tagline || 'Excellence gastronomique dakaroise'}"
+                  </p>
+                  <p className="text-[9px] text-gray-300 font-semibold">
+                    📍 {currentResto.neighborhood} • 💰 {currentResto.priceRange || '2 500 - 6 500 FCFA'}
+                  </p>
+                </div>
               </div>
             </div>
 
-            {/* Orders Feed */}
-            <div className="space-y-3">
-              <AnimatePresence>
-                {restoOrders.map((ord) => {
-                  const badge = getStatusBadge(ord.status);
-                  return (
-                    <motion.div
-                      key={ord.id}
-                      layout
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className={`bg-white p-3.5 rounded-2xl border ${ord.status === 'pending' ? 'border-2 border-amber-400 ring-2 ring-amber-100' : 'border-[#E2ECE5]'} shadow-2xs space-y-2`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-black text-xs text-[#07431E]">{ord.orderNumber}</span>
-                        <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border ${badge.bg} ${badge.text} ${badge.border}`}>
-                          {badge.label}
-                        </span>
-                      </div>
-
-                      <div className="bg-[#F7FAF7] p-2 rounded-xl text-[11px] text-gray-700">
-                        <p className="font-bold">{ord.clientName} ({ord.clientPhone})</p>
-                        <p className="text-gray-500">📍 {ord.deliveryAddress.neighborhood}</p>
-                      </div>
-
-                      <div className="space-y-1 text-xs">
-                        {ord.items.map((it, idx) => (
-                          <div key={idx} className="flex justify-between text-[11px]">
-                            <span>{it.quantity}x {it.name}</span>
-                            <span className="font-bold">{formatFCFA(it.price * it.quantity)}</span>
-                          </div>
-                        ))}
-                      </div>
-
-                      <div className="pt-2 border-t border-[#E2ECE5] flex items-center justify-between">
-                        <span className="text-xs font-black text-[#FA8038]">{formatFCFA(ord.subtotal)}</span>
-
-                        {ord.status === 'pending' && (
-                          <motion.button
-                            whileTap={{ scale: 0.95 }}
-                            onClick={() => updateOrderStatus(ord.id, 'preparing')}
-                            className="px-3 py-1.5 rounded-xl brand-gradient text-white text-[10px] font-bold shadow-xs flex items-center gap-1"
-                          >
-                            <ChefHat className="w-3 h-3" />
-                            <span>Cuisiner</span>
-                          </motion.button>
-                        )}
-
-                        {ord.status === 'preparing' && (
-                          <motion.button
-                            whileTap={{ scale: 0.95 }}
-                            onClick={() => updateOrderStatus(ord.id, 'ready_for_pickup')}
-                            className="px-3 py-1.5 rounded-xl brand-gradient-orange text-white text-[10px] font-bold shadow-xs flex items-center gap-1"
-                          >
-                            <CheckCircle2 className="w-3 h-3" />
-                            <span>Plat Prêt</span>
-                          </motion.button>
-                        )}
-                      </div>
-                    </motion.div>
-                  );
-                })}
-              </AnimatePresence>
+            {/* Quick action buttons for clients */}
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <button
+                onClick={() => alert(`Réservation de table chez ${currentResto.name} ouverte !`)}
+                className="py-2.5 rounded-2xl brand-gradient text-white font-black flex items-center justify-center gap-1.5 shadow-md active:scale-95"
+              >
+                <span>📅 Réserver Table</span>
+              </button>
+              <a
+                href={`https://wa.me/221770000000?text=Bonjour%20${encodeURIComponent(currentResto.name)}`}
+                target="_blank"
+                rel="noreferrer"
+                className="py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center justify-center gap-1.5 shadow-md active:scale-95"
+              >
+                <span>💬 WhatsApp</span>
+              </a>
             </div>
+
+            {/* Multi-view Gallery */}
+            <div className="bg-white p-3 rounded-2xl border border-[#D8EADB] space-y-2 shadow-2xs">
+              <span className="font-black text-xs text-[#081A10] block">📸 Cadre & Vues ({currentResto.gallery?.length || 0})</span>
+              <div className="grid grid-cols-3 gap-1.5">
+                {currentResto.gallery?.map((img, i) => (
+                  <div key={i} className="relative aspect-4/3 rounded-xl overflow-hidden bg-gray-100 border border-[#D8EADB]">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={img} alt="" className="w-full h-full object-cover" />
+                    <span className="absolute bottom-1 inset-x-1 bg-black/70 text-[8px] text-white text-center rounded-md font-bold py-0.5 truncate px-1">
+                      {i === 0 ? 'Façade' : i === 1 ? 'Terrasse' : i === 2 ? 'VIP' : 'Cuisine'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Badges & Amenities */}
+            <div className="bg-white p-3 rounded-2xl border border-[#D8EADB] space-y-2 shadow-2xs text-xs">
+              <span className="font-black text-xs text-[#081A10] block">✨ Ambiance & Services</span>
+              <div className="flex flex-wrap gap-1">
+                {currentResto.ambianceTags?.map((tag, i) => (
+                  <span key={i} className="px-2 py-0.5 rounded-lg bg-[#E6F5EC] text-[#0A6E3B] text-[10px] font-bold border border-[#0A6E3B]/20">
+                    ✨ {tag}
+                  </span>
+                ))}
+              </div>
+              <div className="grid grid-cols-2 gap-1 text-[10px] pt-1">
+                {currentResto.amenities?.map((amenity, i) => (
+                  <div key={i} className="p-1.5 rounded-lg bg-[#F4F7F4] font-semibold text-gray-700 flex items-center gap-1">
+                    <span className="text-[#0A6E3B]">✓</span>
+                    <span className="truncate">{amenity}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Menu preview */}
+            <div className="bg-white p-3 rounded-2xl border border-[#D8EADB] space-y-2 shadow-2xs">
+              <span className="font-black text-xs text-[#081A10] block">🍽️ Carte des Plats ({myDishes.length})</span>
+              <div className="space-y-2">
+                {myDishes.slice(0, 4).map((d) => (
+                  <div key={d.id} className="p-2 rounded-xl bg-[#F4F7F4] flex items-center justify-between gap-2 border border-[#D8EADB]">
+                    <div className="flex items-center gap-2 min-w-0">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={d.image} alt={d.name} className="w-10 h-10 rounded-lg object-cover bg-white shrink-0" />
+                      <div className="min-w-0">
+                        <p className="font-black text-xs text-[#081A10] truncate">{d.name}</p>
+                        <span className="text-[10px] font-black text-[#0A6E3B]">{formatFCFA(d.price)}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
           </div>
         )}
 
-        {/* TAB 2 : MENU STOCK */}
+        {/* =====================================================================
+            MODE 2: DASHBOARD (STUDIO DE PERSONNALISATION, KDS, TABLES, STATS)
+           ===================================================================== */}
+        {mobileMode === 'dashboard' && restoTab === 'showcase' && (
+          <div className="space-y-3.5">
+            
+            {/* Top Toolbar: Live Status & Preview Button */}
+            <div className="bg-white p-3 rounded-2xl border border-[#D8EADB] flex items-center justify-between shadow-2xs">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="font-black text-xs text-[#081A10]">Vitrine Publique Active</span>
+              </div>
+
+              <button
+                onClick={() => setIsPreviewClientModalOpen(true)}
+                className="px-3 py-1.5 rounded-xl brand-gradient text-white text-[10px] font-black shadow-xs flex items-center gap-1.5 active:scale-95 transition-all"
+              >
+                <span>👁️ Voir comme client</span>
+              </button>
+            </div>
+
+            {/* CARD 1: PHOTO DE COUVERTURE & LOGO (HERO BANNER CUSTOMIZER) */}
+            <div className="bg-white rounded-3xl border border-[#D8EADB] overflow-hidden shadow-xs space-y-3 p-3.5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-black text-xs text-[#081A10]">1. Photo de Couverture & Logo</h4>
+                  <p className="text-[10px] text-gray-400">Première impression vue par les clients sur Dakar</p>
+                </div>
+              </div>
+
+              {/* Live interactive banner preview */}
+              <div className="relative h-36 rounded-2xl overflow-hidden bg-gray-900 group shadow-inner">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={currentResto.coverImage}
+                  alt={currentResto.name}
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-90"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
+
+                {/* Edit Cover Overlay Button */}
+                <button
+                  onClick={() => setIsEditCoverModalOpen(true)}
+                  className="absolute top-2.5 right-2.5 px-2.5 py-1 rounded-xl bg-black/60 hover:bg-black/80 text-white text-[10px] font-bold backdrop-blur-xs flex items-center gap-1 border border-white/20 shadow-md active:scale-95"
+                >
+                  <span>🖼️ Changer Couverture</span>
+                </button>
+
+                {/* Logo & Name preview with edit button */}
+                <div className="absolute bottom-2.5 inset-x-3 flex items-end justify-between">
+                  <div className="flex items-end gap-2.5">
+                    <div className="relative group/logo">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={currentResto.logo}
+                        alt={currentResto.name}
+                        className="w-12 h-12 rounded-xl object-cover border-2 border-white shadow-md bg-white shrink-0"
+                      />
+                      <button
+                        onClick={() => setIsEditLogoModalOpen(true)}
+                        className="absolute inset-0 bg-black/60 rounded-xl text-[8px] text-white font-bold flex items-center justify-center opacity-0 group-hover/logo:opacity-100 transition-opacity"
+                      >
+                        Modifier
+                      </button>
+                    </div>
+
+                    <div className="text-white min-w-0">
+                      <h5 className="font-black text-xs leading-tight truncate">{currentResto.name}</h5>
+                      <p className="text-[9px] text-gray-200 line-clamp-1">{currentResto.tagline || currentResto.address}</p>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => setIsEditLogoModalOpen(true)}
+                    className="px-2 py-0.5 rounded-lg bg-white/90 text-[#081A10] text-[9px] font-black shadow-xs shrink-0"
+                  >
+                    Changer Logo
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* CARD 2: PRÉSENTATION DE L'ÉTABLISSEMENT & INFOS */}
+            <div className="bg-white p-3.5 rounded-3xl border border-[#D8EADB] space-y-3 shadow-xs text-xs">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-black text-xs text-[#081A10]">2. Présentation & Coordonnées</h4>
+                  <p className="text-[10px] text-gray-400">Nom, slogan, prix, horaires et téléphone</p>
+                </div>
+                <button
+                  onClick={openEditGeneralModal}
+                  className="px-2.5 py-1 rounded-xl bg-[#E6F5EC] text-[#0A6E3B] text-[10px] font-black border border-[#0A6E3B]/20 hover:bg-[#d5eedf] transition-all flex items-center gap-1"
+                >
+                  <span>✏️ Modifier Infos</span>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 bg-[#F4F7F4] p-3 rounded-2xl border border-[#D8EADB]">
+                <div>
+                  <span className="text-[9px] text-gray-400 font-bold block">Nom de l'établissement</span>
+                  <span className="font-black text-[11px] text-[#081A10]">{currentResto.name}</span>
+                </div>
+                <div>
+                  <span className="text-[9px] text-gray-400 font-bold block">Fourchette de Prix</span>
+                  <span className="font-black text-[11px] text-[#0A6E3B]">{currentResto.priceRange || '2 500 - 6 500 FCFA'}</span>
+                </div>
+                <div>
+                  <span className="text-[9px] text-gray-400 font-bold block">Horaires de Service</span>
+                  <span className="font-bold text-[10px] text-[#081A10]">
+                    {typeof currentResto.openingHours === 'string' ? currentResto.openingHours : '11h30 - 23h30 (7j/7)'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[9px] text-gray-400 font-bold block">Quartier & Téléphone</span>
+                  <span className="font-bold text-[10px] text-[#081A10]">{currentResto.neighborhood} • {currentResto.phone || '+221 77 000 00 00'}</span>
+                </div>
+              </div>
+
+              {currentResto.tagline && (
+                <div className="p-2.5 rounded-xl bg-white border border-[#D8EADB]">
+                  <span className="text-[9px] text-gray-400 font-bold block">Slogan / Description d'ambiance</span>
+                  <p className="text-[11px] text-[#081A10] font-medium italic mt-0.5">"{currentResto.tagline}"</p>
+                </div>
+              )}
+            </div>
+
+            {/* CARD 3: GALERIE PHOTOS D'AMBIANCE & DIFFÉRENTES VUES (HD PHOTO STUDIO) */}
+            <div className="bg-white p-3.5 rounded-3xl border border-[#D8EADB] space-y-3 shadow-xs text-xs">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-black text-xs text-[#081A10]">
+                    3. Galerie Photos d'Ambiance ({currentResto.gallery?.length || 0})
+                  </h4>
+                  <p className="text-[10px] text-gray-400">Vues de la terrasse, façade, salle et cuisine</p>
+                </div>
+                <button
+                  onClick={() => setIsAddGalleryPhotoModalOpen(true)}
+                  className="px-2.5 py-1 rounded-xl brand-gradient text-white text-[10px] font-black shadow-xs flex items-center gap-1 active:scale-95"
+                >
+                  <Plus className="w-3 h-3" />
+                  <span>Ajouter Vue</span>
+                </button>
+              </div>
+
+              {/* Photo grid with delete buttons */}
+              <div className="grid grid-cols-3 gap-2">
+                {currentResto.gallery?.map((imgUrl, i) => (
+                  <div
+                    key={i}
+                    className="relative aspect-4/3 rounded-2xl overflow-hidden bg-gray-100 border border-[#D8EADB] group shadow-2xs"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={imgUrl} alt={`Vue ${i + 1}`} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                    
+                    {/* View tag label */}
+                    <span className="absolute bottom-1 inset-x-1 bg-black/70 text-[8px] text-white text-center rounded-md font-bold py-0.5 backdrop-blur-2xs truncate px-1">
+                      {i === 0 ? 'Façade' : i === 1 ? 'Terrasse Mer' : i === 2 ? 'Salle VIP' : i === 3 ? 'Cuisine' : `Vue ${i + 1}`}
+                    </span>
+
+                    {/* Delete action */}
+                    <button
+                      onClick={() => handleDeleteGalleryPhoto(i)}
+                      className="absolute top-1 right-1 w-6 h-6 rounded-full bg-rose-600 text-white flex items-center justify-center text-[10px] shadow-md opacity-90 hover:opacity-100 active:scale-90"
+                      title="Supprimer cette photo"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* CARD 4: BADGES D'AMBIANCE PERSONNALISABLES */}
+            <div className="bg-white p-3.5 rounded-3xl border border-[#D8EADB] space-y-2.5 shadow-xs text-xs">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-black text-xs text-[#081A10]">4. Badges d'Ambiance Visibles</h4>
+                  <p className="text-[10px] text-gray-400">Aident les clients à choisir selon l'occasion</p>
+                </div>
+                <button
+                  onClick={() => setIsManageTagsModalOpen(true)}
+                  className="px-2.5 py-1 rounded-xl bg-[#E6F5EC] text-[#0A6E3B] text-[10px] font-black border border-[#0A6E3B]/20"
+                >
+                  + Gérer Badges
+                </button>
+              </div>
+
+              <div className="flex flex-wrap gap-1.5">
+                {currentResto.ambianceTags?.map((tag, i) => (
+                  <span
+                    key={i}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-[#E6F5EC] border border-[#0A6E3B]/20 text-[#0A6E3B] text-[10px] font-bold shadow-2xs"
+                  >
+                    <span>✨ {tag}</span>
+                    <button
+                      onClick={() => handleRemoveTag(tag)}
+                      className="text-rose-500 font-extrabold hover:text-rose-700 ml-0.5"
+                    >
+                      ✕
+                    </button>
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* CARD 5: COMMODITÉS ET SERVICES CERTIFIÉS */}
+            <div className="bg-white p-3.5 rounded-3xl border border-[#D8EADB] space-y-2.5 shadow-xs text-xs">
+              <div>
+                <h4 className="font-black text-xs text-[#081A10]">5. Commodités & Services Certifiés</h4>
+                <p className="text-[10px] text-gray-400">Cochez pour afficher sur la vitrine client</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-1.5">
+                {allAvailableAmenities.map((amenity) => {
+                  const isChecked = currentResto.amenities?.includes(amenity.id);
+                  return (
+                    <button
+                      key={amenity.id}
+                      onClick={() => handleToggleAmenity(amenity.id)}
+                      className={`p-2 rounded-xl border text-left flex items-center justify-between transition-all ${
+                        isChecked
+                          ? 'bg-[#E6F5EC] border-[#0A6E3B]/30 text-[#081A10] font-bold'
+                          : 'bg-[#F4F7F4] border-[#D8EADB] text-gray-400'
+                      }`}
+                    >
+                      <span className="flex items-center gap-1.5 text-[10px] truncate">
+                        <span>{amenity.icon}</span>
+                        <span className="truncate">{amenity.id}</span>
+                      </span>
+                      <span className={`text-xs font-black ${isChecked ? 'text-[#0A6E3B]' : 'text-gray-300'}`}>
+                        {isChecked ? '✓' : '+'}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+          </div>
+        )}
+
+        {/* =====================================================================
+            TAB 1: KDS CUISINE & COMMANDES (KITCHEN DISPLAY SYSTEM)
+           ===================================================================== */}
+        {restoTab === 'orders' && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-black text-[#081A10] uppercase tracking-wider flex items-center gap-1.5">
+                <span>🔥 Flux Cuisine en Direct</span>
+              </h4>
+              <span className="text-[10px] text-gray-500 font-bold">
+                {pendingOrders.length + preparingOrders.length} à traiter
+              </span>
+            </div>
+
+            {myOrders.length === 0 ? (
+              <div className="p-8 text-center bg-white rounded-3xl border border-[#D8EADB] text-xs text-gray-400 space-y-2 shadow-2xs">
+                <span className="text-3xl block">👨‍🍳</span>
+                <p className="font-bold text-gray-700">Aucune commande en cuisine pour le moment.</p>
+                <p className="text-[10px]">Dès qu'un client passe commande sur Thiob Express, elle apparaîtra ici en temps réel.</p>
+              </div>
+            ) : (
+              myOrders.map((ord) => {
+                const isPending = ord.status === 'pending' || ord.status === 'accepted';
+                const isPreparing = ord.status === 'preparing';
+                const isReady = ord.status === 'ready_for_pickup' || ord.status === 'in_transit';
+                const isDelivered = ord.status === 'delivered';
+
+                return (
+                  <motion.div
+                    key={ord.id}
+                    layout
+                    className={`bg-white p-3.5 rounded-2xl border transition-all space-y-2.5 shadow-xs ${
+                      isPreparing ? 'border-amber-300 ring-1 ring-amber-200' : 'border-[#D8EADB]'
+                    }`}
+                  >
+                    {/* Header line */}
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-black text-xs text-[#081A10]">{ord.orderNumber}</span>
+                          <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${
+                            isPending ? 'bg-blue-100 text-blue-800' :
+                            isPreparing ? 'bg-amber-100 text-amber-800 animate-pulse' :
+                            isReady ? 'bg-purple-100 text-purple-800' : 'bg-emerald-100 text-emerald-800'
+                          }`}>
+                            {isPending ? '🔔 Nouvelle' :
+                             isPreparing ? '🔥 En cuisson' :
+                             isReady ? '🛵 Livreur en route' : '✓ Livrée'}
+                          </span>
+                        </div>
+                        <p className="text-[11px] font-bold text-gray-700 mt-0.5">
+                          {ord.clientName} • <span className="text-gray-400">{ord.deliveryAddress.neighborhood}</span>
+                        </p>
+                      </div>
+
+                      <div className="text-right">
+                        <span className="text-xs font-black text-[#0A6E3B]">{formatFCFA(ord.subtotal)}</span>
+                        <span className="text-[9px] text-gray-400 block">{ord.paymentMethod.toUpperCase()}</span>
+                      </div>
+                    </div>
+
+                    {/* Items detail list */}
+                    <div className="bg-[#F4F7F4] p-2.5 rounded-xl border border-[#D8EADB] text-xs space-y-1 divide-y divide-gray-100">
+                      {ord.items.map((it, i) => (
+                        <div key={i} className="pt-1 first:pt-0 flex justify-between items-center">
+                          <span className="font-bold text-[#081A10]">
+                            <strong className="text-[#0A6E3B]">{it.quantity}x</strong> {it.name}
+                          </span>
+                          <span className="text-[10px] text-gray-400">{formatFCFA(it.price * it.quantity)}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Courier assigned or status details */}
+                    {ord.courierName && (
+                      <div className="text-[10px] text-gray-600 flex items-center gap-1.5 bg-blue-50 p-1.5 rounded-lg border border-blue-100">
+                        <span>🛵 Livreur :</span>
+                        <span className="font-bold text-blue-900">{ord.courierName} ({ord.courierPhone})</span>
+                      </div>
+                    )}
+
+                    {/* Action progression buttons */}
+                    <div className="flex gap-2 pt-1">
+                      {isPending && (
+                        <button
+                          onClick={() => updateOrderStatus(ord.id, 'preparing')}
+                          className="flex-1 py-2 rounded-xl brand-gradient text-white text-xs font-black shadow-xs hover:opacity-95"
+                        >
+                          🔥 Lancer la préparation en cuisine
+                        </button>
+                      )}
+                      {isPreparing && (
+                        <button
+                          onClick={() => updateOrderStatus(ord.id, 'ready_for_pickup')}
+                          className="flex-1 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-black shadow-xs flex items-center justify-center gap-1"
+                        >
+                          <span>🛵 Prêt ! Appeler le Tiak-Tiak</span>
+                        </button>
+                      )}
+                      {isReady && (
+                        <button
+                          onClick={() => updateOrderStatus(ord.id, 'delivered')}
+                          className="flex-1 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black shadow-xs"
+                        >
+                          ✓ Marquer comme Livré
+                        </button>
+                      )}
+                      <button
+                        onClick={() => alert(`Appel client : ${ord.clientPhone}`)}
+                        className="px-3 py-2 rounded-xl bg-gray-100 text-gray-600 text-xs font-bold hover:bg-gray-200"
+                        title="Appeler le client"
+                      >
+                        📞
+                      </button>
+                    </div>
+
+                  </motion.div>
+                );
+              })
+            )}
+          </div>
+        )}
+
+        {/* =====================================================================
+            TAB 2: RÉSERVATIONS DE TABLES REÇUES (MODULE SORTIES DAKAR)
+           ===================================================================== */}
+        {restoTab === 'reservations' && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="text-xs font-black text-[#081A10] uppercase tracking-wider">
+                  Tables Réservées ({myReservations.length})
+                </h4>
+                <p className="text-[10px] text-gray-400">Reçues depuis le module de découverte client</p>
+              </div>
+            </div>
+
+            {myReservations.length === 0 ? (
+              <div className="p-8 text-center bg-white rounded-3xl border border-[#D8EADB] text-xs text-gray-400 space-y-2 shadow-2xs">
+                <span className="text-3xl block">🥂</span>
+                <p className="font-bold text-gray-700">Aucune réservation de table reçue pour l'instant.</p>
+                <p className="text-[10px]">Vos tables réservées par les clients (en couple, anniversaire, etc.) apparaîtront ici.</p>
+              </div>
+            ) : (
+              myReservations.map((res) => {
+                const assigned = assignedTables[res.id];
+
+                return (
+                  <div
+                    key={res.id}
+                    className="bg-white p-3.5 rounded-2xl border border-[#D8EADB] space-y-2.5 shadow-xs"
+                  >
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <h5 className="font-black text-xs text-[#081A10]">{res.clientName}</h5>
+                          <span className="text-[9px] font-black bg-emerald-100 text-emerald-800 px-2 py-0.2 rounded-full">
+                            Confirmée
+                          </span>
+                        </div>
+                        <span className="text-[10px] font-mono text-gray-400 block">Code : {res.reservationNumber} • {res.clientPhone}</span>
+                      </div>
+                      <span className="text-[10px] font-bold text-[#FF7824] bg-[#FF7824]/10 px-2.5 py-0.5 rounded-full shrink-0">
+                        {res.occasion}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 text-[11px] bg-[#F4F7F4] p-2.5 rounded-xl border border-[#D8EADB]">
+                      <div>
+                        <span className="text-gray-400 block text-[9px] font-bold">Date & Heure</span>
+                        <span className="font-black text-[#081A10]">{res.date} • {res.time}</span>
+                      </div>
+                      <div>
+                        <span className="text-gray-400 block text-[9px] font-bold">Nombre de convives</span>
+                        <span className="font-black text-[#081A10]">{res.guestsCount} personnes</span>
+                      </div>
+                    </div>
+
+                    {res.notes && (
+                      <p className="text-[10px] text-amber-900 bg-amber-50 p-2 rounded-xl border border-amber-200/50">
+                        📝 <strong>Souhait client :</strong> {res.notes}
+                      </p>
+                    )}
+
+                    {/* Table Assignment Indicator */}
+                    <div className="flex items-center justify-between pt-1 border-t border-gray-100">
+                      <div className="text-[10px]">
+                        <span className="text-gray-400 font-bold">Emplacement : </span>
+                        <span className="font-black text-[#0A6E3B]">
+                          {assigned || 'Table non assignée'}
+                        </span>
+                      </div>
+
+                      {/* Assign Table selector */}
+                      <select
+                        value={assigned || ''}
+                        onChange={(e) => handleAssignTable(res.id, e.target.value)}
+                        className="text-[10px] font-bold bg-[#E6F5EC] text-[#0A6E3B] border border-[#0A6E3B]/30 rounded-lg px-2 py-1 focus:outline-hidden"
+                      >
+                        <option value="">-- Assigner Table --</option>
+                        <option value="Table 1 (Terrasse Océan)">Table 1 (Terrasse Océan)</option>
+                        <option value="Table 4 (Terrasse Vue Mer)">Table 4 (Terrasse Vue Mer)</option>
+                        <option value="Table 8 (Coin Romantique Couple)">Table 8 (Coin Romantique Couple)</option>
+                        <option value="Table 12 (Salon VIP Climatisation)">Table 12 (Salon VIP Climatisation)</option>
+                      </select>
+                    </div>
+
+                  </div>
+                );
+              })
+            )}
+          </div>
+        )}
+
+        {/* =====================================================================
+            TAB 4: GESTION DE LA CARTE & MENUS (MENU MANAGER)
+           ===================================================================== */}
         {restoTab === 'menu' && (
           <div className="space-y-3">
-            <h4 className="text-xs font-black text-[#07431E] uppercase tracking-wider">
-              Disponibilité des Plats en Direct
-            </h4>
-            <div className="space-y-2">
-              {restoDishes.map((dish) => (
-                <div key={dish.id} className="bg-white p-3 rounded-2xl border border-[#E2ECE5] flex items-center justify-between gap-3 shadow-2xs">
-                  <div className="min-w-0">
-                    <p className="font-bold text-xs text-[#0D1C12] truncate">{dish.name}</p>
-                    <p className="text-[10px] font-black text-[#008235]">{formatFCFA(dish.price)}</p>
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="text-xs font-black text-[#081A10] uppercase tracking-wider">
+                  Menu & Plats ({myDishes.length})
+                </h4>
+                <p className="text-[10px] text-gray-400">Gérez vos stocks et tarifs en temps réel</p>
+              </div>
+              <button
+                onClick={() => setIsAddDishModalOpen(true)}
+                className="px-3 py-1.5 rounded-xl brand-gradient text-white text-[10px] font-black shadow-xs flex items-center gap-1"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Nouveau plat</span>
+              </button>
+            </div>
+
+            <div className="space-y-2.5">
+              {myDishes.map((dish) => (
+                <div
+                  key={dish.id}
+                  className="bg-white p-3 rounded-2xl border border-[#D8EADB] flex items-center justify-between gap-3 shadow-2xs"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={dish.image} alt={dish.name} className="w-14 h-14 rounded-xl object-cover shrink-0" />
+                  
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <h5 className="font-bold text-xs text-[#081A10] truncate">{dish.name}</h5>
+                      {dish.isPopular && (
+                        <span className="text-[8px] font-black bg-[#FF7824] text-white px-1.5 py-0.2 rounded-md">
+                          Star
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-gray-400 line-clamp-1">{dish.description}</p>
+                    <span className="text-xs font-black text-[#0A6E3B]">{formatFCFA(dish.price)}</span>
                   </div>
+
+                  {/* Availability toggle switch */}
                   <button
                     onClick={() => toggleMenuItemAvailability(dish.id)}
-                    className={`px-2.5 py-1 rounded-xl text-[10px] font-bold flex items-center gap-1 border ${dish.isAvailable ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-gray-100 text-gray-400'}`}
+                    className={`px-2.5 py-1.5 rounded-xl text-[10px] font-black transition-all ${
+                      dish.isAvailable
+                        ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
+                        : 'bg-rose-100 text-rose-800 hover:bg-rose-200'
+                    }`}
                   >
-                    {dish.isAvailable ? <ToggleRight className="w-4 h-4 text-[#008235]" /> : <ToggleLeft className="w-4 h-4 text-gray-400" />}
-                    <span>{dish.isAvailable ? 'En stock' : 'Épuisé'}</span>
+                    {dish.isAvailable ? 'En stock 🟢' : 'Épuisé 🔴'}
                   </button>
                 </div>
               ))}
@@ -850,192 +3570,737 @@ function MobileRestaurantApp() {
           </div>
         )}
 
-        {/* TAB 3 : STATS & CA */}
+        {/* =====================================================================
+            TAB 5: STATISTIQUES & AVIS CLIENTS (ANALYTICS & REVIEWS)
+           ===================================================================== */}
         {restoTab === 'stats' && (
-          <div className="space-y-3">
-            <div className="bg-white p-4 rounded-2xl border border-[#E2ECE5] text-center space-y-1 shadow-2xs">
-              <span className="text-[10px] text-gray-400 uppercase font-bold">Chiffre d'affaires du jour</span>
-              <h3 className="text-2xl font-black text-[#008235]">{formatFCFA(totalCA)}</h3>
-              <p className="text-[10px] text-gray-500">Total {restoOrders.length} commandes traitées</p>
+          <div className="space-y-3.5">
+            
+            {/* Revenue breakdown */}
+            <div className="bg-white p-3.5 rounded-2xl border border-[#D8EADB] space-y-2.5 shadow-xs">
+              <h4 className="font-black text-xs text-[#081A10]">Performances Financières du Jour</h4>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="bg-[#F4F7F4] p-2.5 rounded-xl border border-[#D8EADB]">
+                  <span className="text-[9px] text-gray-400 block font-bold">Total Ventes</span>
+                  <span className="font-black text-sm text-[#0A6E3B]">{formatFCFA(totalRevenue)}</span>
+                </div>
+                <div className="bg-[#F4F7F4] p-2.5 rounded-xl border border-[#D8EADB]">
+                  <span className="text-[9px] text-gray-400 block font-bold">Panier Moyen</span>
+                  <span className="font-black text-sm text-[#081A10]">{formatFCFA(myOrders.length ? totalRevenue / myOrders.length : 0)}</span>
+                </div>
+              </div>
             </div>
+
+            {/* Verified Customer Reviews list with Chef reply */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <h4 className="font-black text-xs text-[#081A10] uppercase tracking-wider">
+                  Avis Clients Dakarois ({currentResto.reviews?.length || 0})
+                </h4>
+                <span className="text-[10px] font-black text-[#0A6E3B] bg-[#E6F5EC] px-2 py-0.5 rounded-full">
+                  ⭐ {currentResto.rating} / 5
+                </span>
+              </div>
+
+              {currentResto.reviews?.map((rev) => (
+                <div key={rev.id} className="bg-white p-3 rounded-2xl border border-[#D8EADB] space-y-1.5 shadow-2xs text-xs">
+                  <div className="flex justify-between items-center">
+                    <span className="font-black text-[#081A10]">{rev.author}</span>
+                    <span className="text-[9px] text-gray-400">{rev.date}</span>
+                  </div>
+                  <p className="text-[11px] text-gray-600 leading-relaxed italic">"{rev.comment}"</p>
+                  <div className="pt-1 flex items-center justify-between text-[10px]">
+                    <span className="text-emerald-700 font-bold">Note : ⭐⭐⭐⭐⭐</span>
+                    <button
+                      onClick={() => alert(`Répondre à ${rev.author}`)}
+                      className="text-[#0A6E3B] font-bold hover:underline"
+                    >
+                      Répondre ➔
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+
           </div>
         )}
 
       </div>
 
-      {/* Resto Bottom Bar */}
-      <div className="absolute bottom-0 inset-x-0 h-14 bg-white/95 backdrop-blur-md border-t border-[#E2ECE5] flex items-center justify-around z-30 px-2 shadow-lg">
-        <button
-          onClick={() => setRestoTab('live')}
-          className={`flex flex-col items-center justify-center flex-1 py-1 ${restoTab === 'live' ? 'text-[#008235] font-black' : 'text-gray-400'}`}
-        >
-          <div className="relative">
-            <Bell className="w-4 h-4" />
-            {pending.length > 0 && (
-              <span className="absolute -top-1 -right-2 w-3.5 h-3.5 bg-amber-500 text-white text-[8px] font-black rounded-full flex items-center justify-center">
-                {pending.length}
-              </span>
-            )}
+      {/* =========================================================================
+          MODAL 1: CHANGER LA PHOTO DE COUVERTURE
+         ========================================================================= */}
+      <AnimatePresence>
+        {isEditCoverModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsEditCoverModalOpen(false)}
+              className="absolute inset-0 bg-black/70 backdrop-blur-xs"
+            />
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              className="relative z-10 w-full max-w-sm bg-white rounded-t-[36px] sm:rounded-3xl p-5 space-y-3.5 shadow-2xl max-h-[85vh] flex flex-col"
+            >
+              <div className="flex items-center justify-between border-b border-gray-100 pb-2.5">
+                <div>
+                  <h3 className="text-xs font-black text-[#081A10]">Changer la Photo de Couverture</h3>
+                  <p className="text-[10px] text-gray-400">Choisissez une photo HD ou collez un lien URL</p>
+                </div>
+                <button
+                  onClick={() => setIsEditCoverModalOpen(false)}
+                  className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-xs text-gray-500"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="space-y-3 overflow-y-auto flex-1 text-xs">
+                <span className="text-[10px] font-bold text-gray-500 block">Galerie de décors dakarois :</span>
+                <div className="grid grid-cols-2 gap-2">
+                  {presetCovers.map((preset, idx) => (
+                    <div
+                      key={idx}
+                      onClick={() => handleSelectCover(preset.url)}
+                      className="group cursor-pointer rounded-2xl overflow-hidden border-2 border-transparent hover:border-[#0A6E3B] transition-all relative aspect-video bg-gray-100 shadow-2xs"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={preset.url} alt={preset.label} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex items-end p-1.5">
+                        <span className="text-[8px] text-white font-bold truncate leading-tight">{preset.label}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Custom URL input */}
+                <div className="pt-2 border-t border-gray-100 space-y-1">
+                  <label className="text-[10px] font-bold text-gray-500">Ou entrez l'URL d'une image personnalisée :</label>
+                  <div className="flex gap-1.5">
+                    <input
+                      type="url"
+                      placeholder="https://..."
+                      id="customCoverUrl"
+                      className="flex-1 p-2 bg-[#F4F7F4] border border-[#D8EADB] rounded-xl text-xs"
+                    />
+                    <button
+                      onClick={() => {
+                        const input = document.getElementById('customCoverUrl') as HTMLInputElement;
+                        if (input && input.value) handleSelectCover(input.value);
+                      }}
+                      className="px-3 py-2 brand-gradient text-white font-bold rounded-xl text-xs"
+                    >
+                      Appliquer
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
           </div>
-          <span className="text-[9px] mt-0.5">Commandes</span>
-        </button>
+        )}
+      </AnimatePresence>
 
-        <button
-          onClick={() => setRestoTab('menu')}
-          className={`flex flex-col items-center justify-center flex-1 py-1 ${restoTab === 'menu' ? 'text-[#008235] font-black' : 'text-gray-400'}`}
-        >
-          <UtensilsCrossed className="w-4 h-4" />
-          <span className="text-[9px] mt-0.5">Carte Menu</span>
-        </button>
+      {/* =========================================================================
+          MODAL 2: CHANGER LE LOGO DU RESTAURANT
+         ========================================================================= */}
+      <AnimatePresence>
+        {isEditLogoModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsEditLogoModalOpen(false)}
+              className="absolute inset-0 bg-black/70 backdrop-blur-xs"
+            />
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              className="relative z-10 w-full max-w-sm bg-white rounded-t-[36px] sm:rounded-3xl p-5 space-y-3.5 shadow-2xl max-h-[85vh] flex flex-col"
+            >
+              <div className="flex items-center justify-between border-b border-gray-100 pb-2.5">
+                <div>
+                  <h3 className="text-xs font-black text-[#081A10]">Changer le Logo Officiel</h3>
+                  <p className="text-[10px] text-gray-400">Identité de marque affichée sur l'application</p>
+                </div>
+                <button
+                  onClick={() => setIsEditLogoModalOpen(false)}
+                  className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-xs text-gray-500"
+                >
+                  ✕
+                </button>
+              </div>
 
-        <button
-          onClick={() => setRestoTab('stats')}
-          className={`flex flex-col items-center justify-center flex-1 py-1 ${restoTab === 'stats' ? 'text-[#008235] font-black' : 'text-gray-400'}`}
-        >
-          <TrendingUp className="w-4 h-4" />
-          <span className="text-[9px] mt-0.5">Caisse</span>
-        </button>
-      </div>
+              <div className="space-y-3 overflow-y-auto flex-1 text-xs">
+                <span className="text-[10px] font-bold text-gray-500 block">Emblèmes disponibles :</span>
+                <div className="grid grid-cols-3 gap-2">
+                  {presetLogos.map((preset, idx) => (
+                    <div
+                      key={idx}
+                      onClick={() => handleSelectLogo(preset.url)}
+                      className="group cursor-pointer rounded-2xl overflow-hidden border-2 border-transparent hover:border-[#0A6E3B] transition-all relative aspect-square bg-white shadow-2xs p-1 flex flex-col items-center justify-center"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={preset.url} alt={preset.label} className="w-12 h-12 rounded-xl object-cover" />
+                      <span className="text-[8px] text-gray-700 font-bold truncate mt-1 w-full text-center">{preset.label}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Custom URL input */}
+                <div className="pt-2 border-t border-gray-100 space-y-1">
+                  <label className="text-[10px] font-bold text-gray-500">Ou entrez l'URL d'un logo personnalisé :</label>
+                  <div className="flex gap-1.5">
+                    <input
+                      type="url"
+                      placeholder="https://..."
+                      id="customLogoUrl"
+                      className="flex-1 p-2 bg-[#F4F7F4] border border-[#D8EADB] rounded-xl text-xs"
+                    />
+                    <button
+                      onClick={() => {
+                        const input = document.getElementById('customLogoUrl') as HTMLInputElement;
+                        if (input && input.value) handleSelectLogo(input.value);
+                      }}
+                      className="px-3 py-2 brand-gradient text-white font-bold rounded-xl text-xs"
+                    >
+                      Appliquer
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* =========================================================================
+          MODAL 3: MODIFIER LES INFOS GÉNÉRALES & COORDONNÉES
+         ========================================================================= */}
+      <AnimatePresence>
+        {isEditGeneralModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsEditGeneralModalOpen(false)}
+              className="absolute inset-0 bg-black/70 backdrop-blur-xs"
+            />
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              className="relative z-10 w-full max-w-sm bg-white rounded-t-[36px] sm:rounded-3xl p-5 space-y-3.5 shadow-2xl max-h-[85vh] flex flex-col"
+            >
+              <div className="flex items-center justify-between border-b border-gray-100 pb-2.5">
+                <h3 className="text-xs font-black text-[#081A10]">Modifier les Informations</h3>
+                <button
+                  onClick={() => setIsEditGeneralModalOpen(false)}
+                  className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-xs text-gray-500"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveGeneralInfo} className="space-y-2.5 overflow-y-auto flex-1 text-xs">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-gray-500">Nom du restaurant</label>
+                  <input
+                    type="text"
+                    required
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    className="w-full p-2 bg-[#F4F7F4] border border-[#D8EADB] rounded-xl font-bold text-[#081A10]"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-gray-500">Slogan / Description de l'ambiance</label>
+                  <input
+                    type="text"
+                    value={editTagline}
+                    onChange={(e) => setEditTagline(e.target.value)}
+                    placeholder="Ex: Le meilleur Thiébou Dieune face au coucher de soleil"
+                    className="w-full p-2 bg-[#F4F7F4] border border-[#D8EADB] rounded-xl text-xs"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-gray-500">Fourchette de prix</label>
+                    <input
+                      type="text"
+                      value={editPriceRange}
+                      onChange={(e) => setEditPriceRange(e.target.value)}
+                      placeholder="Ex: 3 000 - 7 000 FCFA"
+                      className="w-full p-2 bg-[#F4F7F4] border border-[#D8EADB] rounded-xl font-bold text-[#0A6E3B]"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-gray-500">Horaires de service</label>
+                    <input
+                      type="text"
+                      value={editHours}
+                      onChange={(e) => setEditHours(e.target.value)}
+                      placeholder="Ex: 11h30 - 23h30 (7j/7)"
+                      className="w-full p-2 bg-[#F4F7F4] border border-[#D8EADB] rounded-xl text-xs"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-gray-500">Quartier</label>
+                    <input
+                      type="text"
+                      value={editNeighborhood}
+                      onChange={(e) => setEditNeighborhood(e.target.value)}
+                      className="w-full p-2 bg-[#F4F7F4] border border-[#D8EADB] rounded-xl text-xs"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-gray-500">Téléphone / WhatsApp</label>
+                    <input
+                      type="text"
+                      value={editPhone}
+                      onChange={(e) => setEditPhone(e.target.value)}
+                      className="w-full p-2 bg-[#F4F7F4] border border-[#D8EADB] rounded-xl text-xs font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-gray-500">Adresse complète</label>
+                  <input
+                    type="text"
+                    value={editAddress}
+                    onChange={(e) => setEditAddress(e.target.value)}
+                    className="w-full p-2 bg-[#F4F7F4] border border-[#D8EADB] rounded-xl text-xs"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full py-3 rounded-2xl brand-gradient text-white font-black text-xs shadow-md mt-2"
+                >
+                  Enregistrer les modifications ➔
+                </button>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* =========================================================================
+          MODAL 4: AJOUTER UNE NOUVELLE VUE / PHOTO À LA GALERIE
+         ========================================================================= */}
+      <AnimatePresence>
+        {isAddGalleryPhotoModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsAddGalleryPhotoModalOpen(false)}
+              className="absolute inset-0 bg-black/70 backdrop-blur-xs"
+            />
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              className="relative z-10 w-full max-w-sm bg-white rounded-t-[36px] sm:rounded-3xl p-5 space-y-3.5 shadow-2xl max-h-[85vh] flex flex-col"
+            >
+              <div className="flex items-center justify-between border-b border-gray-100 pb-2.5">
+                <h3 className="text-xs font-black text-[#081A10]">Ajouter une photo à la Galerie</h3>
+                <button
+                  onClick={() => setIsAddGalleryPhotoModalOpen(false)}
+                  className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-xs text-gray-500"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <form onSubmit={handleAddGalleryPhoto} className="space-y-3 overflow-y-auto flex-1 text-xs">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-gray-500">Choisir un cadre rapide :</label>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {[
+                      { label: 'Terrasse Mer', url: 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=800&q=80' },
+                      { label: 'Salle Cosy', url: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=800&q=80' },
+                      { label: 'Cuisine Direct', url: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=800&q=80' },
+                      { label: 'Coin VIP', url: 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=800&q=80' },
+                      { label: 'Jardin Soirée', url: 'https://images.unsplash.com/photo-1550966871-3ed3cdb5ed0c?auto=format&fit=crop&w=800&q=80' },
+                      { label: 'Buffet Royal', url: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=800&q=80' },
+                    ].map((sample, i) => (
+                      <button
+                        type="button"
+                        key={i}
+                        onClick={() => {
+                          setNewPhotoUrl(sample.url);
+                          setNewPhotoLabel(sample.label);
+                        }}
+                        className={`p-1.5 rounded-xl border text-[9px] font-bold transition-all text-center ${
+                          newPhotoUrl === sample.url ? 'bg-[#E6F5EC] border-[#0A6E3B] text-[#0A6E3B]' : 'bg-gray-50 border-gray-200'
+                        }`}
+                      >
+                        {sample.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-gray-500">Ou URL personnalisée de la photo :</label>
+                  <input
+                    type="url"
+                    required
+                    value={newPhotoUrl}
+                    onChange={(e) => setNewPhotoUrl(e.target.value)}
+                    placeholder="https://..."
+                    className="w-full p-2 bg-[#F4F7F4] border border-[#D8EADB] rounded-xl text-xs"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full py-3 rounded-2xl brand-gradient text-white font-black text-xs shadow-md mt-2"
+                >
+                  Ajouter à la galerie en direct ➔
+                </button>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* =========================================================================
+          MODAL 5: GÉRER LES BADGES D'AMBIANCE
+         ========================================================================= */}
+      <AnimatePresence>
+        {isManageTagsModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsManageTagsModalOpen(false)}
+              className="absolute inset-0 bg-black/70 backdrop-blur-xs"
+            />
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              className="relative z-10 w-full max-w-sm bg-white rounded-t-[36px] sm:rounded-3xl p-5 space-y-3.5 shadow-2xl max-h-[85vh] flex flex-col"
+            >
+              <div className="flex items-center justify-between border-b border-gray-100 pb-2.5">
+                <h3 className="text-xs font-black text-[#081A10]">Gérer les Badges d'Ambiance</h3>
+                <button
+                  onClick={() => setIsManageTagsModalOpen(false)}
+                  className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-xs text-gray-500"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="space-y-3 overflow-y-auto flex-1 text-xs">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-gray-500">Ajouter un badge personnalisé :</label>
+                  <div className="flex gap-1.5">
+                    <input
+                      type="text"
+                      placeholder="Ex: Vue sur l'île de Ngor"
+                      value={customTagInput}
+                      onChange={(e) => setCustomTagInput(e.target.value)}
+                      className="flex-1 p-2 bg-[#F4F7F4] border border-[#D8EADB] rounded-xl text-xs font-bold"
+                    />
+                    <button
+                      onClick={() => handleAddTag(customTagInput)}
+                      className="px-3 py-2 brand-gradient text-white font-bold rounded-xl text-xs"
+                    >
+                      + Ajouter
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5 pt-2 border-t border-gray-100">
+                  <span className="text-[10px] font-bold text-gray-500 block">Suggestions rapides :</span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {presetAmbianceSuggestions.map((sug, i) => {
+                      const isAlreadyAdded = currentResto.ambianceTags?.includes(sug);
+                      return (
+                        <button
+                          key={i}
+                          disabled={isAlreadyAdded}
+                          onClick={() => handleAddTag(sug)}
+                          className={`px-2.5 py-1 rounded-xl text-[10px] font-bold transition-all ${
+                            isAlreadyAdded
+                              ? 'bg-gray-100 text-gray-400 opacity-60'
+                              : 'bg-[#E6F5EC] text-[#0A6E3B] border border-[#0A6E3B]/20 hover:bg-[#d5eedf]'
+                          }`}
+                        >
+                          {isAlreadyAdded ? `✓ ${sug}` : `+ ${sug}`}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* =========================================================================
+          MODAL: NOUVEAU PLAT AU MENU
+         ========================================================================= */}
+      <AnimatePresence>
+        {isAddDishModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsAddDishModalOpen(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-xs"
+            />
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              className="relative z-10 w-full max-w-sm bg-white rounded-t-[36px] sm:rounded-3xl p-5 space-y-3.5 shadow-2xl max-h-[85vh] flex flex-col"
+            >
+              <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                <h3 className="text-sm font-black text-[#081A10]">Ajouter un plat au menu</h3>
+                <button
+                  onClick={() => setIsAddDishModalOpen(false)}
+                  className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-xs text-gray-500"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <form onSubmit={handleAddDish} className="space-y-3 overflow-y-auto flex-1 text-xs">
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-gray-500">Nom du plat</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ex: Thiébou Guinar Royal"
+                    value={newDishName}
+                    onChange={(e) => setNewDishName(e.target.value)}
+                    className="w-full p-2.5 bg-[#F4F7F4] border border-[#D8EADB] rounded-xl font-bold text-[#081A10]"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-gray-500">Catégorie</label>
+                    <select
+                      value={newDishCategory}
+                      onChange={(e) => setNewDishCategory(e.target.value)}
+                      className="w-full p-2 bg-[#F4F7F4] border border-[#D8EADB] rounded-xl font-bold text-[#081A10]"
+                    >
+                      <option value="cat-thieb">Thiéboudienne</option>
+                      <option value="cat-dibi">Dibi & Grillades</option>
+                      <option value="cat-pastels">Pastels & Snacks</option>
+                      <option value="cat-drinks">Boissons Locales</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-gray-500">Prix (FCFA)</label>
+                    <input
+                      type="number"
+                      required
+                      step="500"
+                      value={newDishPrice}
+                      onChange={(e) => setNewDishPrice(Number(e.target.value))}
+                      className="w-full p-2 bg-[#F4F7F4] border border-[#D8EADB] rounded-xl font-bold text-[#0A6E3B]"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-gray-500">Description</label>
+                  <textarea
+                    rows={2}
+                    placeholder="Description savoureuse pour donner envie aux clients..."
+                    value={newDishDesc}
+                    onChange={(e) => setNewDishDesc(e.target.value)}
+                    className="w-full p-2.5 bg-[#F4F7F4] border border-[#D8EADB] rounded-xl text-xs text-[#081A10]"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full py-3 rounded-2xl brand-gradient text-white font-black text-xs shadow-md mt-2"
+                >
+                  Ajouter à la carte en direct ➔
+                </button>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* =========================================================================
+          MODAL: PRÉVISUALISATION DIRECTE CLIENT
+         ========================================================================= */}
+      <AnimatePresence>
+        {isPreviewClientModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsPreviewClientModalOpen(false)}
+              className="absolute inset-0 bg-black/70 backdrop-blur-xs"
+            />
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              className="relative z-10 w-full max-w-sm bg-white rounded-t-[36px] sm:rounded-3xl overflow-hidden shadow-2xl max-h-[90vh] flex flex-col"
+            >
+              {/* Cover Header */}
+              <div className="relative h-44 w-full shrink-0 bg-gray-900">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={currentResto.coverImage} alt={currentResto.name} className="w-full h-full object-cover opacity-90" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
+                
+                <button
+                  onClick={() => setIsPreviewClientModalOpen(false)}
+                  className="absolute top-3 right-3 w-8 h-8 rounded-full bg-black/60 text-white flex items-center justify-center text-xs backdrop-blur-xs shadow-md"
+                >
+                  ✕
+                </button>
+
+                <div className="absolute bottom-3 inset-x-3 flex items-end gap-2.5 text-white">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={currentResto.logo} alt={currentResto.name} className="w-12 h-12 rounded-xl object-cover border-2 border-white shadow-md shrink-0 bg-white" />
+                  <div className="min-w-0">
+                    <span className="text-[9px] uppercase font-bold text-emerald-300">Aperçu Client en Direct</span>
+                    <h3 className="text-sm font-black truncate">{currentResto.name}</h3>
+                    <p className="text-[9px] text-gray-200 truncate">{currentResto.address}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Showcase Body Preview */}
+              <div className="p-4 space-y-3 overflow-y-auto flex-1 text-xs">
+                <div className="bg-[#E6F5EC] p-3 rounded-2xl border border-[#0A6E3B]/20 space-y-1">
+                  <div className="flex items-center justify-between font-black text-[#0A6E3B] text-[11px]">
+                    <span>⭐ {currentResto.rating} ({currentResto.reviewCount} avis)</span>
+                    <span>{currentResto.priceRange || '2 500 - 6 500 FCFA'}</span>
+                  </div>
+                  <p className="text-[10px] text-gray-600 italic">"{currentResto.tagline || 'Spécialités sénégalaises d’excellence'}"</p>
+                </div>
+
+                {/* Gallery preview */}
+                <div className="space-y-1">
+                  <span className="font-bold text-gray-700 text-[10px] block">Photos d'ambiance du restaurant :</span>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {currentResto.gallery?.map((img, i) => (
+                      <div key={i} className="aspect-square rounded-xl overflow-hidden bg-gray-100 border border-[#D8EADB]">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={img} alt="" className="w-full h-full object-cover" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Ambiance tags preview */}
+                <div className="space-y-1">
+                  <span className="font-bold text-gray-700 text-[10px] block">Ambiance certifiée :</span>
+                  <div className="flex flex-wrap gap-1">
+                    {currentResto.ambianceTags?.map((tag, i) => (
+                      <span key={i} className="px-2 py-0.5 rounded-lg bg-[#E6F5EC] text-[#0A6E3B] text-[9px] font-bold">
+                        ✨ {tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Amenities preview */}
+                <div className="space-y-1">
+                  <span className="font-bold text-gray-700 text-[10px] block">Commodités sur place :</span>
+                  <div className="grid grid-cols-2 gap-1 text-[9px]">
+                    {currentResto.amenities?.map((amenity, i) => (
+                      <div key={i} className="p-1.5 rounded-lg bg-gray-50 border border-gray-200 text-gray-700 font-semibold flex items-center gap-1 truncate">
+                        <span className="text-emerald-600">✓</span>
+                        <span className="truncate">{amenity}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 }
 
 // =========================================================================
-// 3. MOBILE APP COURIER VIEW (Radar Courses, GPS, Prise de service)
+// 3. MOBILE APP COURIER VIEW (Radar Livreur Dakar)
 // =========================================================================
 function MobileCourierApp() {
   const { couriers, orders, toggleCourierOnline, acceptDeliveryMission, completeDeliveryMission } = useApp();
   const currentCourier = couriers[0];
-  const isOnline = currentCourier.isOnline;
+  const isOnline = currentCourier?.isOnline;
 
-  const activeOrder = orders.find((o) => o.id === currentCourier.activeOrderId);
+  const activeOrder = orders.find((o) => o.id === currentCourier?.activeOrderId);
   const availableOrders = orders.filter((o) => (o.status === 'ready_for_pickup' || o.status === 'preparing') && !o.courierId);
 
   return (
-    <div className="h-full flex flex-col bg-[#F7FAF7] relative overflow-hidden">
-      {/* Courier Mobile Header */}
-      <div className="pt-2 px-4 pb-3 bg-[#07431E] text-white flex items-center justify-between shrink-0 shadow-md z-20">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center font-bold text-sm">
-            🛵
-          </div>
-          <div>
-            <h4 className="font-extrabold text-xs leading-tight">{currentCourier.name}</h4>
-            <span className="text-[10px] text-emerald-300">Moto Jakarta ({currentCourier.plateNumber})</span>
-          </div>
+    <div className="h-full flex flex-col bg-[#F4F7F4] relative overflow-hidden font-sans">
+      <div className="pt-3 px-4 pb-3 bg-[#064E2B] text-white flex items-center justify-between shrink-0 shadow-md">
+        <div>
+          <h4 className="font-extrabold text-xs leading-tight">{currentCourier?.name || 'Ibrahima Fall'}</h4>
+          <span className="text-[10px] text-emerald-300">Moto Jakarta Dakar</span>
         </div>
-
-        <motion.button
-          whileTap={{ scale: 0.95 }}
-          onClick={() => toggleCourierOnline(currentCourier.id)}
-          className={`px-3 py-1 rounded-full text-[10px] font-black border flex items-center gap-1 ${isOnline ? 'bg-[#008235] text-white border-white/20' : 'bg-gray-700 text-gray-300 border-gray-600'}`}
+        <button
+          onClick={() => toggleCourierOnline(currentCourier?.id || '')}
+          className="px-3 py-1 rounded-full text-[10px] font-black bg-[#10B981] text-white"
         >
-          <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-white animate-ping' : 'bg-gray-400'}`} />
-          <span>{isOnline ? 'EN SERVICE' : 'HORS LIGNE'}</span>
-        </motion.button>
+          {isOnline ? 'EN SERVICE' : 'HORS LIGNE'}
+        </button>
       </div>
 
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto no-scrollbar p-4 pb-20 space-y-4">
-        
-        {/* Earnings banner */}
+      <div className="flex-1 overflow-y-auto no-scrollbar p-4 pb-20 space-y-3">
         <div className="grid grid-cols-2 gap-2 text-center text-xs">
-          <div className="bg-white p-3 rounded-2xl border border-[#E2ECE5] shadow-2xs">
+          <div className="bg-white p-3 rounded-2xl border border-[#D8EADB] shadow-2xs">
             <span className="text-[9px] text-gray-400 uppercase font-bold block">Gains du jour</span>
-            <span className="text-base font-black text-[#008235]">{formatFCFA(currentCourier.todayEarnings)}</span>
+            <span className="text-base font-black text-[#0A6E3B]">{formatFCFA(currentCourier?.todayEarnings || 15000)}</span>
           </div>
-          <div className="bg-white p-3 rounded-2xl border border-[#E2ECE5] shadow-2xs">
+          <div className="bg-white p-3 rounded-2xl border border-[#D8EADB] shadow-2xs">
             <span className="text-[9px] text-gray-400 uppercase font-bold block">Courses Réussies</span>
-            <span className="text-base font-black text-[#07431E]">{currentCourier.completedDeliveries}</span>
+            <span className="text-base font-black text-[#081A10]">{currentCourier?.completedDeliveries || 8}</span>
           </div>
         </div>
 
-        {/* ACTIVE MISSION */}
         {activeOrder && (
-          <motion.div
-            initial={{ scale: 0.95 }}
-            animate={{ scale: 1 }}
-            className="bg-white p-4 rounded-2xl border-2 border-[#008235] shadow-md space-y-3"
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-black text-[#008235] bg-[#EBF7EE] px-2 py-0.5 rounded-full">
-                Course en cours {activeOrder.orderNumber}
-              </span>
-              <span className="text-xs font-black text-[#008235]">+{formatFCFA(activeOrder.deliveryFee)}</span>
-            </div>
-
-            <div className="bg-[#F7FAF7] p-2.5 rounded-xl text-xs space-y-2">
-              <div>
-                <span className="text-[9px] font-bold text-gray-400 uppercase block">1. Récupération</span>
-                <p className="font-extrabold text-[#07431E]">{activeOrder.restaurantName}</p>
-              </div>
-              <div className="pt-1 border-t border-[#E2ECE5]">
-                <span className="text-[9px] font-bold text-gray-400 uppercase block">2. Client</span>
-                <p className="font-extrabold text-[#07431E]">{activeOrder.clientName} ({activeOrder.deliveryAddress.neighborhood})</p>
-                <p className="text-[10px] text-gray-500">{activeOrder.deliveryAddress.street}</p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <a
-                href={`tel:${activeOrder.clientPhone}`}
-                className="px-3 py-2 rounded-xl bg-gray-100 text-gray-700 text-xs font-bold flex items-center gap-1"
-              >
-                <Phone className="w-3.5 h-3.5" />
-                <span>Appeler</span>
-              </a>
-              <motion.button
-                whileTap={{ scale: 0.95 }}
-                onClick={() => completeDeliveryMission(currentCourier.id, activeOrder.id)}
-                className="flex-1 py-2 rounded-xl brand-gradient text-white text-xs font-black shadow-md flex items-center justify-center gap-1"
-              >
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>Livré avec succès</span>
-              </motion.button>
-            </div>
-          </motion.div>
-        )}
-
-        {/* RADAR AVAILABLE ORDERS */}
-        <div className="space-y-2.5">
-          <div className="flex items-center justify-between">
-            <h4 className="text-xs font-black text-[#07431E] uppercase tracking-wider flex items-center gap-1.5">
-              <Navigation className="w-3.5 h-3.5 text-[#FA8038]" />
-              <span>Radar Courses Dakar ({availableOrders.length})</span>
-            </h4>
+          <div className="bg-white p-4 rounded-2xl border-2 border-[#0A6E3B] space-y-2 shadow-md">
+            <span className="text-xs font-black text-[#0A6E3B]">Mission en cours {activeOrder.orderNumber}</span>
+            <p className="text-xs font-bold text-[#081A10]">{activeOrder.clientName} ({activeOrder.deliveryAddress.neighborhood})</p>
+            <button
+              onClick={() => completeDeliveryMission(currentCourier.id, activeOrder.id)}
+              className="w-full py-2 rounded-xl brand-gradient text-white text-xs font-black"
+            >
+              Livré avec succès ✓
+            </button>
           </div>
-
-          {!isOnline ? (
-            <div className="p-6 text-center bg-gray-50 rounded-2xl border border-dashed border-gray-300 text-xs text-gray-500">
-              Passez en service pour recevoir les courses à Dakar.
-            </div>
-          ) : availableOrders.length === 0 && !activeOrder ? (
-            <div className="p-6 text-center bg-white rounded-2xl border border-[#E2ECE5] text-xs text-gray-400">
-              En attente de commandes prêtes en cuisine...
-            </div>
-          ) : (
-            <div className="space-y-2.5">
-              {availableOrders.map((m) => (
-                <div key={m.id} className="bg-white p-3 rounded-2xl border border-[#E2ECE5] flex items-center justify-between gap-3 shadow-2xs">
-                  <div>
-                    <span className="font-bold text-xs text-[#0D1C12] block">{m.restaurantName}</span>
-                    <span className="text-[10px] text-gray-500">➔ {m.deliveryAddress.neighborhood}</span>
-                    <span className="text-[10px] font-black text-[#008235] block mt-0.5">+{formatFCFA(m.deliveryFee)}</span>
-                  </div>
-                  <motion.button
-                    disabled={Boolean(activeOrder)}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => acceptDeliveryMission(currentCourier.id, m.id)}
-                    className="px-3.5 py-1.5 rounded-xl brand-gradient-orange text-white text-[11px] font-black shadow-xs disabled:opacity-40"
-                  >
-                    Accepter
-                  </motion.button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
+        )}
       </div>
     </div>
   );
@@ -1049,11 +4314,11 @@ export default function MobileDeviceShowcase() {
   const [selectedOrderForTracking, setSelectedOrderForTracking] = useState<Order | null>(null);
 
   return (
-    <div className="min-h-screen bg-[#071F11] text-white flex flex-col items-center justify-start py-6 px-4 relative overflow-x-hidden selection:bg-[#008235]">
+    <div className="min-h-screen bg-[#062112] text-white flex flex-col items-center justify-start py-6 px-4 relative overflow-x-hidden selection:bg-[#0A6E3B]">
       
       {/* Background Ambience & Lighting */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-[#008235]/15 rounded-full blur-[140px] pointer-events-none" />
-      <div className="absolute bottom-0 right-0 w-[400px] h-[400px] bg-[#FA8038]/10 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-[#0A6E3B]/20 rounded-full blur-[140px] pointer-events-none" />
+      <div className="absolute bottom-0 right-0 w-[400px] h-[400px] bg-[#FF7824]/10 rounded-full blur-[120px] pointer-events-none" />
 
       {/* Top Studio Controls : Role Switcher for the 3 Mobile Accounts */}
       <header className="w-full max-w-4xl flex flex-col sm:flex-row items-center justify-between gap-4 z-20 mb-6 pb-4 border-b border-white/10">
@@ -1066,9 +4331,9 @@ export default function MobileDeviceShowcase() {
           <div>
             <div className="flex items-center gap-1.5">
               <h1 className="text-xl font-black tracking-tight text-white">
-                Thiob<span className="text-[#FA8038]">.</span>Dakar
+                Thiob<span className="text-[#FF7824]">.</span>Dakar
               </h1>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#008235] text-white">
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#0A6E3B] text-white">
                 App Mobile
               </span>
             </div>
@@ -1095,7 +4360,7 @@ export default function MobileDeviceShowcase() {
                 {isActive && (
                   <motion.div
                     layoutId="activePhoneRole"
-                    className="absolute inset-0 bg-[#FA8038] rounded-xl shadow-md -z-10"
+                    className="absolute inset-0 bg-[#0A6E3B] rounded-xl shadow-md -z-10"
                     transition={{ type: 'spring', stiffness: 450, damping: 35 }}
                   />
                 )}
@@ -1108,11 +4373,11 @@ export default function MobileDeviceShowcase() {
         </div>
       </header>
 
-      {/* 📱 SMARTPHONE MOCKUP FRAME (iOS / Android Studio) */}
-      <div className="relative z-10 w-full max-w-[390px] h-[780px] sm:h-[810px] rounded-[52px] bg-[#1a1a1a] p-3.5 shadow-[0_25px_70px_rgba(0,0,0,0.8),0_0_0_12px_#2a2a2a,0_0_0_14px_#111] flex flex-col justify-between">
+      {/* 📱 SMARTPHONE MOCKUP FRAME */}
+      <div className="relative z-10 w-full max-w-[420px] h-[860px] rounded-[54px] bg-[#1a1a1a] p-3.5 shadow-[0_25px_70px_rgba(0,0,0,0.8),0_0_0_12px_#26332a,0_0_0_14px_#111] flex flex-col justify-between">
         
         {/* Device Screen Frame */}
-        <div className="w-full h-full rounded-[42px] bg-[#F7FAF7] text-[#0D1C12] overflow-hidden flex flex-col relative">
+        <div className="w-full h-full rounded-[42px] bg-[#F4F7F4] text-[#081A10] overflow-hidden flex flex-col relative">
           
           {/* iOS Dynamic Island & Status Bar */}
           <div className="h-10 bg-white border-b border-gray-100 flex items-center justify-between px-6 shrink-0 relative z-30">
@@ -1120,7 +4385,7 @@ export default function MobileDeviceShowcase() {
             
             {/* Dynamic Island Pill */}
             <div className="w-24 h-5 rounded-full bg-black flex items-center justify-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-[#008235] animate-pulse" />
+              <span className="w-2 h-2 rounded-full bg-[#0A6E3B] animate-pulse" />
               <span className="text-[8px] font-bold text-white uppercase tracking-wider">Thiob</span>
             </div>
 
@@ -1149,12 +4414,6 @@ export default function MobileDeviceShowcase() {
                 )}
                 {currentRole === 'restaurant' && <MobileRestaurantApp />}
                 {currentRole === 'courier' && <MobileCourierApp />}
-                {currentRole === 'admin' && (
-                  <div className="p-6 text-center space-y-4">
-                    <h3 className="font-black text-sm text-[#07431E]">Mode Super Admin</h3>
-                    <p className="text-xs text-gray-500">Basculez sur l'un des 3 comptes mobiles ci-dessus pour tester.</p>
-                  </div>
-                )}
               </motion.div>
             </AnimatePresence>
           </div>
@@ -1183,14 +4442,14 @@ export default function MobileDeviceShowcase() {
               initial={{ scale: 0.9, y: 20 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.9, y: 20 }}
-              className="relative z-10 bg-white text-[#0D1C12] w-full max-w-sm rounded-3xl p-5 space-y-4 shadow-2xl"
+              className="relative z-10 bg-white text-[#081A10] w-full max-w-sm rounded-3xl p-5 space-y-4 shadow-2xl"
             >
               <div className="flex items-center justify-between border-b border-gray-100 pb-3">
                 <div>
-                  <span className="text-[10px] font-bold text-[#008235] bg-[#EBF7EE] px-2 py-0.5 rounded-full">
+                  <span className="text-[10px] font-bold text-[#0A6E3B] bg-[#E6F5EC] px-2 py-0.5 rounded-full">
                     Commande {selectedOrderForTracking.orderNumber}
                   </span>
-                  <h4 className="font-extrabold text-sm text-[#07431E] mt-1">Suivi de livraison en direct</h4>
+                  <h4 className="font-extrabold text-sm text-[#081A10] mt-1">Suivi de livraison en direct</h4>
                 </div>
                 <button
                   onClick={() => setSelectedOrderForTracking(null)}
@@ -1201,13 +4460,13 @@ export default function MobileDeviceShowcase() {
               </div>
 
               <div className="space-y-2 text-xs">
-                <div className="p-3 rounded-xl bg-[#F7FAF7] border border-[#E2ECE5] space-y-1">
-                  <p className="font-bold text-[#07431E]">Livreur : {selectedOrderForTracking.courierName || 'Ibrahima Fall (Moto Jakarta)'}</p>
+                <div className="p-3 rounded-xl bg-[#F4F7F4] border border-[#D8EADB] space-y-1">
+                  <p className="font-bold text-[#081A10]">Livreur : {selectedOrderForTracking.courierName || 'Ibrahima Fall (Moto Jakarta)'}</p>
                   <p className="text-[11px] text-gray-500">Destination : {selectedOrderForTracking.deliveryAddress.street}, {selectedOrderForTracking.deliveryAddress.neighborhood}</p>
                 </div>
 
-                <div className="p-2.5 rounded-xl bg-[#EBF7EE] text-[#008235] font-bold flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-[#008235] animate-ping" />
+                <div className="p-2.5 rounded-xl bg-[#E6F5EC] text-[#0A6E3B] font-bold flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-[#0A6E3B] animate-ping" />
                   <span>En cours de livraison à Dakar</span>
                 </div>
               </div>
