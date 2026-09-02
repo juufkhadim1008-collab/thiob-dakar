@@ -1264,6 +1264,36 @@ export default function RestaurantSpace() {
               </h3>
               
               <form onSubmit={handleCreateDish} className="space-y-3">
+                {/* Photo upload */}
+                <div>
+                  <label className="block text-xs font-bold text-gray-700 mb-1">Photo du plat / jus</label>
+                  <div className="flex items-center gap-3">
+                    <div className="w-14 h-14 rounded-2xl overflow-hidden bg-gray-100 border border-[#0A6E3B]/30 shrink-0 shadow-2xs">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={newDishImage} alt="" className="w-full h-full object-cover" />
+                    </div>
+                    <label className="flex-1 py-2.5 px-3 rounded-xl bg-[#E6F5EC] border border-[#0A6E3B]/30 text-[#064E2B] font-black text-xs flex items-center justify-center gap-2 cursor-pointer hover:bg-[#d8eedf] transition-all">
+                      <Camera className="w-4 h-4 text-[#0A6E3B]" />
+                      <span>📱 Choisir une photo depuis l'appareil</span>
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onload = (ev) => {
+                              if (ev.target?.result) setNewDishImage(ev.target.result as string);
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }} 
+                        className="hidden" 
+                      />
+                    </label>
+                  </div>
+                </div>
+
                 <div>
                   <label className="block text-xs font-bold text-gray-700 mb-1">Nom du plat</label>
                   <input
