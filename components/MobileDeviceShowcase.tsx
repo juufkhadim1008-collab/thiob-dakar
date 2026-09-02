@@ -4317,14 +4317,14 @@ export default function MobileDeviceShowcase() {
   const [showOnboarding, setShowOnboarding] = useState(true);
 
   return (
-    <div className="min-h-screen bg-[#062112] text-white flex flex-col items-center justify-start py-6 px-4 relative overflow-x-hidden selection:bg-[#0A6E3B]">
+    <div className="min-h-screen bg-[#F0F5F2] md:bg-[#062112] text-[#081A10] md:text-white flex flex-col items-center justify-start p-0 md:py-6 md:px-4 relative overflow-x-hidden selection:bg-[#0A6E3B]">
       
-      {/* Background Ambience & Lighting */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-[#0A6E3B]/20 rounded-full blur-[140px] pointer-events-none" />
-      <div className="absolute bottom-0 right-0 w-[400px] h-[400px] bg-[#FF7824]/10 rounded-full blur-[120px] pointer-events-none" />
+      {/* Background Ambience & Lighting (Desktop only) */}
+      <div className="hidden md:block absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-[#0A6E3B]/20 rounded-full blur-[140px] pointer-events-none" />
+      <div className="hidden md:block absolute bottom-0 right-0 w-[400px] h-[400px] bg-[#FF7824]/10 rounded-full blur-[120px] pointer-events-none" />
 
-      {/* Top Studio Controls : Role Switcher for the 3 Mobile Accounts */}
-      <header className="w-full max-w-4xl flex flex-col sm:flex-row items-center justify-between gap-4 z-20 mb-6 pb-4 border-b border-white/10">
+      {/* Top Studio Controls (Desktop only - Hidden on Real Mobile Devices) */}
+      <header className="hidden md:flex w-full max-w-4xl flex-col sm:flex-row items-center justify-between gap-4 z-20 mb-6 pb-4 border-b border-white/10">
         
         {/* App Branding */}
         <div className="flex items-center gap-3">
@@ -4398,14 +4398,14 @@ export default function MobileDeviceShowcase() {
         </div>
       </header>
 
-      {/* 📱 SMARTPHONE MOCKUP FRAME */}
-      <div className="relative z-10 w-full max-w-[420px] h-[860px] rounded-[54px] bg-[#1a1a1a] p-3.5 shadow-[0_25px_70px_rgba(0,0,0,0.8),0_0_0_12px_#26332a,0_0_0_14px_#111] flex flex-col justify-between">
+      {/* 📱 NATIVE FULL-SCREEN ON PHONES / MOCKUP SHELL ON DESKTOP */}
+      <div className="w-full h-dvh md:h-[860px] md:max-w-[420px] rounded-none md:rounded-[54px] bg-[#F0F5F2] md:bg-[#1a1a1a] p-0 md:p-3.5 shadow-none md:shadow-[0_25px_70px_rgba(0,0,0,0.8),0_0_0_12px_#26332a,0_0_0_14px_#111] flex flex-col justify-between relative z-10 overflow-hidden">
         
         {/* Device Screen Frame */}
-        <div className="w-full h-full rounded-[42px] bg-[#F4F7F4] text-[#081A10] overflow-hidden flex flex-col relative">
+        <div className="w-full h-full rounded-none md:rounded-[42px] bg-[#F0F5F2] text-[#081A10] overflow-hidden flex flex-col relative">
           
-          {/* iOS Dynamic Island & Status Bar */}
-          <div className="h-10 bg-white border-b border-gray-100 flex items-center justify-between px-6 shrink-0 relative z-30">
+          {/* iOS Dynamic Island & Status Bar (Only visible on Desktop Simulator) */}
+          <div className="hidden md:flex h-10 bg-white border-b border-gray-100 items-center justify-between px-6 shrink-0 relative z-30">
             <span className="text-[11px] font-black text-black tracking-tight">09:41</span>
             
             {/* Dynamic Island Pill */}
@@ -4461,8 +4461,8 @@ export default function MobileDeviceShowcase() {
             </AnimatePresence>
           </div>
 
-          {/* iOS Bottom Home Indicator Bar */}
-          <div className="h-4 bg-white flex items-center justify-center shrink-0 z-30">
+          {/* iOS Bottom Home Indicator Bar (Desktop Simulator only) */}
+          <div className="hidden md:flex h-4 bg-white items-center justify-center shrink-0 z-30">
             <div className="w-32 h-1 rounded-full bg-gray-300" />
           </div>
 
