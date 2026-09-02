@@ -12,6 +12,11 @@ export const metadata: Metadata = {
   title: 'Thiob-Dakar | Plateforme de Restauration & Livraison Gastronomique',
   description: 'Commandez le meilleur du Thiéboudienne, Dibi et cuisine sénégalaise à Dakar. Plateforme interconnectée pour clients, restaurants et livreurs.',
   keywords: ['Thiéboudienne', 'Dakar', 'Livraison repas Dakar', 'Restaurants Dakar', 'Plats sénégalais', 'Almadies', 'Plateau'],
+  icons: {
+    icon: '/images/Icone app.png',
+    shortcut: '/images/Icone app.png',
+    apple: '/images/Icone app.png',
+  },
 };
 
 export default function RootLayout({

@@ -4325,9 +4325,12 @@ export default function MobileDeviceShowcase() {
         
         {/* App Branding */}
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl brand-gradient flex items-center justify-center text-white font-black shadow-lg">
-            TD
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/images/Icone app.png"
+            alt="Thiob.Dakar"
+            className="w-11 h-11 rounded-2xl object-cover shadow-lg border border-emerald-400/40"
+          />
           <div>
             <div className="flex items-center gap-1.5">
               <h1 className="text-xl font-black tracking-tight text-white">

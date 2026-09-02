@@ -105,13 +105,16 @@ export default function Navbar({
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img 
-                src="/brand/logo-thiob.png" 
+                src="/images/Icone app.png" 
                 alt="Thiob Express" 
-                className="h-10 w-auto object-contain drop-shadow-xs" 
+                className="h-11 w-11 rounded-2xl object-cover drop-shadow-md border border-emerald-400/30" 
               />
               <div className="hidden sm:block">
-                <p className="text-[10px] font-bold text-[#FF7824] tracking-wider uppercase">
-                  Dakar Express
+                <span className="font-black text-lg text-[#081A10] leading-none block">
+                  Thiob<span className="text-[#FF7824]">.Dakar</span>
+                </span>
+                <p className="text-[9px] font-extrabold text-[#0A6E3B] tracking-wider uppercase mt-0.5">
+                  Gastronomie & Découverte
                 </p>
               </div>
             </motion.div>
