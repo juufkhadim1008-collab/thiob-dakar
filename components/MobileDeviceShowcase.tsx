@@ -4314,7 +4314,7 @@ import OnboardingFlow from './OnboardingFlow';
 export default function MobileDeviceShowcase() {
   const { currentRole, setCurrentRole } = useApp();
   const [selectedOrderForTracking, setSelectedOrderForTracking] = useState<Order | null>(null);
-  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(true);
 
   return (
     <div className="min-h-screen bg-[#062112] text-white flex flex-col items-center justify-start py-6 px-4 relative overflow-x-hidden selection:bg-[#0A6E3B]">
