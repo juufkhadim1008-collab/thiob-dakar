@@ -4309,9 +4309,12 @@ function MobileCourierApp() {
 // =========================================================================
 // 4. MAIN SMARTPHONE SHELL & SHOWCASE CONTAINER
 // =========================================================================
+import OnboardingFlow from './OnboardingFlow';
+
 export default function MobileDeviceShowcase() {
   const { currentRole, setCurrentRole } = useApp();
   const [selectedOrderForTracking, setSelectedOrderForTracking] = useState<Order | null>(null);
+  const [showOnboarding, setShowOnboarding] = useState(false);
 
   return (
     <div className="min-h-screen bg-[#062112] text-white flex flex-col items-center justify-start py-6 px-4 relative overflow-x-hidden selection:bg-[#0A6E3B]">
@@ -4346,33 +4349,52 @@ export default function MobileDeviceShowcase() {
           </div>
         </div>
 
-        {/* 3 Mobile Roles Selector */}
-        <div className="flex items-center gap-1.5 bg-white/10 backdrop-blur-md p-1.5 rounded-2xl border border-white/15 shadow-md">
-          {[
-            { role: 'client' as UserRole, label: '📱 App Client', desc: 'Commander' },
-            { role: 'restaurant' as UserRole, label: '👨‍🍳 App Resto', desc: 'Cuisine' },
-            { role: 'courier' as UserRole, label: '🛵 App Livreur', desc: 'Courses' },
-          ].map((item) => {
-            const isActive = currentRole === item.role;
-            return (
-              <button
-                key={item.role}
-                onClick={() => setCurrentRole(item.role)}
-                className="relative px-3.5 py-1.5 rounded-xl text-xs font-extrabold transition-all z-10"
-              >
-                {isActive && (
-                  <motion.div
-                    layoutId="activePhoneRole"
-                    className="absolute inset-0 bg-[#0A6E3B] rounded-xl shadow-md -z-10"
-                    transition={{ type: 'spring', stiffness: 450, damping: 35 }}
-                  />
-                )}
-                <span className={isActive ? 'text-white' : 'text-white/70 hover:text-white'}>
-                  {item.label}
-                </span>
-              </button>
-            );
-          })}
+        {/* 3 Mobile Roles Selector + Onboarding Trigger */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Onboarding Trigger Button */}
+          <button
+            onClick={() => setShowOnboarding(true)}
+            className={`px-3 py-1.5 rounded-xl text-xs font-black transition-all border flex items-center gap-1.5 shadow-md ${
+              showOnboarding
+                ? 'bg-gradient-to-r from-[#FF7824] to-[#E86315] text-white border-orange-400 ring-2 ring-orange-400/40'
+                : 'bg-white/10 text-emerald-200 border-white/15 hover:bg-white/20'
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+            <span>✨ Parcours Onboarding</span>
+          </button>
+
+          {/* 3 Roles */}
+          <div className="flex items-center gap-1 bg-white/10 backdrop-blur-md p-1 rounded-2xl border border-white/15 shadow-md">
+            {[
+              { role: 'client' as UserRole, label: '📱 Client' },
+              { role: 'restaurant' as UserRole, label: '👨‍🍳 Resto' },
+              { role: 'courier' as UserRole, label: '🛵 Livreur' },
+            ].map((item) => {
+              const isActive = !showOnboarding && currentRole === item.role;
+              return (
+                <button
+                  key={item.role}
+                  onClick={() => {
+                    setShowOnboarding(false);
+                    setCurrentRole(item.role);
+                  }}
+                  className="relative px-3 py-1.5 rounded-xl text-xs font-extrabold transition-all z-10"
+                >
+                  {isActive && (
+                    <motion.div
+                      layoutId="activePhoneRole"
+                      className="absolute inset-0 bg-[#0A6E3B] rounded-xl shadow-md -z-10"
+                      transition={{ type: 'spring', stiffness: 450, damping: 35 }}
+                    />
+                  )}
+                  <span className={isActive ? 'text-white' : 'text-white/70 hover:text-white'}>
+                    {item.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </header>
 
@@ -4404,20 +4426,38 @@ export default function MobileDeviceShowcase() {
           {/* Active Screen Rendering with AnimatePresence */}
           <div className="flex-1 overflow-hidden relative">
             <AnimatePresence mode="wait">
-              <motion.div
-                key={currentRole}
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                transition={{ duration: 0.2 }}
-                className="w-full h-full"
-              >
-                {currentRole === 'client' && (
-                  <MobileClientApp onOpenTracking={(ord) => setSelectedOrderForTracking(ord)} />
-                )}
-                {currentRole === 'restaurant' && <MobileRestaurantApp />}
-                {currentRole === 'courier' && <MobileCourierApp />}
-              </motion.div>
+              {showOnboarding ? (
+                <motion.div
+                  key="onboarding_flow_screen"
+                  initial={{ opacity: 0, scale: 0.98 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 1.02 }}
+                  transition={{ duration: 0.25 }}
+                  className="w-full h-full"
+                >
+                  <OnboardingFlow
+                    onComplete={(newRole) => {
+                      setCurrentRole(newRole);
+                      setShowOnboarding(false);
+                    }}
+                  />
+                </motion.div>
+              ) : (
+                <motion.div
+                  key={currentRole}
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  transition={{ duration: 0.2 }}
+                  className="w-full h-full"
+                >
+                  {currentRole === 'client' && (
+                    <MobileClientApp onOpenTracking={(ord) => setSelectedOrderForTracking(ord)} />
+                  )}
+                  {currentRole === 'restaurant' && <MobileRestaurantApp />}
+                  {currentRole === 'courier' && <MobileCourierApp />}
+                </motion.div>
+              )}
             </AnimatePresence>
           </div>
 
