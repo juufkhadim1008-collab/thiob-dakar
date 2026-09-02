@@ -375,7 +375,79 @@ export const RESTAURANTS: Restaurant[] = [
     phone: '+221 78 555 66 77',
     whatsapp: '+221785556677',
   },
+  {
+    id: 'resto-malika',
+    name: 'Le Délice des Niayes & Grillades de Malika',
+    tagline: 'L’authenticité de Malika Plage : Thiof frais des Niayes, Dibi d’agneau & Thiéb Penda Mbaye',
+    description: 'Au cœur de Malika près des Niayes et du littoral Nord, notre chef prépare des poissons braisés ultra-frais, des grillades au feu de bois et des jus locaux bio.',
+    coverImage: 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=1200&q=80',
+    gallery: [
+      'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=800&q=80',
+    ],
+    logo: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=200&q=80',
+    rating: 4.9,
+    reviewCount: 168,
+    reviews: [
+      { id: 'rev-malika-1', author: 'Sokhna Diagne', rating: 5, date: 'Hier', comment: 'Le meilleur restaurant de Malika ! Thiébou jeun succulent et accueil très chaleureux.' },
+      { id: 'rev-malika-2', author: 'Abdoulaye Wade', rating: 5, date: 'Il y a 3 jours', comment: 'Poissons frais et livraison très rapide sur toute la zone de Malika et Keur Massar.' }
+    ],
+    neighborhood: 'Malika',
+    address: 'Route de Malika Plage, près du Centre de Santé, Malika, Dakar',
+    coordinates: { lat: 14.7925, lng: -17.3365 },
+    priceRange: '2000 - 5000 FCFA',
+    ambianceTags: ['Malika Plage', 'Fraîcheur des Niayes', 'Dibi Chaud', 'Familial'],
+    amenities: ['Terrasse aérée', 'Parking gratuit', 'Livraison express Malika & Keur Massar'],
+    openingHours: {
+      'Lundi - Dimanche': '11h00 - 23h30'
+    },
+    deliveryTimeEstimate: '20-30 min',
+    deliveryFee: 1000,
+    minOrder: 2500,
+    isOpen: true,
+    featuredTags: ['Spécial Malika', 'Poisson des Niayes', 'Dibi Frais'],
+    ownerName: 'Chef Amadou Ndiaye',
+    phone: '+221 77 912 34 56',
+    whatsapp: '+221779123456',
+    instagram: '@delices_malika',
+  },
+  {
+    id: 'resto-pikine',
+    name: 'Dibiterie & Teranga de Pikine Icotaf',
+    tagline: 'Le grand Dibi réputé de Pikine & Thiéboudienne traditionnel',
+    description: 'Une véritable institution de la banlieue dakaroise : agneau braisé selon la tradition, oignons caramélisés au piment et jus de Bouye frais.',
+    coverImage: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=1200&q=80',
+    gallery: [
+      'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=800&q=80',
+      'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=800&q=80',
+    ],
+    logo: 'https://images.unsplash.com/photo-1514933651103-005eec06c04b?auto=format&fit=crop&w=200&q=80',
+    rating: 4.8,
+    reviewCount: 230,
+    reviews: [
+      { id: 'rev-pikine-1', author: 'Modou Fall', rating: 5, date: 'Il y a 2 jours', comment: 'Le Dibi de Pikine Icotaf reste indétrônable. Viande fondante et piment bien dosé.' }
+    ],
+    neighborhood: 'Pikine',
+    address: 'Tally Boubess x Icotaf, Pikine, Dakar',
+    coordinates: { lat: 14.7570, lng: -17.3940 },
+    priceRange: '2000 - 5500 FCFA',
+    ambianceTags: ['Dibi Traditionnel', 'Pikine Icotaf', 'Convivial', 'Nocturne'],
+    amenities: ['Espace Grillades', 'Emporter & Livraison', 'Paiement Wave direct'],
+    openingHours: {
+      'Tous les jours': '12h00 - 01h00'
+    },
+    deliveryTimeEstimate: '20-30 min',
+    deliveryFee: 1000,
+    minOrder: 2500,
+    isOpen: true,
+    featuredTags: ['Dibi Pikine', 'Tally Boubess', 'Grillades'],
+    ownerName: 'Ibrahima Seck',
+    phone: '+221 76 444 88 99',
+    whatsapp: '+221764448899',
+  },
 ];
+
 
 export const INITIAL_RESERVATIONS: Reservation[] = [
   {
@@ -607,6 +679,59 @@ export const MENU_ITEMS: MenuItem[] = [
     preparationTimeMinutes: 10,
     tags: ['Croustillant', 'Fait Maison', 'Sauce Piquante'],
   },
+  // Plats Spécifiques Malika
+  {
+    id: 'menu-malika-1',
+    restaurantId: 'resto-malika',
+    name: 'Thiébou Jën des Niayes (Malika)',
+    description: 'Riz rouge cuisiné au feu de bois avec Thiof frais de Malika Plage, légumes du jardin des Niayes et nététou traditionnel.',
+    price: 3500,
+    category: 'cat-thieb',
+    image: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80',
+    isAvailable: true,
+    isPopular: true,
+    preparationTimeMinutes: 20,
+    tags: ['Spécial Malika', 'Poisson Frais', 'Best Seller'],
+  },
+  {
+    id: 'menu-malika-2',
+    restaurantId: 'resto-malika',
+    name: 'Dibi d’Agneau Rôti de Malika (500g)',
+    description: 'Morceaux choisis d’agneau braisés aux braises ardentes, accompagnés d’oignons marinés et piment vert.',
+    price: 4500,
+    category: 'cat-dibi',
+    image: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=800&q=80',
+    isAvailable: true,
+    isPopular: true,
+    preparationTimeMinutes: 25,
+    tags: ['Dibi Braisé', 'Agneau Frais', 'Malika'],
+  },
+  // Plats Spécifiques Pikine
+  {
+    id: 'menu-pikine-1',
+    restaurantId: 'resto-pikine',
+    name: 'Grand Dibi Chaud de Pikine Icotaf (1kg)',
+    description: 'La recette mythique de Pikine : découpe d’agneau tendre, sauce moutarde maison pimentée et oignons doux.',
+    price: 6500,
+    category: 'cat-dibi',
+    image: 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=800&q=80',
+    isAvailable: true,
+    isPopular: true,
+    preparationTimeMinutes: 20,
+    tags: ['Dibi Icotaf', 'Pikine', 'Best Seller'],
+  },
+  {
+    id: 'menu-pikine-2',
+    restaurantId: 'resto-pikine',
+    name: 'Pastels de Poisson Dorés (15 pcs)',
+    description: 'Pastels croustillants garnis de farce généreuse au poisson frais et sauce tomate piquante de Pikine.',
+    price: 1500,
+    category: 'cat-street',
+    image: 'https://images.unsplash.com/photo-1550966871-3ed3cdb5ed0c?auto=format&fit=crop&w=800&q=80',
+    isAvailable: true,
+    preparationTimeMinutes: 10,
+    tags: ['Street Food', 'Pastels Dorés'],
+  },
   // Boissons & Desserts partagés
   {
     id: 'menu-9',
@@ -644,6 +769,7 @@ export const MENU_ITEMS: MenuItem[] = [
     preparationTimeMinutes: 5,
   },
 ];
+
 
 export const INITIAL_ORDERS: Order[] = [
   {

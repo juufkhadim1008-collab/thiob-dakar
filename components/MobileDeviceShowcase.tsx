@@ -598,10 +598,10 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
                 className="relative h-52 rounded-3xl overflow-hidden shadow-lg border border-[#D8EADB] bg-black text-white group cursor-pointer"
                 onClick={() => {
                   if (currentRestaurant) {
-                    setSelectedNeighborhood(currentRestaurant.neighborhood);
-                    setSearchQuery(currentRestaurant.name);
+                    handleOpenShowcase(currentRestaurant);
                   }
                 }}
+
               >
                 <AnimatePresence mode="wait">
                   {currentRestaurant && (
@@ -2067,48 +2067,88 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
               {/* Showcase Content Container */}
               <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-24">
                 
-                {/* 1. SUB-TAB: MENU & CARTE */}
-                {showcaseSubTab === 'menu' && (
-                  <div className="space-y-4">
-                    {/* Header info badge */}
-                    <div className="bg-[#E6F5EC] p-3 rounded-2xl border border-[#0A6E3B]/20 flex items-center justify-between text-xs">
-                      <div>
-                        <span className="font-bold text-[#081A10]">Commandez en ligne ou sur place</span>
-                        <p className="text-[10px] text-gray-500">Livraison Tiak-Tiak en {selectedShowcaseResto.deliveryTimeEstimate}</p>
-                      </div>
-                      <span className="text-[10px] font-black text-[#0A6E3B] bg-white px-2.5 py-1 rounded-full shadow-2xs">
-                        {selectedShowcaseResto.priceRange || '2500 - 6000 FCFA'}
-                      </span>
-                    </div>
+                {/* 1. SUB-TAB: MENU & CARTE DÉDIÉE AU RESTAURANT */}
+                {showcaseSubTab === 'menu' && (() => {
+                  const restoDishes = menuItems.filter((m) => m.restaurantId === selectedShowcaseResto.id);
 
-                    {/* Menu Items List */}
-                    <div className="space-y-2.5">
-                      {menuItems
-                        .filter((m) => m.restaurantId === selectedShowcaseResto.id)
-                        .map((dish) => (
-                          <div
-                            key={dish.id}
-                            onClick={() => { setSelectedDish(dish); setDishQuantity(1); }}
-                            className="bg-white p-3 rounded-2xl border border-[#D8EADB] flex items-center justify-between gap-3 shadow-2xs cursor-pointer hover:border-[#0A6E3B] transition-colors group"
-                          >
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={dish.image} alt={dish.name} className="w-16 h-16 rounded-xl object-cover shrink-0 group-hover:scale-105 transition-transform" />
-                            <div className="flex-1 min-w-0">
-                              <h5 className="font-bold text-xs text-[#081A10] truncate">{dish.name}</h5>
-                              <p className="text-[10px] text-gray-400 line-clamp-1">{dish.description}</p>
-                              <span className="text-xs font-black text-[#0A6E3B] mt-0.5 block">{formatFCFA(dish.price)}</span>
-                            </div>
-                            <button
-                              onClick={(e) => handleQuickAdd(dish, e)}
-                              className="w-8 h-8 rounded-full bg-[#0A6E3B] text-white flex items-center justify-center text-xs font-black shadow-2xs shrink-0 hover:bg-[#064E2B]"
-                            >
-                              +
-                            </button>
-                          </div>
-                        ))}
+                  return (
+                    <div className="space-y-4">
+                      {/* Header info badge */}
+                      <div className="bg-[#E6F5EC] p-3 rounded-2xl border border-[#0A6E3B]/20 flex items-center justify-between text-xs">
+                        <div>
+                          <span className="font-bold text-[#081A10]">Commandez en ligne ou sur place</span>
+                          <p className="text-[10px] text-gray-500">Livraison Tiak-Tiak en {selectedShowcaseResto.deliveryTimeEstimate || '25 min'}</p>
+                        </div>
+                        <span className="text-[10px] font-black text-[#0A6E3B] bg-white px-2.5 py-1 rounded-full shadow-2xs">
+                          {selectedShowcaseResto.priceRange || '2500 - 6000 FCFA'}
+                        </span>
+                      </div>
+
+                      {/* Menu Items List */}
+                      {restoDishes.length === 0 ? (
+                        <div className="p-6 text-center bg-gray-50 rounded-2xl border border-gray-200 text-gray-500 text-xs">
+                          <p className="font-bold">Aucun plat publié pour le moment</p>
+                          <p className="text-[10px] text-gray-400 mt-1">Le menu de cet établissement sera bientôt disponible.</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-2.5">
+                          {restoDishes.map((dish) => {
+                            const isAvailable = dish.isAvailable !== false;
+                            return (
+                              <div
+                                key={dish.id}
+                                onClick={() => {
+                                  if (isAvailable) {
+                                    setSelectedDish(dish);
+                                    setDishQuantity(1);
+                                  }
+                                }}
+                                className={`bg-white p-3 rounded-2xl border border-[#D8EADB] flex items-center justify-between gap-3 shadow-2xs transition-all ${
+                                  isAvailable ? 'cursor-pointer hover:border-[#0A6E3B] group' : 'opacity-60 cursor-not-allowed'
+                                }`}
+                              >
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={dish.image || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=400&q=80'}
+                                  alt={dish.name}
+                                  className="w-16 h-16 rounded-xl object-cover shrink-0 group-hover:scale-105 transition-transform bg-gray-100"
+                                />
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <h5 className="font-bold text-xs text-[#081A10] truncate">{dish.name}</h5>
+                                    {isAvailable ? (
+                                      <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded-md">
+                                        Disponible
+                                      </span>
+                                    ) : (
+                                      <span className="text-[9px] font-bold text-rose-700 bg-rose-50 px-1.5 py-0.2 rounded-md">
+                                        Épuisé
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-[10px] text-gray-400 line-clamp-1">{dish.description}</p>
+                                  <span className="text-xs font-black text-[#0A6E3B] mt-0.5 block">{formatFCFA(dish.price)}</span>
+                                </div>
+                                {isAvailable ? (
+                                  <button
+                                    onClick={(e) => handleQuickAdd(dish, e)}
+                                    className="w-8 h-8 rounded-full bg-[#0A6E3B] text-white flex items-center justify-center text-xs font-black shadow-2xs shrink-0 hover:bg-[#064E2B] active:scale-90"
+                                  >
+                                    +
+                                  </button>
+                                ) : (
+                                  <span className="text-[10px] font-bold text-gray-400 px-2 py-1 bg-gray-100 rounded-lg">
+                                    Épuisé
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 {/* 2. SUB-TAB: GALERIE & AMBIANCE */}
                 {showcaseSubTab === 'gallery' && (
@@ -2119,40 +2159,50 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
                       </h4>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2.5">
-                      {selectedShowcaseResto.gallery?.map((imgUrl, i) => (
-                        <div
-                          key={i}
-                          onClick={() => setSelectedGalleryImage(imgUrl)}
-                          className="relative aspect-4/3 rounded-2xl overflow-hidden bg-gray-100 shadow-2xs cursor-pointer group"
-                        >
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={imgUrl}
-                            alt={`${selectedShowcaseResto.name} photo ${i + 1}`}
-                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                          />
-                          <div className="absolute inset-0 bg-black/20 group-hover:bg-black/0 transition-colors" />
-                          <div className="absolute bottom-1.5 left-2 text-[9px] text-white font-bold drop-shadow-sm bg-black/40 px-1.5 py-0.2 rounded-md backdrop-blur-xs">
-                            {i === 0 ? 'Façade' : i === 1 ? 'Terrasse' : i === 2 ? 'Intérieur' : 'Cuisine'}
+                    {(!selectedShowcaseResto.gallery || selectedShowcaseResto.gallery.length === 0) ? (
+                      <div className="p-6 text-center bg-gray-50 rounded-2xl border border-gray-200 text-gray-500 text-xs">
+                        <p className="font-bold">Aucune photo de galerie pour le moment</p>
+                        <p className="text-[10px] text-gray-400 mt-1">Cet établissement n'a pas encore téléversé de photos d'ambiance.</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-2.5">
+                        {selectedShowcaseResto.gallery.map((imgUrl, i) => (
+                          <div
+                            key={i}
+                            onClick={() => setSelectedGalleryImage(imgUrl)}
+                            className="relative aspect-4/3 rounded-2xl overflow-hidden bg-gray-100 shadow-2xs cursor-pointer group"
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={imgUrl}
+                              alt={`${selectedShowcaseResto.name} photo ${i + 1}`}
+                              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                            />
+                            <div className="absolute inset-0 bg-black/20 group-hover:bg-black/0 transition-colors" />
+                            <div className="absolute bottom-1.5 left-2 text-[9px] text-white font-bold drop-shadow-sm bg-black/40 px-1.5 py-0.2 rounded-md backdrop-blur-xs">
+                              {i === 0 ? 'Façade' : i === 1 ? 'Terrasse' : i === 2 ? 'Intérieur' : 'Ambiance'}
+                            </div>
                           </div>
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Ambiance Highlights */}
-                    <div className="bg-[#F4F7F4] p-3.5 rounded-2xl border border-[#D8EADB] space-y-2">
-                      <h5 className="text-xs font-black text-[#081A10]">Points forts de l'établissement</h5>
-                      <div className="flex flex-wrap gap-1.5">
-                        {selectedShowcaseResto.amenities?.map((amenity, idx) => (
-                          <span key={idx} className="px-2.5 py-1 rounded-xl bg-white border border-[#D8EADB] text-xs font-bold text-[#081A10]">
-                            ✨ {amenity}
-                          </span>
                         ))}
                       </div>
-                    </div>
+                    )}
+
+                    {/* Ambiance Highlights */}
+                    {selectedShowcaseResto.amenities && selectedShowcaseResto.amenities.length > 0 && (
+                      <div className="bg-[#F4F7F4] p-3.5 rounded-2xl border border-[#D8EADB] space-y-2">
+                        <h5 className="text-xs font-black text-[#081A10]">Points forts de l'établissement</h5>
+                        <div className="flex flex-wrap gap-1.5">
+                          {selectedShowcaseResto.amenities.map((amenity, idx) => (
+                            <span key={idx} className="px-2.5 py-1 rounded-xl bg-white border border-[#D8EADB] text-xs font-bold text-[#081A10]">
+                              ✨ {amenity}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
+
 
                 {/* 3. SUB-TAB: LOCALISATION & ACCÈS ULTRA-PRÉCIS */}
                 {showcaseSubTab === 'location' && (() => {
@@ -2259,9 +2309,56 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
                 })()}
 
 
-                {/* 4. SUB-TAB: AVIS & HORAIRES */}
+                {/* 4. SUB-TAB: AVIS, INFOS & CONTACT DIRECT */}
                 {showcaseSubTab === 'reviews' && (
                   <div className="space-y-4">
+                    
+                    {/* Direct Contact & WhatsApp card */}
+                    <div className="bg-[#E6F5EC] p-3.5 rounded-2xl border border-[#0A6E3B]/20 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="text-[10px] uppercase font-bold text-gray-500 block">Contact Établissement</span>
+                          <h5 className="font-black text-xs text-[#081A10]">Appel & WhatsApp Direct</h5>
+                        </div>
+                        {selectedShowcaseResto.ownerName && (
+                          <span className="text-[10px] font-bold text-[#0A6E3B] bg-white px-2 py-0.5 rounded-lg border border-[#0A6E3B]/20">
+                            Chef : {selectedShowcaseResto.ownerName}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 pt-1">
+                        <a
+                          href={`tel:${selectedShowcaseResto.phone}`}
+                          className="py-2.5 px-3 rounded-xl bg-white border border-[#0A6E3B]/30 text-[#0A6E3B] font-black text-xs flex items-center justify-center gap-1.5 shadow-2xs hover:bg-[#0A6E3B] hover:text-white transition-colors"
+                        >
+                          <Phone className="w-3.5 h-3.5" />
+                          <span>Appeler</span>
+                        </a>
+
+                        <a
+                          href={`https://wa.me/${(selectedShowcaseResto.whatsapp || selectedShowcaseResto.phone).replace(/[^0-9]/g, '')}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="py-2.5 px-3 rounded-xl bg-[#25D366] text-white font-black text-xs flex items-center justify-center gap-1.5 shadow-2xs hover:opacity-95 transition-opacity"
+                        >
+                          <MessageCircle className="w-3.5 h-3.5" />
+                          <span>WhatsApp</span>
+                        </a>
+                      </div>
+                      <span className="text-[10px] text-gray-500 block text-center font-mono">
+                        {selectedShowcaseResto.phone}
+                      </span>
+                    </div>
+
+                    {/* About & Description */}
+                    <div className="bg-white p-3.5 rounded-2xl border border-[#D8EADB] space-y-2">
+                      <h5 className="font-black text-xs text-[#081A10]">À propos de l'établissement</h5>
+                      <p className="text-xs text-gray-600 leading-relaxed">
+                        {selectedShowcaseResto.description}
+                      </p>
+                    </div>
+
                     {/* Opening hours card */}
                     <div className="bg-white p-3.5 rounded-2xl border border-[#D8EADB] space-y-2">
                       <div className="flex items-center gap-2">
@@ -2269,7 +2366,7 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
                         <h5 className="font-black text-xs text-[#081A10]">Horaires d'ouverture</h5>
                       </div>
                       <div className="text-xs text-gray-600 space-y-1 divide-y divide-gray-100 pt-1">
-                        {selectedShowcaseResto.openingHours ? (
+                        {selectedShowcaseResto.openingHours && typeof selectedShowcaseResto.openingHours === 'object' ? (
                           Object.entries(selectedShowcaseResto.openingHours).map(([days, hours], idx) => (
                             <div key={idx} className="flex justify-between py-1">
                               <span>{days}</span>
@@ -2287,19 +2384,26 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
 
                     {/* Customer reviews */}
                     <div className="space-y-2.5">
-                      <h5 className="font-black text-xs text-[#081A10]">Avis clients vérifiés ⭐ {selectedShowcaseResto.rating}</h5>
-                      {selectedShowcaseResto.reviews?.map((rev) => (
-                        <div key={rev.id} className="bg-[#F4F7F4] p-3 rounded-2xl border border-[#D8EADB] space-y-1">
-                          <div className="flex justify-between items-center text-xs">
-                            <span className="font-black text-[#081A10]">{rev.author}</span>
-                            <span className="text-[10px] text-gray-400">{rev.date}</span>
+                      <h5 className="font-black text-xs text-[#081A10]">Avis clients vérifiés ⭐ {selectedShowcaseResto.rating} ({selectedShowcaseResto.reviewCount} avis)</h5>
+                      {selectedShowcaseResto.reviews && selectedShowcaseResto.reviews.length > 0 ? (
+                        selectedShowcaseResto.reviews.map((rev) => (
+                          <div key={rev.id} className="bg-[#F4F7F4] p-3 rounded-2xl border border-[#D8EADB] space-y-1">
+                            <div className="flex justify-between items-center text-xs">
+                              <span className="font-black text-[#081A10]">{rev.author}</span>
+                              <span className="text-[10px] text-gray-400">{rev.date}</span>
+                            </div>
+                            <p className="text-xs text-gray-600 leading-relaxed">{rev.comment}</p>
                           </div>
-                          <p className="text-xs text-gray-600 leading-relaxed">{rev.comment}</p>
+                        ))
+                      ) : (
+                        <div className="p-3 bg-gray-50 rounded-xl text-center text-xs text-gray-400">
+                          Aucun avis pour le moment
                         </div>
-                      ))}
+                      )}
                     </div>
                   </div>
                 )}
+
 
               </div>
 
