@@ -218,35 +218,82 @@ export default function CourierSpace() {
               orderNumber={activeOrder.orderNumber}
             />
 
-            {/* Route details */}
-            <div className="bg-[#F7FAF7] p-4 rounded-2xl border border-[#E2ECE5] space-y-3">
-              <div className="flex items-start gap-3">
-                <div className="w-7 h-7 rounded-full bg-[#07431E] text-white flex items-center justify-center text-xs font-bold shrink-0">
-                  A
-                </div>
-                <div className="text-xs">
-                  <span className="font-bold text-gray-500 uppercase text-[10px] block">1. Récupération Restaurant</span>
-                  <p className="font-extrabold text-[#07431E] text-sm">{activeOrder.restaurantName}</p>
-                  <p className="text-gray-500">Corniche des Almadies / Ngor, Dakar</p>
-                </div>
-              </div>
+            {/* Route details with Exact GPS, Accuracy & Landmark */}
+            {(() => {
+              const destCoords = activeOrder.deliveryCoords || DAKAR_GEO_PRESETS[activeOrder.deliveryAddress.neighborhood] || DAKAR_DEFAULT_COORDS;
+              const pickupCoords = activeOrder.pickupCoords || DAKAR_GEO_PRESETS['Ngor'] || DAKAR_DEFAULT_COORDS;
+              const landmarkText = activeOrder.deliveryLandmark || activeOrder.deliveryAddress.landmark || activeOrder.deliveryAddress.details;
 
-              <div className="flex items-start gap-3 pt-2 border-t border-[#E2ECE5]">
-                <div className="w-7 h-7 rounded-full bg-[#FA8038] text-white flex items-center justify-center text-xs font-bold shrink-0">
-                  B
+              return (
+                <div className="bg-[#F7FAF7] p-4 rounded-2xl border border-[#E2ECE5] space-y-3">
+                  {/* Restaurant Pickup */}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-3">
+                      <div className="w-7 h-7 rounded-full bg-[#07431E] text-white flex items-center justify-center text-xs font-bold shrink-0">
+                        A
+                      </div>
+                      <div className="text-xs">
+                        <span className="font-bold text-gray-500 uppercase text-[10px] block">1. Récupération Restaurant</span>
+                        <p className="font-extrabold text-[#07431E] text-sm">{activeOrder.restaurantName}</p>
+                        <p className="text-gray-500">{activeOrder.deliveryAddress.neighborhood}, Dakar</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const { openInExternalMaps } = require('@/lib/geolocation');
+                        openInExternalMaps(pickupCoords.lat, pickupCoords.lng, activeOrder.restaurantName, courierCoords.lat, courierCoords.lng);
+                      }}
+                      className="px-2.5 py-1 rounded-lg bg-white border border-[#008235]/30 text-[#008235] text-[10px] font-bold hover:bg-[#008235] hover:text-white transition-colors shrink-0"
+                    >
+                      🏪 Aller au resto
+                    </button>
+                  </div>
+
+                  {/* Client Destination */}
+                  <div className="flex items-start justify-between gap-3 pt-2.5 border-t border-[#E2ECE5]">
+                    <div className="flex items-start gap-3">
+                      <div className="w-7 h-7 rounded-full bg-[#FA8038] text-white flex items-center justify-center text-xs font-bold shrink-0">
+                        B
+                      </div>
+                      <div className="text-xs space-y-0.5">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-bold text-gray-500 uppercase text-[10px] block">2. Livraison Client Exacte</span>
+                          {activeOrder.deliveryAccuracy && (
+                            <span className="text-[9px] font-bold bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded-md">
+                              GPS ± {Math.round(activeOrder.deliveryAccuracy)}m
+                            </span>
+                          )}
+                        </div>
+                        <p className="font-extrabold text-[#07431E] text-sm">{activeOrder.clientName} ({activeOrder.clientPhone})</p>
+                        <p className="text-gray-600 font-medium">{activeOrder.deliveryAddress.street}, {activeOrder.deliveryAddress.neighborhood}</p>
+                        
+                        {landmarkText && (
+                          <div className="mt-1 p-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-[11px] font-bold">
+                            🏠 Repère / Indication : {landmarkText}
+                          </div>
+                        )}
+                        <span className="font-mono text-[10px] text-gray-400 block">
+                          Coordonnées : {destCoords.lat.toFixed(5)}, {destCoords.lng.toFixed(5)}
+                        </span>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const { openInExternalMaps } = require('@/lib/geolocation');
+                        openInExternalMaps(destCoords.lat, destCoords.lng, `Client: ${activeOrder.clientName}`, courierCoords.lat, courierCoords.lng);
+                      }}
+                      className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#E86315] to-[#FF7824] text-white text-[11px] font-black shadow-sm hover:opacity-90 transition-opacity shrink-0 flex items-center gap-1"
+                    >
+                      <Navigation className="w-3 h-3" />
+                      <span>GPS Client</span>
+                    </button>
+                  </div>
                 </div>
-                <div className="text-xs">
-                  <span className="font-bold text-gray-500 uppercase text-[10px] block">2. Livraison Client</span>
-                  <p className="font-extrabold text-[#07431E] text-sm">{activeOrder.clientName} ({activeOrder.clientPhone})</p>
-                  <p className="text-gray-500">{activeOrder.deliveryAddress.street}, {activeOrder.deliveryAddress.neighborhood}</p>
-                  {activeOrder.deliveryAddress.details && (
-                    <p className="text-[11px] text-[#008235] font-semibold mt-0.5">
-                      Indication : {activeOrder.deliveryAddress.details}
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
+              );
+            })()}
 
             {/* Action buttons */}
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
@@ -278,6 +325,7 @@ export default function CourierSpace() {
           </motion.div>
         )}
       </AnimatePresence>
+
 
       {/* AVAILABLE MISSIONS RADAR */}
       <div className="bg-white rounded-3xl border border-[#E2ECE5] p-6 shadow-sm space-y-4">

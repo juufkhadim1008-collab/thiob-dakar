@@ -57,12 +57,14 @@ export interface Restaurant {
   address: string;
   latitude?: number;
   longitude?: number;
+  locationAccuracy?: number; // en mètres
+  locationTimestamp?: number;
   coordinates?: {
     lat: number;
     lng: number;
   };
-
   priceRange?: string;
+
   ambianceTags?: string[]; // Ex: "Vue Océan", "Romantique", "Sortie Couple", "Rooftop", "Ambiance Teranga", "Cosy"
   amenities?: string[]; // Ex: "Terrasse vue mer", "Climatisation", "Parking gardé", "Wifi haut débit", "Espace VIP"
   openingHours?: string | {
@@ -139,10 +141,15 @@ export interface Order {
     neighborhood: string;
     street: string;
     details?: string;
+    landmark?: string; // Ex: "Maison derrière la pharmacie, portail bleu"
+    instructions?: string; // Ex: "Sonner à l'interphone 2B"
   };
-  deliveryCoords?: { lat: number; lng: number };
-  pickupCoords?: { lat: number; lng: number };
-  courierCoords?: { lat: number; lng: number };
+  deliveryCoords?: { lat: number; lng: number; accuracy?: number; timestamp?: number };
+  pickupCoords?: { lat: number; lng: number; accuracy?: number };
+  courierCoords?: { lat: number; lng: number; accuracy?: number; bearing?: number; timestamp?: number };
+  deliveryAccuracy?: number;
+  deliveryLandmark?: string;
+  deliveryInstructions?: string;
   estimatedDeliveryTime?: string;
 }
 
@@ -160,13 +167,16 @@ export interface Courier {
   currentNeighborhood: string;
   latitude?: number;
   longitude?: number;
-  coordinates?: { lat: number; lng: number };
+  locationAccuracy?: number;
+  bearing?: number;
+  coordinates?: { lat: number; lng: number; accuracy?: number };
   lastLocationUpdate?: string;
   rating: number;
   completedDeliveries: number;
   todayEarnings: number; // FCFA
   activeOrderId?: string;
 }
+
 
 export interface PlatformMetrics {
   totalRevenueGmv: number;

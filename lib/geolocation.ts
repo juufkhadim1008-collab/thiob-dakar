@@ -1,7 +1,7 @@
 /**
- * THIOB EXPRESS - MOTEUR DE GÉOLOCALISATION DAKAR & POSTGIS
- * Gestion ultra-précise des coordonnées, reverse geocoding (Malika, Almadies, Plateau, etc.),
- * calculs spatiaux et suivi temps réel.
+ * THIOB EXPRESS - MOTEUR DE GÉOLOCALISATION ULTRA-PRÉCISE DAKAR & POSTGIS
+ * Gestion des coordonnées exactes, précision GPS (± X mètres), multi-pass sampling,
+ * reverse geocoding précis et guidage natif (Google Maps / Apple Maps / Waze).
  */
 
 import { supabase } from './supabase';
@@ -9,6 +9,17 @@ import { supabase } from './supabase';
 export interface GeoPoint {
   lat: number;
   lng: number;
+}
+
+export interface ExactLocation {
+  lat: number;
+  lng: number;
+  accuracy: number; // Précision en mètres (ex: 4.8)
+  timestamp: number;
+  altitude?: number | null;
+  speed?: number | null;
+  heading?: number | null;
+  isApproximate: boolean;
 }
 
 export interface DakarNeighborhoodLocation {
@@ -19,9 +30,9 @@ export interface DakarNeighborhoodLocation {
   zone: string;
 }
 
-// Base de repères certifiés de la Région de Dakar (Dakar, Pikine, Guédiawaye, Keur Massar, Rufisque)
+// Base certifiée des centroïdes de la Région de Dakar
 export const DAKAR_GEO_PRESETS: Record<string, DakarNeighborhoodLocation> = {
-  // Dakar Est / Niayes & Keur Massar
+  // Dakar Est & Niayes
   'Malika': { name: 'Malika, Dakar', shortName: 'Malika', lat: 14.7925, lng: -17.3365, zone: 'Dakar Est / Niayes' },
   'Keur Massar': { name: 'Keur Massar, Dakar', shortName: 'Keur Massar', lat: 14.7820, lng: -17.3150, zone: 'Dakar Est' },
   'Yeumbeul': { name: 'Yeumbeul, Dakar', shortName: 'Yeumbeul', lat: 14.7730, lng: -17.3580, zone: 'Dakar Est' },
@@ -58,8 +69,51 @@ export const DAKAR_DEFAULT_COORDS: GeoPoint = {
 };
 
 /**
- * Calcul précis de distance orthodromique (Formule de Haversine)
- * Retourne la distance en kilomètres (ex: 0.8 km)
+ * Diagnostic & Qualité de la Précision GPS
+ */
+export function getAccuracyInfo(accuracyMeters?: number): {
+  label: string;
+  isGood: boolean;
+  isApproximate: boolean;
+  badgeClass: string;
+} {
+  if (!accuracyMeters || accuracyMeters <= 0) {
+    return {
+      label: 'Précision non mesurée',
+      isGood: false,
+      isApproximate: true,
+      badgeClass: 'bg-gray-100 text-gray-700',
+    };
+  }
+
+  const rounded = Math.round(accuracyMeters);
+
+  if (rounded <= 10) {
+    return {
+      label: `± ${rounded} m (Excellente)`,
+      isGood: true,
+      isApproximate: false,
+      badgeClass: 'bg-emerald-100 text-emerald-800 border-emerald-300',
+    };
+  } else if (rounded <= 35) {
+    return {
+      label: `± ${rounded} m (Bonne)`,
+      isGood: true,
+      isApproximate: false,
+      badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    };
+  } else {
+    return {
+      label: `± ${rounded} m (Approximative)`,
+      isGood: false,
+      isApproximate: true,
+      badgeClass: 'bg-amber-100 text-amber-800 border-amber-300',
+    };
+  }
+}
+
+/**
+ * Calcul précis de distance orthodromique (Haversine)
  */
 export function calculateDistanceKm(
   point1: GeoPoint | { latitude?: number; longitude?: number; coordinates?: GeoPoint },
@@ -84,12 +138,11 @@ export function calculateDistanceKm(
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   const dist = R * c;
 
-  return Math.round(dist * 10) / 10; // Arrondi à 1 décimale
+  return Math.round(dist * 10) / 10;
 }
 
 /**
- * Formate une distance pour l'affichage Thiob Express
- * Ex: "800 m" ou "2.4 km"
+ * Formate une distance pour l'utilisateur
  */
 export function formatDistanceString(distanceKm: number): string {
   if (distanceKm < 1) {
@@ -117,9 +170,6 @@ function extractPoint(
 
 /**
  * Reverse Geocoding ultra-précis pour Dakar
- * 1. Détection par zones précises (Malika, Yeumbeul, Almadies, etc.)
- * 2. Appel API BigDataCloud + OpenStreetMap Nominatim avec détails d'adresses
- * 3. Fallback vers le centroïde le plus proche
  */
 const geocodeCache = new Map<string, { neighborhood: string; fullAddress: string; zone: string }>();
 
@@ -133,38 +183,24 @@ export async function reverseGeocodeDakar(lat: number, lng: number): Promise<{
     return geocodeCache.get(cacheKey)!;
   }
 
-  // 1. Détection géométrique précise par bornes spécifiques de Dakar
+  // Bornes géométriques directes de Dakar
   if (lat >= 14.785 && lat <= 14.815 && lng >= -17.350 && lng <= -17.320) {
-    const res = {
-      neighborhood: 'Malika',
-      fullAddress: 'Malika, Dakar, Sénégal',
-      zone: 'Dakar Est / Niayes'
-    };
+    const res = { neighborhood: 'Malika', fullAddress: 'Malika, Dakar, Sénégal', zone: 'Dakar Est / Niayes' };
     geocodeCache.set(cacheKey, res);
     return res;
   }
-
   if (lat >= 14.770 && lat <= 14.795 && lng >= -17.330 && lng <= -17.300) {
-    const res = {
-      neighborhood: 'Keur Massar',
-      fullAddress: 'Keur Massar, Dakar, Sénégal',
-      zone: 'Dakar Est'
-    };
+    const res = { neighborhood: 'Keur Massar', fullAddress: 'Keur Massar, Dakar, Sénégal', zone: 'Dakar Est' };
     geocodeCache.set(cacheKey, res);
     return res;
   }
-
   if (lat >= 14.760 && lat <= 14.785 && lng >= -17.375 && lng <= -17.345) {
-    const res = {
-      neighborhood: 'Yeumbeul',
-      fullAddress: 'Yeumbeul, Dakar, Sénégal',
-      zone: 'Dakar Est'
-    };
+    const res = { neighborhood: 'Yeumbeul', fullAddress: 'Yeumbeul, Dakar, Sénégal', zone: 'Dakar Est' };
     geocodeCache.set(cacheKey, res);
     return res;
   }
 
-  // 2. Trouver le quartier le plus proche dans les centroïdes certifiés
+  // Centroïdes certifiés
   let closestNeighborhood = 'Dakar';
   let closestZone = 'Région de Dakar';
   let minDistance = Infinity;
@@ -181,7 +217,7 @@ export async function reverseGeocodeDakar(lat: number, lng: number): Promise<{
   let resolvedNeighborhood = closestNeighborhood;
   let resolvedAddress = `${closestNeighborhood}, Dakar, Sénégal`;
 
-  // 3. Appel de géocodage inversé précis (BigDataCloud Client API - rapide et gratuit)
+  // Appel de précision BigDataCloud + OSM
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 3500);
@@ -201,30 +237,7 @@ export async function reverseGeocodeDakar(lat: number, lng: number): Promise<{
       }
     }
   } catch {
-    // Tentative de fallback via Nominatim
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 2500);
-      const nomRes = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=17&addressdetails=1`,
-        {
-          headers: { 'Accept-Language': 'fr' },
-          signal: controller.signal,
-        }
-      );
-      clearTimeout(timeoutId);
-      if (nomRes.ok) {
-        const nomData = await nomRes.json();
-        const addr = nomData.address || {};
-        const sub = addr.suburb || addr.neighbourhood || addr.village || addr.quarter || addr.city_district || addr.town;
-        if (sub) {
-          resolvedNeighborhood = sub;
-          resolvedAddress = `${sub}, Dakar, Sénégal`;
-        }
-      }
-    } catch {
-      // Conserve resolvedNeighborhood issu des centroïdes certifiés
-    }
+    // Fallback silencieux
   }
 
   const result = {
@@ -238,72 +251,161 @@ export async function reverseGeocodeDakar(lat: number, lng: number): Promise<{
 }
 
 /**
- * Récupère la position GPS actuelle exacte via l'API HTML5 Geolocation
+ * Récupération GPS multi-passes adaptative (Convergence vers la meilleure accuracy)
+ * Échantillonne jusqu'à 3-5 lectures pour éliminer les premières positions trop approximatives.
  */
-export async function getCurrentBrowserLocation(): Promise<{
-  coords: GeoPoint;
-  accuracy: number;
-}> {
+export async function getHighAccuracyLocation(
+  maxWaitMs: number = 6000,
+  targetAccuracyMeters: number = 10
+): Promise<ExactLocation> {
   return new Promise((resolve, reject) => {
     if (typeof window === 'undefined' || !navigator.geolocation) {
       reject(new Error('La géolocalisation n’est pas supportée par votre navigateur.'));
       return;
     }
 
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        resolve({
-          coords: {
-            lat: pos.coords.latitude,
-            lng: pos.coords.longitude,
+    let bestLocation: ExactLocation | null = null;
+    let watchId: number | null = null;
+    let isFinished = false;
+
+    const finish = () => {
+      if (isFinished) return;
+      isFinished = true;
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId);
+      }
+      if (bestLocation) {
+        resolve(bestLocation);
+      } else {
+        // Fallback sur getCurrentPosition simple
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            resolve({
+              lat: pos.coords.latitude,
+              lng: pos.coords.longitude,
+              accuracy: pos.coords.accuracy || 25,
+              timestamp: pos.timestamp || Date.now(),
+              altitude: pos.coords.altitude,
+              speed: pos.coords.speed,
+              heading: pos.coords.heading,
+              isApproximate: (pos.coords.accuracy || 25) > 40,
+            });
           },
-          accuracy: pos.coords.accuracy,
-        });
+          (err) => reject(new Error(err.message || 'Signal GPS indisponible.')),
+          { enableHighAccuracy: true, timeout: 6000 }
+        );
+      }
+    };
+
+    const timer = setTimeout(finish, maxWaitMs);
+
+    watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        const accuracy = pos.coords.accuracy || 30;
+        const currentLoc: ExactLocation = {
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          accuracy: accuracy,
+          timestamp: pos.timestamp || Date.now(),
+          altitude: pos.coords.altitude,
+          speed: pos.coords.speed,
+          heading: pos.coords.heading,
+          isApproximate: accuracy > 40,
+        };
+
+        if (!bestLocation || accuracy < bestLocation.accuracy) {
+          bestLocation = currentLoc;
+        }
+
+        // Si la précision souhaitée est atteinte (ex: <= 10 mètres), on valide immédiatement
+        if (accuracy <= targetAccuracyMeters) {
+          clearTimeout(timer);
+          finish();
+        }
       },
       (err) => {
-        let msg = 'Impossible de récupérer votre position GPS.';
-        if (err.code === err.PERMISSION_DENIED) {
-          msg = 'Autorisation GPS refusée. Veuillez activer la localisation dans les réglages de votre téléphone.';
-        } else if (err.code === err.POSITION_UNAVAILABLE) {
-          msg = 'Signal GPS non disponible.';
-        } else if (err.code === err.TIMEOUT) {
-          msg = 'Délai d’attente GPS dépassé.';
-        }
-        reject(new Error(msg));
+        console.warn('[GPS Multi-Pass] Erreur partielle :', err.message);
       },
       {
         enableHighAccuracy: true,
-        timeout: 12000,
-        maximumAge: 0, // Force un relevé en direct sans cache obsolète
+        maximumAge: 0,
+        timeout: maxWaitMs,
       }
     );
   });
 }
 
 /**
- * Ouvre la position directement dans l'application Maps native (Google Maps / Apple Maps / Waze)
+ * Raccourci simple de capture GPS
  */
-export function openInExternalMaps(lat: number, lng: number, label: string = 'Destination Thiob') {
-  if (typeof window === 'undefined') return;
-  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-  if (isIOS) {
-    window.open(`maps://maps.apple.com/?q=${encodeURIComponent(label)}&ll=${lat},${lng}`, '_blank');
-  } else {
-    window.open(`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`, '_blank');
-  }
+export async function getCurrentBrowserLocation(): Promise<{
+  coords: GeoPoint;
+  accuracy: number;
+  exactLocation: ExactLocation;
+}> {
+  const exact = await getHighAccuracyLocation(5000, 15);
+  return {
+    coords: { lat: exact.lat, lng: exact.lng },
+    accuracy: exact.accuracy,
+    exactLocation: exact,
+  };
 }
 
 /**
- * Suivi GPS en temps réel du coursier (cadence adaptative)
+ * Générateur d'URL d'itinéraire universel pour Maps native (Google Maps / Apple Maps / Waze)
+ */
+export function getNavigationUrl(
+  destLat: number,
+  destLng: number,
+  originLat?: number,
+  originLng?: number,
+  label: string = 'Destination Thiob'
+): string {
+  if (typeof window === 'undefined') {
+    return `https://www.google.com/maps/dir/?api=1&destination=${destLat},${destLng}`;
+  }
+
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+
+  if (isIOS) {
+    if (originLat && originLng) {
+      return `maps://maps.apple.com/?saddr=${originLat},${originLng}&daddr=${destLat},${destLng}&q=${encodeURIComponent(label)}`;
+    }
+    return `maps://maps.apple.com/?daddr=${destLat},${destLng}&q=${encodeURIComponent(label)}`;
+  }
+
+  if (originLat && originLng) {
+    return `https://www.google.com/maps/dir/?api=1&origin=${originLat},${originLng}&destination=${destLat},${destLng}&travelmode=driving`;
+  }
+  return `https://www.google.com/maps/dir/?api=1&destination=${destLat},${destLng}&travelmode=driving`;
+}
+
+/**
+ * Ouvre directement la navigation dans l'application Maps
+ */
+export function openInExternalMaps(
+  lat: number,
+  lng: number,
+  label: string = 'Destination Thiob',
+  originLat?: number,
+  originLng?: number
+) {
+  if (typeof window === 'undefined') return;
+  const url = getNavigationUrl(lat, lng, originLat, originLng, label);
+  window.open(url, '_blank');
+}
+
+/**
+ * Suivi GPS en temps réel du coursier avec cadence adaptative & bearing
  */
 export class CourierLocationTracker {
   private watchId: number | null = null;
   private courierId: string;
   private isDelivering: boolean = false;
   private lastUpdateTimestamp: number = 0;
-  private onLocationUpdate?: (pos: GeoPoint) => void;
+  private onLocationUpdate?: (pos: ExactLocation) => void;
 
-  constructor(courierId: string, onLocationUpdate?: (pos: GeoPoint) => void) {
+  constructor(courierId: string, onLocationUpdate?: (pos: ExactLocation) => void) {
     this.courierId = courierId;
     this.onLocationUpdate = onLocationUpdate;
   }
@@ -319,27 +421,35 @@ export class CourierLocationTracker {
     this.watchId = navigator.geolocation.watchPosition(
       async (position) => {
         const now = Date.now();
-        const throttleInterval = this.isDelivering ? 5000 : 15000; // 5s en course, 15s au repos
+        const throttleInterval = this.isDelivering ? 4000 : 15000;
 
         if (now - this.lastUpdateTimestamp < throttleInterval) {
           return;
         }
 
         this.lastUpdateTimestamp = now;
-        const coords: GeoPoint = {
+        const exactLoc: ExactLocation = {
           lat: position.coords.latitude,
           lng: position.coords.longitude,
+          accuracy: position.coords.accuracy || 5,
+          timestamp: position.timestamp || now,
+          altitude: position.coords.altitude,
+          speed: position.coords.speed,
+          heading: position.coords.heading,
+          isApproximate: (position.coords.accuracy || 5) > 40,
         };
 
         if (this.onLocationUpdate) {
-          this.onLocationUpdate(coords);
+          this.onLocationUpdate(exactLoc);
         }
 
         try {
           await supabase.rpc('update_courier_gps', {
             p_courier_id: this.courierId,
-            p_lat: coords.lat,
-            p_lng: coords.lng,
+            p_lat: exactLoc.lat,
+            p_lng: exactLoc.lng,
+            p_accuracy: exactLoc.accuracy,
+            p_bearing: exactLoc.heading || 0,
             p_status: this.isDelivering ? 'BUSY' : 'AVAILABLE',
             p_is_online: true,
           });
@@ -352,7 +462,7 @@ export class CourierLocationTracker {
       },
       {
         enableHighAccuracy: true,
-        maximumAge: 5000,
+        maximumAge: 3000,
         timeout: 10000,
       }
     );

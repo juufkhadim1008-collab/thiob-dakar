@@ -77,7 +77,9 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const [restoLogo, setRestoLogo] = useState(PRESET_LOGOS[0]);
   const [restoCustomLogo, setRestoCustomLogo] = useState<string | null>(null);
   const [restoLocation, setRestoLocation] = useState('Almadies, Dakar');
+  const [restoNeighborhood, setRestoNeighborhood] = useState('Almadies');
   const [restoGpsCoords, setRestoGpsCoords] = useState<{ lat: number; lng: number } | null>(null);
+
   const [isLocatingResto, setIsLocatingResto] = useState(false);
   const [restoLocSuccess, setRestoLocSuccess] = useState(false);
 
@@ -199,8 +201,9 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
         logo: restoLogo,
         type: RESTO_TYPES.find(t => t.id === restoType)?.label.split(' ')[1] || 'Cuisine Dakaroise',
         address: restoLocation,
-        neighborhood: restoLocation.includes('Almadies') ? 'Almadies' : restoLocation.includes('Plateau') ? 'Plateau' : restoLocation.includes('Ngor') ? 'Ngor' : restoLocation.includes('Pikine') ? 'Pikine' : restoLocation.includes('Mermoz') ? 'Mermoz' : 'Almadies',
+        neighborhood: restoNeighborhood || 'Almadies',
         phone: '+221 77 123 45 67',
+        coordinates: restoGpsCoords || undefined,
         coverImage: restoCustomLogo || 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=1200&q=80',
       });
       setCurrentRole('restaurant');
@@ -209,6 +212,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     }
     onComplete(role);
   };
+
 
   return (
     <div className="h-full flex flex-col bg-[#F0F5F2] relative overflow-hidden font-sans select-none text-[#081A10]">
@@ -582,10 +586,12 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                   onLocationSelected={(geo) => {
                     setRestoGpsCoords({ lat: geo.lat, lng: geo.lng });
                     setRestoLocation(geo.address);
+                    setRestoNeighborhood(geo.neighborhood);
                     setRestoLocSuccess(true);
                   }}
                 />
               </div>
+
 
             </div>
 

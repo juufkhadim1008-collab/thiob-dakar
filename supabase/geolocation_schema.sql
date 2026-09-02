@@ -1,69 +1,87 @@
--- =================================================================
--- THIOB EXPRESS - GÉOLOCALISATION & POSTGIS MIGRATION SCRIPT
--- =================================================================
+-- ==============================================================================
+-- THIOB EXPRESS — EXTENSION POSTGIS & SYSTÈME DE GÉOLOCALISATION ULTRA-PRÉCISE
+-- Script SQL certifié pour Supabase / PostgreSQL avec PostGIS
+-- ==============================================================================
 
--- 1. EXTENSIONS
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+-- 1. Activation de l'extension PostGIS
 CREATE EXTENSION IF NOT EXISTS "postgis";
 
--- 2. ENUMS & TYPES
-DO $$ BEGIN
-    CREATE TYPE courier_status_enum AS ENUM ('OFFLINE', 'ONLINE', 'AVAILABLE', 'BUSY');
-EXCEPTION
-    WHEN duplicate_object THEN null;
-END $$;
-
--- 3. AJOUT / ADAPTATION DES COLONNES GÉOGRAPHIQUES POSTGIS
-
--- A. Table RESTAURANTS
+-- 2. Mise à jour de la table RESTAURANTS avec métadonnées de précision
 ALTER TABLE IF EXISTS public.restaurants
   ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION,
   ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION,
-  ADD COLUMN IF NOT EXISTS location geography(Point, 4326),
+  ADD COLUMN IF NOT EXISTS location GEOGRAPHY(Point, 4326),
+  ADD COLUMN IF NOT EXISTS location_accuracy DOUBLE PRECISION DEFAULT 5.0,
+  ADD COLUMN IF NOT EXISTS location_timestamp TIMESTAMPTZ DEFAULT NOW(),
   ADD COLUMN IF NOT EXISTS neighborhood TEXT,
   ADD COLUMN IF NOT EXISTS address TEXT;
 
--- B. Table COURIERS (LIVREURS)
+-- 3. Mise à jour de la table COURIERS avec suivi temps réel & précision
 ALTER TABLE IF EXISTS public.couriers
   ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION,
   ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION,
-  ADD COLUMN IF NOT EXISTS location geography(Point, 4326),
-  ADD COLUMN IF NOT EXISTS is_online BOOLEAN DEFAULT FALSE,
-  ADD COLUMN IF NOT EXISTS is_available BOOLEAN DEFAULT FALSE,
-  ADD COLUMN IF NOT EXISTS status courier_status_enum DEFAULT 'OFFLINE',
+  ADD COLUMN IF NOT EXISTS location GEOGRAPHY(Point, 4326),
+  ADD COLUMN IF NOT EXISTS location_accuracy DOUBLE PRECISION DEFAULT 8.0,
+  ADD COLUMN IF NOT EXISTS bearing DOUBLE PRECISION DEFAULT 0.0,
+  ADD COLUMN IF NOT EXISTS altitude DOUBLE PRECISION,
+  ADD COLUMN IF NOT EXISTS is_online BOOLEAN DEFAULT false,
+  ADD COLUMN IF NOT EXISTS is_available BOOLEAN DEFAULT false,
+  ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'OFFLINE' CHECK (status IN ('OFFLINE', 'ONLINE', 'AVAILABLE', 'BUSY')),
   ADD COLUMN IF NOT EXISTS last_location_update TIMESTAMPTZ DEFAULT NOW();
 
--- C. Table PROFILES (CLIENTS / UTILISATEURS)
+-- 4. Mise à jour de la table PROFILES (Clients)
 ALTER TABLE IF EXISTS public.profiles
   ADD COLUMN IF NOT EXISTS latitude DOUBLE PRECISION,
   ADD COLUMN IF NOT EXISTS longitude DOUBLE PRECISION,
-  ADD COLUMN IF NOT EXISTS location geography(Point, 4326),
-  ADD COLUMN IF NOT EXISTS last_location_update TIMESTAMPTZ;
+  ADD COLUMN IF NOT EXISTS location GEOGRAPHY(Point, 4326),
+  ADD COLUMN IF NOT EXISTS location_accuracy DOUBLE PRECISION,
+  ADD COLUMN IF NOT EXISTS neighborhood TEXT,
+  ADD COLUMN IF NOT EXISTS default_address TEXT,
+  ADD COLUMN IF NOT EXISTS last_location_update TIMESTAMPTZ DEFAULT NOW();
 
--- D. Table ORDERS (COMMANDES)
+-- 5. Mise à jour de la table ORDERS avec Destination de Livraison Exacte
 ALTER TABLE IF EXISTS public.orders
   ADD COLUMN IF NOT EXISTS pickup_latitude DOUBLE PRECISION,
   ADD COLUMN IF NOT EXISTS pickup_longitude DOUBLE PRECISION,
+  ADD COLUMN IF NOT EXISTS pickup_location GEOGRAPHY(Point, 4326),
   ADD COLUMN IF NOT EXISTS delivery_latitude DOUBLE PRECISION,
   ADD COLUMN IF NOT EXISTS delivery_longitude DOUBLE PRECISION,
+  ADD COLUMN IF NOT EXISTS delivery_location GEOGRAPHY(Point, 4326),
+  ADD COLUMN IF NOT EXISTS delivery_accuracy DOUBLE PRECISION,
+  ADD COLUMN IF NOT EXISTS delivery_timestamp TIMESTAMPTZ DEFAULT NOW(),
+  ADD COLUMN IF NOT EXISTS delivery_landmark TEXT,
+  ADD COLUMN IF NOT EXISTS delivery_instructions TEXT,
   ADD COLUMN IF NOT EXISTS courier_latitude DOUBLE PRECISION,
   ADD COLUMN IF NOT EXISTS courier_longitude DOUBLE PRECISION,
-  ADD COLUMN IF NOT EXISTS courier_location geography(Point, 4326);
+  ADD COLUMN IF NOT EXISTS courier_location GEOGRAPHY(Point, 4326);
 
--- 4. AUTOMATIC POSTGIS POINT SYNCHRONIZATION TRIGGER
+-- 6. Trigger automatique de synchronisation des points géographiques PostGIS
 CREATE OR REPLACE FUNCTION public.sync_geography_point()
 RETURNS TRIGGER AS $$
 BEGIN
   IF NEW.latitude IS NOT NULL AND NEW.longitude IS NOT NULL THEN
     NEW.location := ST_SetSRID(ST_MakePoint(NEW.longitude, NEW.latitude), 4326)::geography;
-  ELSE
-    NEW.location := NULL;
   END IF;
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
--- Apply triggers
+CREATE OR REPLACE FUNCTION public.sync_order_geography_points()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.pickup_latitude IS NOT NULL AND NEW.pickup_longitude IS NOT NULL THEN
+    NEW.pickup_location := ST_SetSRID(ST_MakePoint(NEW.pickup_longitude, NEW.pickup_latitude), 4326)::geography;
+  END IF;
+  IF NEW.delivery_latitude IS NOT NULL AND NEW.delivery_longitude IS NOT NULL THEN
+    NEW.delivery_location := ST_SetSRID(ST_MakePoint(NEW.delivery_longitude, NEW.delivery_latitude), 4326)::geography;
+  END IF;
+  IF NEW.courier_latitude IS NOT NULL AND NEW.courier_longitude IS NOT NULL THEN
+    NEW.courier_location := ST_SetSRID(ST_MakePoint(NEW.courier_longitude, NEW.courier_latitude), 4326)::geography;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 DROP TRIGGER IF EXISTS trg_sync_restaurants_location ON public.restaurants;
 CREATE TRIGGER trg_sync_restaurants_location
   BEFORE INSERT OR UPDATE OF latitude, longitude ON public.restaurants
@@ -79,228 +97,150 @@ CREATE TRIGGER trg_sync_profiles_location
   BEFORE INSERT OR UPDATE OF latitude, longitude ON public.profiles
   FOR EACH ROW EXECUTE FUNCTION public.sync_geography_point();
 
--- 5. SPATIAL GIST INDEXES (Pour des performances ultra-rapides)
-CREATE INDEX IF NOT EXISTS idx_restaurants_location ON public.restaurants USING GIST (location);
-CREATE INDEX IF NOT EXISTS idx_couriers_location ON public.couriers USING GIST (location);
-CREATE INDEX IF NOT EXISTS idx_profiles_location ON public.profiles USING GIST (location);
+DROP TRIGGER IF EXISTS trg_sync_orders_locations ON public.orders;
+CREATE TRIGGER trg_sync_orders_locations
+  BEFORE INSERT OR UPDATE OF pickup_latitude, pickup_longitude, delivery_latitude, delivery_longitude, courier_latitude, courier_longitude ON public.orders
+  FOR EACH ROW EXECUTE FUNCTION public.sync_order_geography_points();
 
--- 6. RPC FUNCTION: GET NEARBY RESTAURANTS (ST_DWithin & ST_Distance)
+-- 7. Index Spatiaux GiST pour requêtes haute vitesse
+CREATE INDEX IF NOT EXISTS idx_restaurants_location ON public.restaurants USING GIST(location);
+CREATE INDEX IF NOT EXISTS idx_couriers_location ON public.couriers USING GIST(location);
+CREATE INDEX IF NOT EXISTS idx_profiles_location ON public.profiles USING GIST(location);
+CREATE INDEX IF NOT EXISTS idx_orders_delivery_location ON public.orders USING GIST(delivery_location);
+
+-- 8. Fonctions RPC Supabase pour calculs de proximité ultra-précis
 CREATE OR REPLACE FUNCTION public.get_nearby_restaurants(
   client_lat DOUBLE PRECISION,
   client_lng DOUBLE PRECISION,
-  radius_meters DOUBLE PRECISION DEFAULT 5000,
+  radius_meters DOUBLE PRECISION DEFAULT 10000.0,
   category_filter TEXT DEFAULT NULL,
-  limit_count INT DEFAULT 20
+  limit_count INTEGER DEFAULT 20
 )
 RETURNS TABLE (
   id UUID,
   name TEXT,
   tagline TEXT,
-  description TEXT,
   cover_image TEXT,
-  logo TEXT,
   rating NUMERIC,
-  review_count INT,
+  review_count INTEGER,
   neighborhood TEXT,
   address TEXT,
   latitude DOUBLE PRECISION,
   longitude DOUBLE PRECISION,
-  delivery_time_estimate TEXT,
-  delivery_fee INT,
-  min_order INT,
-  is_open BOOLEAN,
-  featured_tags TEXT[],
-  distance_meters DOUBLE PRECISION
-)
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
+  distance_meters DOUBLE PRECISION,
+  distance_km DOUBLE PRECISION
+) AS $$
 DECLARE
-  client_point geography;
+  client_geom GEOGRAPHY;
 BEGIN
-  client_point := ST_SetSRID(ST_MakePoint(client_lng, client_lat), 4326)::geography;
-
+  client_geom := ST_SetSRID(ST_MakePoint(client_lng, client_lat), 4326)::geography;
+  
   RETURN QUERY
   SELECT 
     r.id,
     r.name,
     r.tagline,
-    r.description,
     r.cover_image,
-    r.logo,
     r.rating,
     r.review_count,
     r.neighborhood,
     r.address,
     r.latitude,
     r.longitude,
-    r.delivery_time_estimate,
-    r.delivery_fee,
-    r.min_order,
-    r.is_open,
-    r.featured_tags,
-    ROUND(ST_Distance(r.location, client_point)::numeric, 1)::double precision AS distance_meters
+    ST_Distance(r.location, client_geom) AS distance_meters,
+    ROUND((ST_Distance(r.location, client_geom) / 1000.0)::numeric, 2)::DOUBLE PRECISION AS distance_km
   FROM public.restaurants r
   WHERE r.location IS NOT NULL
-    AND ST_DWithin(r.location, client_point, radius_meters)
-  ORDER BY ST_Distance(r.location, client_point) ASC
+    AND ST_DWithin(r.location, client_geom, radius_meters)
+  ORDER BY r.location <-> client_geom
   LIMIT limit_count;
 END;
-$$;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- 7. RPC FUNCTION: GET NEARBY AVAILABLE COURIERS
 CREATE OR REPLACE FUNCTION public.get_nearby_couriers(
   point_lat DOUBLE PRECISION,
   point_lng DOUBLE PRECISION,
-  radius_meters DOUBLE PRECISION DEFAULT 5000,
-  limit_count INT DEFAULT 10
+  radius_meters DOUBLE PRECISION DEFAULT 8000.0,
+  limit_count INTEGER DEFAULT 10
 )
 RETURNS TABLE (
   id UUID,
+  name TEXT,
+  phone TEXT,
   plate_number TEXT,
-  vehicle_type TEXT,
-  is_online BOOLEAN,
-  is_available BOOLEAN,
-  status courier_status_enum,
+  rating NUMERIC,
   latitude DOUBLE PRECISION,
   longitude DOUBLE PRECISION,
-  last_location_update TIMESTAMPTZ,
+  location_accuracy DOUBLE PRECISION,
+  status TEXT,
   distance_meters DOUBLE PRECISION
-)
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
+) AS $$
 DECLARE
-  search_point geography;
+  ref_geom GEOGRAPHY;
 BEGIN
-  search_point := ST_SetSRID(ST_MakePoint(point_lng, point_lat), 4326)::geography;
-
+  ref_geom := ST_SetSRID(ST_MakePoint(point_lng, point_lat), 4326)::geography;
+  
   RETURN QUERY
   SELECT 
     c.id,
+    c.name,
+    c.phone,
     c.plate_number,
-    c.vehicle_type,
-    c.is_online,
-    c.is_available,
-    c.status,
+    c.rating,
     c.latitude,
     c.longitude,
-    c.last_location_update,
-    ROUND(ST_Distance(c.location, search_point)::numeric, 1)::double precision AS distance_meters
+    c.location_accuracy,
+    c.status,
+    ST_Distance(c.location, ref_geom) AS distance_meters
   FROM public.couriers c
   WHERE c.location IS NOT NULL
-    AND c.is_online = TRUE
-    AND (c.is_available = TRUE OR c.status = 'AVAILABLE')
-    AND ST_DWithin(c.location, search_point, radius_meters)
-  ORDER BY ST_Distance(c.location, search_point) ASC
+    AND c.is_online = true
+    AND c.status IN ('ONLINE', 'AVAILABLE')
+    AND ST_DWithin(c.location, ref_geom, radius_meters)
+  ORDER BY c.location <-> ref_geom
   LIMIT limit_count;
 END;
-$$;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- 8. RPC FUNCTION: UPDATE COURIER GPS & STATUS
 CREATE OR REPLACE FUNCTION public.update_courier_gps(
   p_courier_id UUID,
   p_lat DOUBLE PRECISION,
   p_lng DOUBLE PRECISION,
-  p_status courier_status_enum DEFAULT NULL,
-  p_is_online BOOLEAN DEFAULT NULL
+  p_accuracy DOUBLE PRECISION DEFAULT 5.0,
+  p_bearing DOUBLE PRECISION DEFAULT 0.0,
+  p_status TEXT DEFAULT 'AVAILABLE',
+  p_is_online BOOLEAN DEFAULT true
 )
-RETURNS JSONB
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
-DECLARE
-  v_updated TIMESTAMPTZ := NOW();
+RETURNS VOID AS $$
 BEGIN
   UPDATE public.couriers
   SET 
     latitude = p_lat,
     longitude = p_lng,
-    status = COALESCE(p_status, status),
-    is_online = COALESCE(p_is_online, is_online),
-    is_available = CASE 
-      WHEN p_status = 'BUSY' THEN FALSE
-      WHEN p_status = 'AVAILABLE' THEN TRUE
-      WHEN p_is_online = FALSE THEN FALSE
-      ELSE is_available
-    END,
-    last_location_update = v_updated
+    location_accuracy = p_accuracy,
+    bearing = p_bearing,
+    status = p_status,
+    is_online = p_is_online,
+    is_available = (p_status = 'AVAILABLE'),
+    last_location_update = NOW()
   WHERE id = p_courier_id;
-
-  RETURN jsonb_build_object(
-    'success', true,
-    'courier_id', p_courier_id,
-    'latitude', p_lat,
-    'longitude', p_lng,
-    'updated_at', v_updated
-  );
 END;
-$$;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- 9. RPC FUNCTION: UPDATE RESTAURANT LOCATION
-CREATE OR REPLACE FUNCTION public.update_restaurant_location(
-  p_restaurant_id UUID,
-  p_lat DOUBLE PRECISION,
-  p_lng DOUBLE PRECISION,
-  p_address TEXT DEFAULT NULL,
-  p_neighborhood TEXT DEFAULT NULL
-)
-RETURNS JSONB
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
+-- 9. Activation de Supabase Realtime pour diffusion en direct
+DO $$
 BEGIN
-  UPDATE public.restaurants
-  SET 
-    latitude = p_lat,
-    longitude = p_lng,
-    address = COALESCE(p_address, address),
-    neighborhood = COALESCE(p_neighborhood, neighborhood)
-  WHERE id = p_restaurant_id;
-
-  RETURN jsonb_build_object(
-    'success', true,
-    'restaurant_id', p_restaurant_id,
-    'latitude', p_lat,
-    'longitude', p_lng
-  );
-END;
-$$;
-
--- 10. ROW LEVEL SECURITY (RLS) POLICIES
-ALTER TABLE public.restaurants ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.couriers ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
-
--- Restaurant policies
-CREATE POLICY "Public restaurants location viewable" 
-  ON public.restaurants FOR SELECT USING (true);
-
-CREATE POLICY "Restaurant owner can update location" 
-  ON public.restaurants FOR UPDATE 
-  USING (auth.uid() = owner_id)
-  WITH CHECK (auth.uid() = owner_id);
-
--- Courier policies
-CREATE POLICY "Public can view online couriers coordinates for active orders" 
-  ON public.couriers FOR SELECT 
-  USING (is_online = true OR auth.uid() = id);
-
-CREATE POLICY "Courier can update own position" 
-  ON public.couriers FOR UPDATE 
-  USING (auth.uid() = id)
-  WITH CHECK (auth.uid() = id);
-
--- Profiles policies
-CREATE POLICY "Users can view and update own profile location" 
-  ON public.profiles FOR ALL 
-  USING (auth.uid() = id)
-  WITH CHECK (auth.uid() = id);
-
--- 11. SUPABASE REALTIME ENABLEMENT
-DO $$ BEGIN
-  ALTER PUBLICATION supabase_realtime ADD TABLE public.couriers;
-EXCEPTION
-  WHEN duplicate_object THEN null;
-  WHEN undefined_object THEN null;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables 
+    WHERE pubname = 'supabase_realtime' AND tablename = 'couriers'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.couriers;
+  END IF;
+  
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_publication_tables 
+    WHERE pubname = 'supabase_realtime' AND tablename = 'orders'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.orders;
+  END IF;
 END $$;

@@ -72,13 +72,14 @@ export default function OrderTrackingModal() {
   const currentStepIdx = getStepIndex(activeTrackingOrder.status);
   const badge = getStatusBadge(activeTrackingOrder.status);
 
-  // Origin & destination coordinates
+  // Origin & destination coordinates with exact GPS accuracy
   const matchedResto = restaurants.find((r) => r.id === activeTrackingOrder.restaurantId);
   const matchedCourier = couriers.find((c) => c.id === activeTrackingOrder.courierId) || couriers[0];
 
-  const restaurantPos = matchedResto?.coordinates || DAKAR_GEO_PRESETS[matchedResto?.neighborhood || 'Ngor'] || DAKAR_DEFAULT_COORDS;
-  const destinationPos = DAKAR_GEO_PRESETS[activeTrackingOrder.deliveryAddress.neighborhood] || DAKAR_GEO_PRESETS['Plateau'] || DAKAR_DEFAULT_COORDS;
-  const courierPos = matchedCourier?.coordinates || DAKAR_GEO_PRESETS['Mermoz'] || DAKAR_DEFAULT_COORDS;
+  const restaurantPos = activeTrackingOrder.pickupCoords || matchedResto?.coordinates || DAKAR_GEO_PRESETS[matchedResto?.neighborhood || 'Ngor'] || DAKAR_DEFAULT_COORDS;
+  const destinationPos = activeTrackingOrder.deliveryCoords || DAKAR_GEO_PRESETS[activeTrackingOrder.deliveryAddress.neighborhood] || DAKAR_GEO_PRESETS['Plateau'] || DAKAR_DEFAULT_COORDS;
+  const courierPos = activeTrackingOrder.courierCoords || matchedCourier?.coordinates || DAKAR_GEO_PRESETS['Mermoz'] || DAKAR_DEFAULT_COORDS;
+
 
   return (
     <AnimatePresence>

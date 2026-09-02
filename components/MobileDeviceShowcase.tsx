@@ -54,7 +54,7 @@ import { CATEGORIES, DAKAR_NEIGHBORHOODS, DAKAR_ZONES } from '@/lib/mock-data';
 import { MenuItem, Restaurant, Order, OrderStatus, PaymentMethod, Reservation, OutingPlan } from '@/lib/types';
 import { formatFCFA, getStatusBadge } from '@/lib/utils';
 import confetti from 'canvas-confetti';
-import { calculateDistanceKm, formatDistanceString, DAKAR_DEFAULT_COORDS } from '@/lib/geolocation';
+import { calculateDistanceKm, formatDistanceString, DAKAR_DEFAULT_COORDS, DAKAR_GEO_PRESETS } from '@/lib/geolocation';
 import MiniLocationPicker from '@/components/map/MiniLocationPicker';
 import CourierLiveRadar from '@/components/map/CourierLiveRadar';
 import dynamic from 'next/dynamic';
@@ -94,12 +94,14 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
     toggleFavoriteRestaurant,
     updateRestaurantShowcase,
     clientCoords,
+    clientAccuracy,
     clientNeighborhood,
     clientAddress,
     isClientGpsActive,
     requestClientGps,
     setClientLocation,
   } = useApp();
+
 
   const [activeTab, setActiveTab] = useState<'home' | 'menu' | 'orders' | 'favorites' | 'profile'>('home');
   const [selectedCat, setSelectedCat] = useState<string>('all');
@@ -125,6 +127,8 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
   const [selectedShowcaseResto, setSelectedShowcaseResto] = useState<Restaurant | null>(null);
   const [showcaseSubTab, setShowcaseSubTab] = useState<'menu' | 'gallery' | 'location' | 'reviews' | 'hours'>('menu');
   const [selectedGalleryImage, setSelectedGalleryImage] = useState<string | null>(null);
+  const [isFullScreenLocationOpen, setIsFullScreenLocationOpen] = useState(false);
+
 
   // 📅 Réservation de Table
   const [isReservationModalOpen, setIsReservationModalOpen] = useState(false);
@@ -2150,76 +2154,110 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
                   </div>
                 )}
 
-                {/* 3. SUB-TAB: LOCALISATION & ACCÈS */}
-                {showcaseSubTab === 'location' && (
-                  <div className="space-y-4">
-                    
-                    {/* Location Box with Distance calculation from user live GPS */}
-                    <div className="bg-[#E6F5EC] p-3.5 rounded-2xl border border-[#0A6E3B]/20 space-y-2">
-                      <div className="flex items-center gap-2">
-                        <MapPin className="w-4 h-4 text-[#0A6E3B]" />
-                        <div>
-                          <span className="text-[10px] text-gray-500 font-bold block">Adresse exacte</span>
-                          <h5 className="font-black text-xs text-[#081A10]">{selectedShowcaseResto.address}</h5>
-                        </div>
-                      </div>
+                {/* 3. SUB-TAB: LOCALISATION & ACCÈS ULTRA-PRÉCIS */}
+                {showcaseSubTab === 'location' && (() => {
+                  const restoCoords = selectedShowcaseResto.coordinates || (selectedShowcaseResto.latitude && selectedShowcaseResto.longitude ? { lat: selectedShowcaseResto.latitude, lng: selectedShowcaseResto.longitude } : DAKAR_GEO_PRESETS[selectedShowcaseResto.neighborhood] || DAKAR_DEFAULT_COORDS);
+                  const userOrigin = clientCoords || DAKAR_GEO_PRESETS[userLiveLocation] || DAKAR_DEFAULT_COORDS;
+                  const distanceVal = calculateDistanceKm(userOrigin, restoCoords);
+                  const distanceFormatted = formatDistanceString(distanceVal);
 
-                      {/* Calculated Distance from User (ex: from Pikine) */}
-                      {(() => {
-                        const dist = getDistanceEstimate(userLiveLocation, selectedShowcaseResto.neighborhood);
-                        return (
-                          <div className="pt-2 border-t border-[#0A6E3B]/20 grid grid-cols-2 gap-2 text-xs">
-                            <div className="bg-white p-2 rounded-xl border border-[#0A6E3B]/10">
-                              <span className="text-[9px] text-gray-400 block">Distance depuis {userLiveLocation}</span>
-                              <span className="font-black text-[#0A6E3B]">{dist.dist}</span>
-                            </div>
-                            <div className="bg-white p-2 rounded-xl border border-[#0A6E3B]/10">
-                              <span className="text-[9px] text-gray-400 block">Temps de trajet</span>
-                              <span className="font-black text-[#081A10]">{dist.time}</span>
+                  const showcaseMarkers: any[] = [
+                    {
+                      id: `resto-pin-${selectedShowcaseResto.id}`,
+                      lat: restoCoords.lat,
+                      lng: restoCoords.lng,
+                      type: 'restaurant',
+                      title: selectedShowcaseResto.name,
+                      subtitle: selectedShowcaseResto.address,
+                      statusText: `📍 ${selectedShowcaseResto.neighborhood}`,
+                    },
+                  ];
+
+                  if (clientCoords) {
+                    showcaseMarkers.push({
+                      id: 'client-live-beacon',
+                      lat: clientCoords.lat,
+                      lng: clientCoords.lng,
+                      type: 'client',
+                      title: 'Votre Position GPS',
+                      subtitle: clientAddress,
+                      statusText: `Précision ± ${Math.round(clientAccuracy)}m`,
+                    });
+                  }
+
+                  return (
+                    <div className="space-y-3.5">
+                      {/* Location Box with Real-Time Distance from User */}
+                      <div className="bg-[#E6F5EC] p-3.5 rounded-2xl border border-[#0A6E3B]/20 space-y-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-start gap-2">
+                            <MapPin className="w-4 h-4 text-[#0A6E3B] shrink-0 mt-0.5" />
+                            <div>
+                              <span className="text-[10px] text-gray-500 font-bold block">Où nous trouver ?</span>
+                              <h5 className="font-black text-xs text-[#081A10]">{selectedShowcaseResto.name}</h5>
+                              <p className="text-[11px] text-gray-600">{selectedShowcaseResto.address}, {selectedShowcaseResto.neighborhood}</p>
                             </div>
                           </div>
-                        );
-                      })()}
-                    </div>
-
-                    {/* Interactive Dakar Map Simulation */}
-                    <div className="relative h-44 w-full rounded-2xl overflow-hidden border border-[#D8EADB] bg-slate-100 flex flex-col justify-between p-3 shadow-inner">
-                      {/* Decorative map grid */}
-                      <div className="absolute inset-0 bg-[radial-gradient(#0A6E3B_1px,transparent_1px)] [background-size:16px_16px] opacity-20" />
-                      
-                      <div className="relative z-10 flex justify-between items-center">
-                        <span className="px-2.5 py-1 rounded-full bg-white/90 text-xs font-black text-[#0A6E3B] shadow-xs">
-                          📍 {selectedShowcaseResto.neighborhood}, Dakar
-                        </span>
-                        <span className="px-2 py-0.5 rounded-md bg-black/60 text-white text-[9px] font-mono">
-                          GPS : {selectedShowcaseResto.coordinates?.lat}, {selectedShowcaseResto.coordinates?.lng}
-                        </span>
-                      </div>
-
-                      <div className="relative z-10 text-center space-y-1 my-auto">
-                        <div className="w-10 h-10 rounded-full bg-[#0A6E3B] text-white flex items-center justify-center mx-auto shadow-lg animate-bounce">
-                          <MapPin className="w-5 h-5" />
+                          <span className="px-2 py-0.5 rounded-full bg-[#0A6E3B] text-white font-black text-[10px] shrink-0">
+                            À {distanceFormatted} de vous
+                          </span>
                         </div>
-                        <span className="text-xs font-black text-[#081A10] block bg-white/80 py-0.5 rounded-md mx-auto max-w-[200px]">
-                          {selectedShowcaseResto.name}
-                        </span>
+
+                        <div className="pt-2 border-t border-[#0A6E3B]/20 grid grid-cols-2 gap-2 text-xs">
+                          <div className="bg-white p-2 rounded-xl border border-[#0A6E3B]/10">
+                            <span className="text-[9px] text-gray-400 block font-bold">Votre zone</span>
+                            <span className="font-black text-[#0A6E3B]">{clientNeighborhood || userLiveLocation}</span>
+                          </div>
+                          <div className="bg-white p-2 rounded-xl border border-[#0A6E3B]/10">
+                            <span className="text-[9px] text-gray-400 block font-bold">Coordonnées fixes</span>
+                            <span className="font-mono text-[10px] text-[#081A10] font-bold">{restoCoords.lat.toFixed(4)}, {restoCoords.lng.toFixed(4)}</span>
+                          </div>
+                        </div>
                       </div>
 
-                      <div className="relative z-10">
+                      {/* Interactive Leaflet Map on Street Level */}
+                      <div className="rounded-2xl overflow-hidden border border-[#D8EADB] shadow-sm relative">
+                        <ThiobMap
+                          center={restoCoords}
+                          zoom={14}
+                          markers={showcaseMarkers}
+                          height="180px"
+                        />
+                      </div>
+
+                      {/* Action Buttons: Full Screen Map & Navigation GPS */}
+                      <div className="grid grid-cols-2 gap-2 pt-1">
                         <button
-                          onClick={() => {
-                            window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedShowcaseResto.name + ' ' + selectedShowcaseResto.address)}`, '_blank');
-                          }}
-                          className="w-full py-2.5 rounded-xl bg-[#0A6E3B] text-white text-xs font-black shadow-md flex items-center justify-center gap-1.5 hover:bg-[#064E2B]"
+                          type="button"
+                          onClick={() => setIsFullScreenLocationOpen(true)}
+                          className="py-2.5 px-3 rounded-xl bg-[#F4F7F4] border border-[#D8EADB] text-[#081A10] font-black text-xs flex items-center justify-center gap-1.5 hover:bg-gray-100 transition-colors shadow-2xs"
                         >
-                          <ExternalLink className="w-3.5 h-3.5" />
-                          <span>📍 Voir l'itinéraire (Google Maps / Waze)</span>
+                          <span>🗺️ Voir en grand</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const { openInExternalMaps } = require('@/lib/geolocation');
+                            openInExternalMaps(
+                              restoCoords.lat,
+                              restoCoords.lng,
+                              selectedShowcaseResto.name,
+                              clientCoords?.lat,
+                              clientCoords?.lng
+                            );
+                          }}
+                          className="py-2.5 px-3 rounded-xl brand-gradient text-white font-black text-xs flex items-center justify-center gap-1.5 shadow-md hover:opacity-95 transition-opacity"
+                        >
+                          <Navigation className="w-3.5 h-3.5" />
+                          <span>🧭 Itinéraire</span>
                         </button>
                       </div>
-                    </div>
 
-                  </div>
-                )}
+                    </div>
+                  );
+                })()}
+
 
                 {/* 4. SUB-TAB: AVIS & HORAIRES */}
                 {showcaseSubTab === 'reviews' && (
@@ -2600,9 +2638,113 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
         )}
       </AnimatePresence>
 
+      {/* =========================================================================
+          10. FULL SCREEN RESTAURANT LOCATION MODAL (CARTE PLEIN ÉCRAN & ITINÉRAIRE)
+         ========================================================================= */}
+      <AnimatePresence>
+        {isFullScreenLocationOpen && selectedShowcaseResto && (() => {
+          const restoCoords = selectedShowcaseResto.coordinates || (selectedShowcaseResto.latitude && selectedShowcaseResto.longitude ? { lat: selectedShowcaseResto.latitude, lng: selectedShowcaseResto.longitude } : DAKAR_GEO_PRESETS[selectedShowcaseResto.neighborhood] || DAKAR_DEFAULT_COORDS);
+          const userOrigin = clientCoords || DAKAR_GEO_PRESETS[userLiveLocation] || DAKAR_DEFAULT_COORDS;
+          const exactDistance = calculateDistanceKm(userOrigin, restoCoords);
+
+          const fullScreenMarkers: any[] = [
+            {
+              id: `resto-full-${selectedShowcaseResto.id}`,
+              lat: restoCoords.lat,
+              lng: restoCoords.lng,
+              type: 'restaurant',
+              title: selectedShowcaseResto.name,
+              subtitle: selectedShowcaseResto.address,
+              statusText: `📍 ${selectedShowcaseResto.neighborhood}`,
+            },
+          ];
+
+          if (clientCoords) {
+            fullScreenMarkers.push({
+              id: 'client-full-beacon',
+              lat: clientCoords.lat,
+              lng: clientCoords.lng,
+              type: 'client',
+              title: 'Vous êtes ici',
+              subtitle: clientAddress,
+              statusText: `Précision ± ${Math.round(clientAccuracy)}m`,
+            });
+          }
+
+          return (
+            <div className="fixed inset-0 z-60 bg-black/80 backdrop-blur-md flex items-end sm:items-center justify-center p-0 sm:p-4">
+              <motion.div
+                initial={{ opacity: 0, y: 40 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 40 }}
+                className="relative bg-white w-full max-w-md rounded-t-[36px] sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+              >
+                {/* Header */}
+                <div className="p-4 brand-gradient text-white flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-emerald-200 block">Emplacement Exact</span>
+                    <h3 className="text-base font-black truncate">{selectedShowcaseResto.name}</h3>
+                    <p className="text-xs text-white/80">{selectedShowcaseResto.address}, {selectedShowcaseResto.neighborhood}</p>
+                  </div>
+                  <button
+                    onClick={() => setIsFullScreenLocationOpen(false)}
+                    className="w-8 h-8 rounded-full bg-white/20 text-white flex items-center justify-center text-xs hover:bg-white/30"
+                  >
+                    ✕
+                  </button>
+                </div>
+
+                {/* Distance & Info Strip */}
+                <div className="p-3 bg-[#E6F5EC] border-b border-[#D8EADB] flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#0A6E3B] animate-ping" />
+                    <span className="font-bold text-[#081A10]">Distance : <strong className="text-[#0A6E3B] font-black">{formatDistanceString(exactDistance)}</strong></span>
+                  </div>
+                  <span className="text-[10px] font-mono text-gray-500 font-bold">
+                    GPS: {restoCoords.lat.toFixed(5)}, {restoCoords.lng.toFixed(5)}
+                  </span>
+                </div>
+
+                {/* Full Screen Interactive Leaflet Map */}
+                <div className="h-72 w-full relative">
+                  <ThiobMap
+                    center={restoCoords}
+                    zoom={15}
+                    markers={fullScreenMarkers}
+                    height="100%"
+                  />
+                </div>
+
+                {/* Navigation CTA footer */}
+                <div className="p-4 bg-white border-t border-gray-100 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const { openInExternalMaps } = require('@/lib/geolocation');
+                      openInExternalMaps(
+                        restoCoords.lat,
+                        restoCoords.lng,
+                        selectedShowcaseResto.name,
+                        clientCoords?.lat,
+                        clientCoords?.lng
+                      );
+                    }}
+                    className="flex-1 py-3 rounded-2xl brand-gradient text-white font-black text-xs shadow-md flex items-center justify-center gap-2"
+                  >
+                    <Navigation className="w-4 h-4" />
+                    <span>Ouvrir l'Itinéraire (Maps / Waze)</span>
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          );
+        })()}
+      </AnimatePresence>
+
     </div>
   );
 }
+
 
 // =========================================================================
 // 2. MOBILE APP RESTAURANT VIEW (Cuisine Dashboard & Vitrine Pro)

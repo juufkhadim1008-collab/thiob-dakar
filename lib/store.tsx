@@ -56,17 +56,21 @@ interface AppContextType {
 
   // Geolocation & Spatial Features
   clientCoords: GeoPoint | null;
+  clientAccuracy: number; // en mètres (ex: 4.8)
+  clientGpsTimestamp: number;
+  clientIsApproximate: boolean;
   clientAddress: string;
   clientNeighborhood: string;
   isClientGpsActive: boolean;
   radiusFilterKm: number;
   setRadiusFilterKm: (km: number) => void;
-  setClientLocation: (coords: GeoPoint, address?: string, neighborhood?: string) => void;
-  requestClientGps: () => Promise<GeoPoint>;
+  setClientLocation: (coords: GeoPoint, address?: string, neighborhood?: string, accuracy?: number) => void;
+  requestClientGps: () => Promise<{ coords: GeoPoint; accuracy: number }>;
+  updateOrderDeliveryLocation: (orderId: string, newCoords: GeoPoint, accuracy?: number, landmark?: string) => void;
   getNearbyRestaurants: (radiusKm?: number) => (Restaurant & { distanceKm: number })[];
   getNearbyCouriers: (radiusKm?: number) => (Courier & { distanceKm: number })[];
-  updateCourierLocation: (courierId: string, coords: GeoPoint, status?: CourierStatus) => void;
-  updateRestaurantLocation: (restoId: string, coords: GeoPoint, address?: string, neighborhood?: string) => void;
+  updateCourierLocation: (courierId: string, coords: GeoPoint, status?: CourierStatus, accuracy?: number, bearing?: number) => void;
+  updateRestaurantLocation: (restoId: string, coords: GeoPoint, address?: string, neighborhood?: string, accuracy?: number) => void;
 
   // Client Cart & Orders
   cart: CartItem[];
@@ -83,8 +87,13 @@ interface AppContextType {
     neighborhood: string;
     street: string;
     details?: string;
+    landmark?: string;
+    instructions?: string;
+    coords?: GeoPoint;
+    accuracy?: number;
     paymentMethod: PaymentMethod;
   }) => Order;
+
 
   // Reservations & Outings
   createReservation: (data: Omit<Reservation, 'id' | 'reservationNumber' | 'status' | 'createdAt'>) => Reservation;
@@ -142,6 +151,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Geolocation states
   const [clientCoords, setClientCoords] = useState<GeoPoint | null>(null);
+  const [clientAccuracy, setClientAccuracy] = useState<number>(5.0);
+  const [clientGpsTimestamp, setClientGpsTimestamp] = useState<number>(Date.now());
+  const [clientIsApproximate, setClientIsApproximate] = useState<boolean>(false);
   const [clientAddress, setClientAddress] = useState<string>('Dakar, Sénégal');
   const [clientNeighborhood, setClientNeighborhood] = useState<string>('Tous les quartiers');
   const [isClientGpsActive, setIsClientGpsActive] = useState<boolean>(false);
@@ -155,6 +167,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const savedClientCoords = localStorage.getItem('thiob_client_coords');
       const savedClientAddress = localStorage.getItem('thiob_client_address');
       const savedClientNeighborhood = localStorage.getItem('thiob_client_neighborhood');
+      const savedClientAccuracy = localStorage.getItem('thiob_client_accuracy');
 
       if (savedRestos) {
         const parsed: Restaurant[] = JSON.parse(savedRestos);
@@ -169,8 +182,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setCurrentRestaurantId(savedRestoId);
       }
       if (savedClientCoords) {
-        setClientCoords(JSON.parse(savedClientCoords));
+        const parsedCoords = JSON.parse(savedClientCoords);
+        setClientCoords(parsedCoords);
         setIsClientGpsActive(true);
+      }
+      if (savedClientAccuracy) {
+        setClientAccuracy(Number(savedClientAccuracy));
       }
       if (savedClientAddress) setClientAddress(savedClientAddress);
       if (savedClientNeighborhood) setClientNeighborhood(savedClientNeighborhood);
@@ -179,39 +196,64 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const currentRestaurant = restaurants.find((r) => r.id === currentRestaurantId) || restaurants[0];
 
-  // Client Geolocation Handler
-  const setClientLocation = (coords: GeoPoint, address?: string, neighborhood?: string) => {
+  // Client Geolocation Handler with exact accuracy
+  const setClientLocation = (
+    coords: GeoPoint,
+    address?: string,
+    neighborhood?: string,
+    accuracy: number = 5.0
+  ) => {
     setClientCoords(coords);
+    setClientAccuracy(accuracy);
+    setClientGpsTimestamp(Date.now());
+    setClientIsApproximate(accuracy > 40);
     setIsClientGpsActive(true);
     if (address) setClientAddress(address);
     if (neighborhood) setClientNeighborhood(neighborhood);
 
     try {
       localStorage.setItem('thiob_client_coords', JSON.stringify(coords));
+      localStorage.setItem('thiob_client_accuracy', accuracy.toString());
       if (address) localStorage.setItem('thiob_client_address', address);
       if (neighborhood) localStorage.setItem('thiob_client_neighborhood', neighborhood);
     } catch {}
   };
 
-  const requestClientGps = async (): Promise<GeoPoint> => {
-    return new Promise((resolve, reject) => {
-      if (typeof window === 'undefined' || !navigator.geolocation) {
-        reject(new Error('La géolocalisation n’est pas disponible.'));
-        return;
-      }
-
-      navigator.geolocation.getCurrentPosition(
-        async (pos) => {
-          const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-          const geo = await reverseGeocodeDakar(coords.lat, coords.lng);
-          setClientLocation(coords, geo.fullAddress, geo.neighborhood);
-          resolve(coords);
-        },
-        (err) => reject(err),
-        { enableHighAccuracy: true, timeout: 8000 }
-      );
-    });
+  const requestClientGps = async (): Promise<{ coords: GeoPoint; accuracy: number }> => {
+    const { getHighAccuracyLocation } = await import('./geolocation');
+    const exact = await getHighAccuracyLocation(6000, 10);
+    const coords = { lat: exact.lat, lng: exact.lng };
+    const geo = await reverseGeocodeDakar(coords.lat, coords.lng);
+    setClientLocation(coords, geo.fullAddress, geo.neighborhood, exact.accuracy);
+    return { coords, accuracy: exact.accuracy };
   };
+
+  // Update delivery destination for an existing or active order
+  const updateOrderDeliveryLocation = (
+    orderId: string,
+    newCoords: GeoPoint,
+    accuracy: number = 5.0,
+    landmark?: string
+  ) => {
+    setOrders((prev) =>
+      prev.map((o) =>
+        o.id === orderId
+          ? {
+              ...o,
+              deliveryCoords: {
+                lat: newCoords.lat,
+                lng: newCoords.lng,
+                accuracy,
+                timestamp: Date.now(),
+              },
+              deliveryAccuracy: accuracy,
+              deliveryLandmark: landmark || o.deliveryLandmark,
+            }
+          : o
+      )
+    );
+  };
+
 
   // Nearby Restaurants Spatial Query
   const getNearbyRestaurants = (radiusKm: number = radiusFilterKm) => {
@@ -250,8 +292,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       .sort((a, b) => a.distanceKm - b.distanceKm);
   };
 
-  // Courier location & status updater
-  const updateCourierLocation = (courierId: string, coords: GeoPoint, status?: CourierStatus) => {
+  // Courier location & status updater with exact accuracy and bearing
+  const updateCourierLocation = (
+    courierId: string,
+    coords: GeoPoint,
+    status?: CourierStatus,
+    accuracy: number = 5.0,
+    bearing: number = 0.0
+  ) => {
     setCouriers((prev) =>
       prev.map((c) =>
         c.id === courierId
@@ -259,7 +307,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               ...c,
               latitude: coords.lat,
               longitude: coords.lng,
-              coordinates: coords,
+              coordinates: { lat: coords.lat, lng: coords.lng, accuracy },
+              locationAccuracy: accuracy,
+              bearing: bearing,
               status: status || c.status || 'AVAILABLE',
               lastLocationUpdate: 'À l’instant',
             }
@@ -273,6 +323,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         p_courier_id: courierId,
         p_lat: coords.lat,
         p_lng: coords.lng,
+        p_accuracy: accuracy,
+        p_bearing: bearing,
         p_status: status || 'AVAILABLE',
       }).then();
     } catch {}
@@ -282,7 +334,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     restoId: string,
     coords: GeoPoint,
     address?: string,
-    neighborhood?: string
+    neighborhood?: string,
+    accuracy: number = 5.0
   ) => {
     setRestaurants((prev) =>
       prev.map((r) =>
@@ -292,6 +345,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               latitude: coords.lat,
               longitude: coords.lng,
               coordinates: coords,
+              locationAccuracy: accuracy,
+              locationTimestamp: Date.now(),
               address: address || r.address,
               neighborhood: neighborhood || r.neighborhood,
             }
@@ -309,6 +364,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               latitude: coords.lat,
               longitude: coords.lng,
               coordinates: coords,
+              locationAccuracy: accuracy,
+              locationTimestamp: Date.now(),
               address: address || r.address,
               neighborhood: neighborhood || r.neighborhood,
             }
@@ -328,6 +385,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }).then();
     } catch {}
   };
+
 
   const registerNewRestaurant = (data: {
     name: string;
@@ -508,6 +566,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     neighborhood: string;
     street: string;
     details?: string;
+    landmark?: string;
+    instructions?: string;
+    coords?: GeoPoint;
+    accuracy?: number;
     paymentMethod: PaymentMethod;
   }): Order => {
     const restaurant = cartRestaurant || restaurants[0];
@@ -516,7 +578,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const platformFee = 500;
     const total = subtotal + deliveryFee + platformFee;
 
-    const destCoords = DAKAR_GEO_PRESETS[details.neighborhood] || clientCoords || DAKAR_DEFAULT_COORDS;
+    const baseCoords = details.coords || clientCoords || DAKAR_GEO_PRESETS[details.neighborhood] || DAKAR_DEFAULT_COORDS;
+    const exactAccuracy = details.accuracy || clientAccuracy || 5.0;
+    const destCoords = {
+      lat: baseCoords.lat,
+      lng: baseCoords.lng,
+      accuracy: exactAccuracy,
+      timestamp: Date.now(),
+    };
+
     const pickupCoords = restaurant.coordinates || DAKAR_GEO_PRESETS[restaurant.neighborhood] || DAKAR_DEFAULT_COORDS;
     const assignedCourier = couriers.find((c) => c.isOnline) || couriers[0];
 
@@ -550,10 +620,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         neighborhood: details.neighborhood,
         street: details.street,
         details: details.details,
+        landmark: details.landmark,
+        instructions: details.instructions,
       },
       deliveryCoords: destCoords,
-      pickupCoords: pickupCoords,
-      courierCoords: assignedCourier?.coordinates || pickupCoords,
+      deliveryAccuracy: exactAccuracy,
+      deliveryLandmark: details.landmark,
+      deliveryInstructions: details.instructions,
+      pickupCoords: { lat: pickupCoords.lat, lng: pickupCoords.lng },
+      courierCoords: assignedCourier?.coordinates ? { lat: assignedCourier.coordinates.lat, lng: assignedCourier.coordinates.lng } : { lat: pickupCoords.lat, lng: pickupCoords.lng },
       estimatedDeliveryTime: restaurant.deliveryTimeEstimate,
     };
 
@@ -569,6 +644,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setActiveTrackingOrder(newOrder);
     return newOrder;
   };
+
 
   // Reservations
   const createReservation = (data: Omit<Reservation, 'id' | 'reservationNumber' | 'status' | 'createdAt'>): Reservation => {
@@ -738,6 +814,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         outingPlans,
         favoriteRestaurantIds,
         clientCoords,
+        clientAccuracy,
+        clientGpsTimestamp,
+        clientIsApproximate,
         clientAddress,
         clientNeighborhood,
         isClientGpsActive,
@@ -745,10 +824,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setRadiusFilterKm,
         setClientLocation,
         requestClientGps,
+        updateOrderDeliveryLocation,
         getNearbyRestaurants,
         getNearbyCouriers,
         updateCourierLocation,
         updateRestaurantLocation,
+
         cart,
         addToCart,
         removeFromCart,

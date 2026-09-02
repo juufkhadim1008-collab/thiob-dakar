@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
 import { GeoPoint, calculateDistanceKm, formatDistanceString, DAKAR_GEO_PRESETS } from '@/lib/geolocation';
 import { MapMarkerItem } from './ThiobMap';
-import { Bike, MapPin, Navigation, Clock, ShieldCheck } from 'lucide-react';
+import { Bike, Navigation, ShieldCheck } from 'lucide-react';
 
 const ThiobMap = dynamic(() => import('./ThiobMap'), { 
   ssr: false,
@@ -36,29 +36,61 @@ export default function CourierLiveRadar({
   orderNumber = 'DKR-8942',
   isSimulatingLiveMove = true,
 }: CourierLiveRadarProps) {
+  // Current animated position for smooth rendering
   const [currentCourierPos, setCurrentCourierPos] = useState<GeoPoint>(courierPos);
+  const targetPosRef = useRef<GeoPoint>(courierPos);
+  const animationFrameRef = useRef<number | null>(null);
 
-  // Live micro-movement simulation if requested
+  // Smooth linear interpolation animation between GPS updates
+  useEffect(() => {
+    targetPosRef.current = courierPos;
+  }, [courierPos]);
+
+  useEffect(() => {
+    const animateMove = () => {
+      setCurrentCourierPos((prev) => {
+        const target = targetPosRef.current;
+        const diffLat = target.lat - prev.lat;
+        const diffLng = target.lng - prev.lng;
+
+        // If very close, snap to target
+        if (Math.abs(diffLat) < 0.00001 && Math.abs(diffLng) < 0.00001) {
+          return target;
+        }
+
+        // Lerp step
+        return {
+          lat: prev.lat + diffLat * 0.15,
+          lng: prev.lng + diffLng * 0.15,
+        };
+      });
+
+      animationFrameRef.current = requestAnimationFrame(animateMove);
+    };
+
+    animationFrameRef.current = requestAnimationFrame(animateMove);
+
+    return () => {
+      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+    };
+  }, []);
+
+  // Live micro-movement simulation toward destination if active
   useEffect(() => {
     if (!isSimulatingLiveMove) return;
 
     const interval = setInterval(() => {
-      setCurrentCourierPos((prev) => {
-        // Move 10% closer towards destination
-        const dLat = (destinationPos.lat - prev.lat) * 0.05;
-        const dLng = (destinationPos.lng - prev.lng) * 0.05;
-        return {
-          lat: prev.lat + dLat,
-          lng: prev.lng + dLng,
-        };
-      });
-    }, 4000);
+      targetPosRef.current = {
+        lat: targetPosRef.current.lat + (destinationPos.lat - targetPosRef.current.lat) * 0.06,
+        lng: targetPosRef.current.lng + (destinationPos.lng - targetPosRef.current.lng) * 0.06,
+      };
+    }, 3500);
 
     return () => clearInterval(interval);
   }, [isSimulatingLiveMove, destinationPos.lat, destinationPos.lng]);
 
   const distanceToDelivery = calculateDistanceKm(currentCourierPos, destinationPos);
-  const estimatedMins = Math.max(3, Math.round(distanceToDelivery * 3.2));
+  const estimatedMins = Math.max(2, Math.round(distanceToDelivery * 3.0));
 
   const markers: MapMarkerItem[] = [
     {
@@ -91,7 +123,7 @@ export default function CourierLiveRadar({
 
   return (
     <div className="space-y-3">
-      {/* Live Map with Route Line */}
+      {/* Live Map with Route Line & Smooth Marker Interpolation */}
       <div className="relative rounded-3xl overflow-hidden border border-[#D0E2D6] shadow-md">
         <ThiobMap
           center={currentCourierPos}
