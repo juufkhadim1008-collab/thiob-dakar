@@ -12,7 +12,8 @@ import {
   OrderStatus,
   PaymentMethod,
   Reservation,
-  OutingPlan
+  OutingPlan,
+  CourierStatus
 } from './types';
 import { 
   RESTAURANTS as initialRestaurants, 
@@ -23,6 +24,14 @@ import {
   INITIAL_RESERVATIONS,
   INITIAL_OUTING_PLANS
 } from './mock-data';
+import { 
+  GeoPoint, 
+  calculateDistanceKm, 
+  DAKAR_GEO_PRESETS, 
+  reverseGeocodeDakar, 
+  DAKAR_DEFAULT_COORDS 
+} from './geolocation';
+import { supabase } from './supabase';
 
 interface CartItem {
   item: MenuItem;
@@ -44,6 +53,20 @@ interface AppContextType {
   reservations: Reservation[];
   outingPlans: OutingPlan[];
   favoriteRestaurantIds: string[];
+
+  // Geolocation & Spatial Features
+  clientCoords: GeoPoint | null;
+  clientAddress: string;
+  clientNeighborhood: string;
+  isClientGpsActive: boolean;
+  radiusFilterKm: number;
+  setRadiusFilterKm: (km: number) => void;
+  setClientLocation: (coords: GeoPoint, address?: string, neighborhood?: string) => void;
+  requestClientGps: () => Promise<GeoPoint>;
+  getNearbyRestaurants: (radiusKm?: number) => (Restaurant & { distanceKm: number })[];
+  getNearbyCouriers: (radiusKm?: number) => (Courier & { distanceKm: number })[];
+  updateCourierLocation: (courierId: string, coords: GeoPoint, status?: CourierStatus) => void;
+  updateRestaurantLocation: (restoId: string, coords: GeoPoint, address?: string, neighborhood?: string) => void;
 
   // Client Cart & Orders
   cart: CartItem[];
@@ -82,6 +105,7 @@ interface AppContextType {
     neighborhood: string;
     phone?: string;
     coverImage?: string;
+    coordinates?: { lat: number; lng: number };
   }) => Restaurant;
   updateCurrentRestaurant: (updates: Partial<Restaurant>) => void;
   updateOrderStatus: (orderId: string, newStatus: OrderStatus) => void;
@@ -93,6 +117,7 @@ interface AppContextType {
 
   // Courier Actions
   toggleCourierOnline: (courierId: string) => void;
+  setCourierStatus: (courierId: string, status: CourierStatus) => void;
   acceptDeliveryMission: (courierId: string, orderId: string) => void;
   completeDeliveryMission: (courierId: string, orderId: string) => void;
 
@@ -115,11 +140,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [outingPlans, setOutingPlans] = useState<OutingPlan[]>(INITIAL_OUTING_PLANS);
   const [favoriteRestaurantIds, setFavoriteRestaurantIds] = useState<string[]>(['resto-kamiss', 'resto-1']);
 
-  // Load registered restaurant from localStorage on startup if available
+  // Geolocation states
+  const [clientCoords, setClientCoords] = useState<GeoPoint | null>(null);
+  const [clientAddress, setClientAddress] = useState<string>('Dakar, Sénégal');
+  const [clientNeighborhood, setClientNeighborhood] = useState<string>('Tous les quartiers');
+  const [isClientGpsActive, setIsClientGpsActive] = useState<boolean>(false);
+  const [radiusFilterKm, setRadiusFilterKm] = useState<number>(5);
+
+  // Load saved data from localStorage on startup if available
   useEffect(() => {
     try {
       const savedRestoId = localStorage.getItem('thiob_active_restaurant_id');
       const savedRestos = localStorage.getItem('thiob_custom_restaurants');
+      const savedClientCoords = localStorage.getItem('thiob_client_coords');
+      const savedClientAddress = localStorage.getItem('thiob_client_address');
+      const savedClientNeighborhood = localStorage.getItem('thiob_client_neighborhood');
+
       if (savedRestos) {
         const parsed: Restaurant[] = JSON.parse(savedRestos);
         if (Array.isArray(parsed) && parsed.length > 0) {
@@ -132,10 +168,166 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (savedRestoId) {
         setCurrentRestaurantId(savedRestoId);
       }
+      if (savedClientCoords) {
+        setClientCoords(JSON.parse(savedClientCoords));
+        setIsClientGpsActive(true);
+      }
+      if (savedClientAddress) setClientAddress(savedClientAddress);
+      if (savedClientNeighborhood) setClientNeighborhood(savedClientNeighborhood);
     } catch {}
   }, []);
 
   const currentRestaurant = restaurants.find((r) => r.id === currentRestaurantId) || restaurants[0];
+
+  // Client Geolocation Handler
+  const setClientLocation = (coords: GeoPoint, address?: string, neighborhood?: string) => {
+    setClientCoords(coords);
+    setIsClientGpsActive(true);
+    if (address) setClientAddress(address);
+    if (neighborhood) setClientNeighborhood(neighborhood);
+
+    try {
+      localStorage.setItem('thiob_client_coords', JSON.stringify(coords));
+      if (address) localStorage.setItem('thiob_client_address', address);
+      if (neighborhood) localStorage.setItem('thiob_client_neighborhood', neighborhood);
+    } catch {}
+  };
+
+  const requestClientGps = async (): Promise<GeoPoint> => {
+    return new Promise((resolve, reject) => {
+      if (typeof window === 'undefined' || !navigator.geolocation) {
+        reject(new Error('La géolocalisation n’est pas disponible.'));
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        async (pos) => {
+          const coords = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+          const geo = await reverseGeocodeDakar(coords.lat, coords.lng);
+          setClientLocation(coords, geo.fullAddress, geo.neighborhood);
+          resolve(coords);
+        },
+        (err) => reject(err),
+        { enableHighAccuracy: true, timeout: 8000 }
+      );
+    });
+  };
+
+  // Nearby Restaurants Spatial Query
+  const getNearbyRestaurants = (radiusKm: number = radiusFilterKm) => {
+    const origin = clientCoords || DAKAR_DEFAULT_COORDS;
+
+    return restaurants
+      .map((r) => {
+        const rCoords = r.coordinates || (r.latitude && r.longitude ? { lat: r.latitude, lng: r.longitude } : DAKAR_GEO_PRESETS[r.neighborhood] || DAKAR_DEFAULT_COORDS);
+        const distanceKm = calculateDistanceKm(origin, rCoords);
+        return {
+          ...r,
+          coordinates: rCoords,
+          distanceKm,
+        };
+      })
+      .filter((r) => r.distanceKm <= radiusKm)
+      .sort((a, b) => a.distanceKm - b.distanceKm);
+  };
+
+  // Nearby Available Couriers Spatial Query
+  const getNearbyCouriers = (radiusKm: number = radiusFilterKm) => {
+    const origin = clientCoords || (currentRestaurant.coordinates || DAKAR_GEO_PRESETS[currentRestaurant.neighborhood] || DAKAR_DEFAULT_COORDS);
+
+    return couriers
+      .filter((c) => c.isOnline && (c.isAvailable !== false || c.status === 'AVAILABLE'))
+      .map((c) => {
+        const cCoords = c.coordinates || (c.latitude && c.longitude ? { lat: c.latitude, lng: c.longitude } : DAKAR_GEO_PRESETS[c.currentNeighborhood] || DAKAR_DEFAULT_COORDS);
+        const distanceKm = calculateDistanceKm(origin, cCoords);
+        return {
+          ...c,
+          coordinates: cCoords,
+          distanceKm,
+        };
+      })
+      .filter((c) => c.distanceKm <= radiusKm)
+      .sort((a, b) => a.distanceKm - b.distanceKm);
+  };
+
+  // Courier location & status updater
+  const updateCourierLocation = (courierId: string, coords: GeoPoint, status?: CourierStatus) => {
+    setCouriers((prev) =>
+      prev.map((c) =>
+        c.id === courierId
+          ? {
+              ...c,
+              latitude: coords.lat,
+              longitude: coords.lng,
+              coordinates: coords,
+              status: status || c.status || 'AVAILABLE',
+              lastLocationUpdate: 'À l’instant',
+            }
+          : c
+      )
+    );
+
+    // Sync to Supabase RPC if configured
+    try {
+      supabase.rpc('update_courier_gps', {
+        p_courier_id: courierId,
+        p_lat: coords.lat,
+        p_lng: coords.lng,
+        p_status: status || 'AVAILABLE',
+      }).then();
+    } catch {}
+  };
+
+  const updateRestaurantLocation = (
+    restoId: string,
+    coords: GeoPoint,
+    address?: string,
+    neighborhood?: string
+  ) => {
+    setRestaurants((prev) =>
+      prev.map((r) =>
+        r.id === restoId
+          ? {
+              ...r,
+              latitude: coords.lat,
+              longitude: coords.lng,
+              coordinates: coords,
+              address: address || r.address,
+              neighborhood: neighborhood || r.neighborhood,
+            }
+          : r
+      )
+    );
+
+    try {
+      const custom = localStorage.getItem('thiob_custom_restaurants');
+      const list: Restaurant[] = custom ? JSON.parse(custom) : [];
+      const updatedList = list.map((r) =>
+        r.id === restoId
+          ? {
+              ...r,
+              latitude: coords.lat,
+              longitude: coords.lng,
+              coordinates: coords,
+              address: address || r.address,
+              neighborhood: neighborhood || r.neighborhood,
+            }
+          : r
+      );
+      localStorage.setItem('thiob_custom_restaurants', JSON.stringify(updatedList));
+    } catch {}
+
+    // Sync to Supabase
+    try {
+      supabase.rpc('update_restaurant_location', {
+        p_restaurant_id: restoId,
+        p_lat: coords.lat,
+        p_lng: coords.lng,
+        p_address: address,
+        p_neighborhood: neighborhood,
+      }).then();
+    } catch {}
+  };
 
   const registerNewRestaurant = (data: {
     name: string;
@@ -145,8 +337,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     neighborhood: string;
     phone?: string;
     coverImage?: string;
+    coordinates?: { lat: number; lng: number };
   }): Restaurant => {
     const newId = `resto-${Date.now()}`;
+    const presetCoords = DAKAR_GEO_PRESETS[data.neighborhood] || DAKAR_GEO_PRESETS['Almadies'];
+    const coords = data.coordinates || { lat: presetCoords.lat, lng: presetCoords.lng };
+
     const newResto: Restaurant = {
       id: newId,
       name: data.name,
@@ -156,6 +352,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       description: `Bienvenue chez ${data.name}. Nous préparons des plats faits maison avec les ingrédients les plus frais de Dakar.`,
       neighborhood: data.neighborhood || 'Almadies',
       address: data.address || 'Dakar, Sénégal',
+      coordinates: coords,
       phone: data.phone || '+221 77 100 00 00',
       ownerName: 'Chef Propriétaire',
       rating: 5.0,
@@ -319,6 +516,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const platformFee = 500;
     const total = subtotal + deliveryFee + platformFee;
 
+    const destCoords = DAKAR_GEO_PRESETS[details.neighborhood] || clientCoords || DAKAR_DEFAULT_COORDS;
+    const pickupCoords = restaurant.coordinates || DAKAR_GEO_PRESETS[restaurant.neighborhood] || DAKAR_DEFAULT_COORDS;
+    const assignedCourier = couriers.find((c) => c.isOnline) || couriers[0];
+
     const newOrder: Order = {
       id: `ord-${Date.now()}`,
       orderNumber: `DKR-${Math.floor(1000 + Math.random() * 9000)}`,
@@ -328,6 +529,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       clientPhone: details.clientPhone,
       restaurantId: restaurant.id,
       restaurantName: restaurant.name,
+      courierId: assignedCourier?.id,
+      courierName: assignedCourier?.name,
+      courierPhone: assignedCourier?.phone,
       status: 'pending',
       items: cart.map((c) => ({
         menuItemId: c.item.id,
@@ -347,6 +551,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         street: details.street,
         details: details.details,
       },
+      deliveryCoords: destCoords,
+      pickupCoords: pickupCoords,
+      courierCoords: assignedCourier?.coordinates || pickupCoords,
       estimatedDeliveryTime: restaurant.deliveryTimeEstimate,
     };
 
@@ -442,7 +649,34 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const toggleCourierOnline = (courierId: string) => {
     setCouriers((prev) =>
-      prev.map((c) => (c.id === courierId ? { ...c, isOnline: !c.isOnline } : c))
+      prev.map((c) => {
+        if (c.id === courierId) {
+          const nextOnline = !c.isOnline;
+          const nextStatus: CourierStatus = nextOnline ? 'AVAILABLE' : 'OFFLINE';
+          return { 
+            ...c, 
+            isOnline: nextOnline, 
+            isAvailable: nextOnline, 
+            status: nextStatus 
+          };
+        }
+        return c;
+      })
+    );
+  };
+
+  const setCourierStatus = (courierId: string, status: CourierStatus) => {
+    setCouriers((prev) =>
+      prev.map((c) =>
+        c.id === courierId
+          ? {
+              ...c,
+              status,
+              isOnline: status !== 'OFFLINE',
+              isAvailable: status === 'AVAILABLE' || status === 'ONLINE',
+            }
+          : c
+      )
     );
   };
 
@@ -457,12 +691,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               courierId,
               courierName: courier?.name,
               courierPhone: courier?.phone,
+              courierCoords: courier?.coordinates,
             }
           : o
       )
     );
     setCouriers((prev) =>
-      prev.map((c) => (c.id === courierId ? { ...c, activeOrderId: orderId } : c))
+      prev.map((c) => (c.id === courierId ? { ...c, activeOrderId: orderId, status: 'BUSY', isAvailable: false } : c))
     );
   };
 
@@ -479,6 +714,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           ? {
               ...c,
               activeOrderId: undefined,
+              status: 'AVAILABLE',
+              isAvailable: true,
               completedDeliveries: c.completedDeliveries + 1,
               todayEarnings: c.todayEarnings + earnings,
             }
@@ -500,6 +737,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         reservations,
         outingPlans,
         favoriteRestaurantIds,
+        clientCoords,
+        clientAddress,
+        clientNeighborhood,
+        isClientGpsActive,
+        radiusFilterKm,
+        setRadiusFilterKm,
+        setClientLocation,
+        requestClientGps,
+        getNearbyRestaurants,
+        getNearbyCouriers,
+        updateCourierLocation,
+        updateRestaurantLocation,
         cart,
         addToCart,
         removeFromCart,
@@ -526,6 +775,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         deleteMenuItem,
         updateRestaurantShowcase,
         toggleCourierOnline,
+        setCourierStatus,
         acceptDeliveryMission,
         completeDeliveryMission,
         activeTrackingOrder,

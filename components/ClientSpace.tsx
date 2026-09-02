@@ -3,9 +3,11 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
 import { useApp } from '@/lib/store';
-import { CATEGORIES } from '@/lib/mock-data';
+import { CATEGORIES, DAKAR_NEIGHBORHOODS } from '@/lib/mock-data';
 import { Restaurant, MenuItem } from '@/lib/types';
 import { formatFCFA } from '@/lib/utils';
+import { calculateDistanceKm, formatDistanceString, DAKAR_DEFAULT_COORDS, DAKAR_GEO_PRESETS } from '@/lib/geolocation';
+import dynamic from 'next/dynamic';
 import { 
   Star, 
   Clock, 
@@ -14,8 +16,24 @@ import {
   Plus, 
   Flame, 
   MapPin, 
-  Check
+  Check,
+  Navigation,
+  Map as MapIcon,
+  SlidersHorizontal,
+  ChevronDown,
+  RefreshCw,
+  AlertCircle
 } from 'lucide-react';
+import { MapMarkerItem } from './map/ThiobMap';
+
+const ThiobMap = dynamic(() => import('./map/ThiobMap'), { 
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-64 bg-[#F0F5F2] rounded-3xl flex items-center justify-center text-xs text-gray-500 animate-pulse">
+      Chargement de la Carte Thiob Dakar...
+    </div>
+  )
+});
 
 interface ClientSpaceProps {
   selectedNeighborhood: string;
@@ -26,15 +44,45 @@ export default function ClientSpace({
   selectedNeighborhood,
   searchQuery,
 }: ClientSpaceProps) {
-  const { restaurants, menuItems, addToCart } = useApp();
+  const { 
+    restaurants, 
+    menuItems, 
+    addToCart,
+    clientCoords,
+    clientAddress,
+    clientNeighborhood,
+    isClientGpsActive,
+    requestClientGps,
+    radiusFilterKm,
+    setRadiusFilterKm,
+    setClientLocation,
+  } = useApp();
+
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedRestaurant, setSelectedRestaurant] = useState<Restaurant | null>(null);
   const [selectedDishForModal, setSelectedDishForModal] = useState<MenuItem | null>(null);
   const [dishNotes, setDishNotes] = useState<string>('');
   const [justAddedId, setJustAddedId] = useState<string | null>(null);
+  const [showMapViewModal, setShowMapViewModal] = useState<boolean>(false);
+  const [isLocating, setIsLocating] = useState<boolean>(false);
+  const [gpsError, setGpsError] = useState<string | null>(null);
+  const [isNeighborhoodDropdownOpen, setIsNeighborhoodDropdownOpen] = useState<boolean>(false);
 
-  // Filter restaurants by neighborhood and search
-  const filteredRestaurants = restaurants.filter((resto) => {
+  const activeOrigin = clientCoords || (selectedNeighborhood !== 'Tous les quartiers' && DAKAR_GEO_PRESETS[selectedNeighborhood] ? { lat: DAKAR_GEO_PRESETS[selectedNeighborhood].lat, lng: DAKAR_GEO_PRESETS[selectedNeighborhood].lng } : DAKAR_DEFAULT_COORDS);
+
+  // Filter restaurants by neighborhood, search query, and distance
+  const enrichedRestaurants = restaurants.map((resto) => {
+    const restoCoords = resto.coordinates || (resto.latitude && resto.longitude ? { lat: resto.latitude, lng: resto.longitude } : DAKAR_GEO_PRESETS[resto.neighborhood] || DAKAR_DEFAULT_COORDS);
+    const distanceKm = calculateDistanceKm(activeOrigin, restoCoords);
+    return {
+      ...resto,
+      coordinates: restoCoords,
+      distanceKm,
+    };
+  });
+
+  // Filter restaurants
+  const filteredRestaurants = enrichedRestaurants.filter((resto) => {
     const matchNeighborhood =
       selectedNeighborhood === 'Tous les quartiers' ||
       resto.neighborhood.toLowerCase().includes(selectedNeighborhood.toLowerCase());
@@ -45,8 +93,10 @@ export default function ClientSpace({
       resto.tagline.toLowerCase().includes(searchQuery.toLowerCase()) ||
       resto.featuredTags.some((t) => t.toLowerCase().includes(searchQuery.toLowerCase()));
 
-    return matchNeighborhood && matchSearch;
-  });
+    const matchRadius = !isClientGpsActive || radiusFilterKm >= 15 || resto.distanceKm <= radiusFilterKm;
+
+    return matchNeighborhood && matchSearch && matchRadius;
+  }).sort((a, b) => a.distanceKm - b.distanceKm);
 
   // Filter dishes by category and search
   const filteredDishes = menuItems.filter((dish) => {
@@ -72,6 +122,48 @@ export default function ClientSpace({
     setSelectedDishForModal(null);
   };
 
+  const handleRequestGps = async () => {
+    setIsLocating(true);
+    setGpsError(null);
+    try {
+      await requestClientGps();
+    } catch (err: any) {
+      setGpsError(err.message || 'Impossible d’activer la localisation.');
+    } finally {
+      setIsLocating(false);
+    }
+  };
+
+  const handleSelectNeighborhoodPreset = (name: string) => {
+    const preset = DAKAR_GEO_PRESETS[name];
+    if (preset) {
+      setClientLocation({ lat: preset.lat, lng: preset.lng }, preset.name, preset.shortName);
+    }
+    setIsNeighborhoodDropdownOpen(false);
+  };
+
+  // Map markers for all visible restaurants + client
+  const mapMarkers: MapMarkerItem[] = [
+    ...(clientCoords ? [{
+      id: 'client-position',
+      lat: clientCoords.lat,
+      lng: clientCoords.lng,
+      type: 'client' as const,
+      title: 'Votre Position',
+      subtitle: clientAddress,
+      statusText: `Zone : ${clientNeighborhood}`,
+    }] : []),
+    ...filteredRestaurants.map((r) => ({
+      id: r.id,
+      lat: r.coordinates?.lat || 14.7167,
+      lng: r.coordinates?.lng || -17.4677,
+      type: 'restaurant' as const,
+      title: r.name,
+      subtitle: `${r.neighborhood} • ${formatDistanceString(r.distanceKm)}`,
+      statusText: `${r.deliveryTimeEstimate} • ${formatFCFA(r.deliveryFee)}`,
+    })),
+  ];
+
   // Stagger animation container
   const containerVariants: Variants = {
     hidden: { opacity: 0 },
@@ -90,6 +182,90 @@ export default function ClientSpace({
 
   return (
     <div className="pb-24">
+      
+      {/* 📍 GEOLOCATION STATUS BAR / BANNER */}
+      <div className="bg-[#07431E] text-white py-2.5 px-4 sm:px-6 lg:px-8 border-b border-[#008235]/30">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+          
+          {/* Location info or request prompt */}
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#FA8038] animate-ping shrink-0" />
+            {isClientGpsActive ? (
+              <div className="flex items-center gap-1.5 font-bold">
+                <span className="text-emerald-300">📍 Vous êtes à :</span>
+                <span className="text-white bg-white/15 px-2.5 py-0.5 rounded-full border border-white/20">
+                  {clientNeighborhood}
+                </span>
+                <span className="text-gray-300 text-[11px] hidden md:inline">({clientAddress})</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <span className="font-extrabold text-[#FA8038]">Activez votre localisation :</span>
+                <span className="text-white/80">Pour afficher les restaurants les plus proches de vous à Dakar.</span>
+              </div>
+            )}
+          </div>
+
+          {/* Quick Location Action Buttons */}
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={handleRequestGps}
+              disabled={isLocating}
+              className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#008235] to-[#FA8038] text-white font-black text-[11px] flex items-center gap-1.5 shadow-sm hover:opacity-95 transition-all disabled:opacity-50"
+            >
+              {isLocating ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : <Navigation className="w-3.5 h-3.5" />}
+              <span>{isLocating ? 'Détection...' : isClientGpsActive ? 'Actualiser GPS' : '📍 Autoriser ma localisation'}</span>
+            </button>
+
+            {/* Neighborhood quick switcher */}
+            <div className="relative">
+              <button
+                onClick={() => setIsNeighborhoodDropdownOpen(!isNeighborhoodDropdownOpen)}
+                className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-[11px] flex items-center gap-1 border border-white/20"
+              >
+                <span>Changer de zone</span>
+                <ChevronDown className="w-3 h-3" />
+              </button>
+
+              {isNeighborhoodDropdownOpen && (
+                <div className="absolute right-0 mt-1 w-52 bg-white rounded-2xl shadow-2xl border border-gray-200 p-2 z-50 text-gray-800 text-xs font-bold space-y-1 max-h-60 overflow-y-auto">
+                  <div className="px-2 py-1 text-[10px] text-gray-400 uppercase font-black">
+                    Quartiers de Dakar
+                  </div>
+                  {Object.keys(DAKAR_GEO_PRESETS).map((key) => (
+                    <button
+                      key={key}
+                      onClick={() => handleSelectNeighborhoodPreset(key)}
+                      className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-[#EBF7EE] hover:text-[#008235] transition-colors flex items-center justify-between"
+                    >
+                      <span>{key}</span>
+                      {clientNeighborhood === key && <Check className="w-3.5 h-3.5 text-[#008235]" />}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Map View Toggle Button */}
+            <button
+              onClick={() => setShowMapViewModal(!showMapViewModal)}
+              className="px-3 py-1.5 rounded-xl bg-white text-[#07431E] font-black text-[11px] flex items-center gap-1.5 shadow-sm hover:bg-[#EBF7EE] transition-all"
+            >
+              <MapIcon className="w-3.5 h-3.5 text-[#008235]" />
+              <span>🗺️ Carte ({filteredRestaurants.length})</span>
+            </button>
+          </div>
+
+        </div>
+
+        {gpsError && (
+          <div className="max-w-7xl mx-auto mt-2 p-2 rounded-xl bg-amber-500/20 text-amber-200 text-[11px] flex items-center gap-1.5 border border-amber-400/30">
+            <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+            <span>{gpsError}</span>
+          </div>
+        )}
+      </div>
+
       {/* 🌟 HERO SECTION */}
       <section className="relative overflow-hidden brand-gradient text-white py-12 md:py-16 px-4 sm:px-6 lg:px-8">
         <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#FA8038_1px,transparent_1px)] [background-size:16px_16px]"></div>
@@ -222,8 +398,197 @@ export default function ClientSpace({
         </div>
       </section>
 
-      {/* 🍽️ SECTION : PLATS POPULAIRES */}
+      {/* 🗺️ INTERACTIVE MAP ACCORDION / DRAWER */}
+      <AnimatePresence>
+        {showMapViewModal && (
+          <motion.section
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6 overflow-hidden"
+          >
+            <div className="bg-white p-5 rounded-3xl border border-[#D0E2D6] shadow-xl space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#008235] animate-ping" />
+                    <h3 className="text-base font-black text-[#07431E]">Carte Interactive des Restaurants Dakar</h3>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {filteredRestaurants.length} restaurants ouverts autour de vous dans la presqu'île
+                  </p>
+                </div>
+
+                {/* Radius selector buttons */}
+                <div className="flex items-center gap-1 bg-[#F0F5F2] p-1 rounded-xl">
+                  <span className="text-[10px] font-bold text-gray-400 px-2 uppercase">Rayon :</span>
+                  {[
+                    { km: 1, label: '1 km' },
+                    { km: 2, label: '2 km' },
+                    { km: 5, label: '5 km' },
+                    { km: 10, label: '10 km' },
+                    { km: 20, label: 'Tout Dakar' },
+                  ].map((r) => (
+                    <button
+                      key={r.km}
+                      onClick={() => setRadiusFilterKm(r.km)}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                        radiusFilterKm === r.km
+                          ? 'bg-[#008235] text-white shadow-xs'
+                          : 'text-gray-600 hover:text-black'
+                      }`}
+                    >
+                      {r.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <ThiobMap
+                center={activeOrigin}
+                zoom={13}
+                markers={mapMarkers}
+                radiusMeters={radiusFilterKm * 1000}
+                radiusCenter={activeOrigin}
+                height="320px"
+              />
+            </div>
+          </motion.section>
+        )}
+      </AnimatePresence>
+
+      {/* 🏪 SECTION : RESTAURANTS À PROXIMITÉ (POSTGIS GÉOLOCALISÉS) */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-10">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#008235]"></span>
+              <h2 className="text-xl sm:text-2xl font-black text-[#07431E]">
+                Restaurants à Proximité
+              </h2>
+            </div>
+            <p className="text-xs text-[#576A5E] mt-1">
+              Calcul de distance en temps réel par rapport à votre position ({clientNeighborhood})
+            </p>
+          </div>
+
+          {/* Quick Radius Pills */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {[
+              { km: 1, label: '1 km' },
+              { km: 2, label: '2 km' },
+              { km: 5, label: '5 km' },
+              { km: 10, label: '10 km' },
+              { km: 20, label: 'Tous' },
+            ].map((r) => (
+              <button
+                key={r.km}
+                onClick={() => setRadiusFilterKm(r.km)}
+                className={`px-3 py-1 rounded-xl text-xs font-extrabold transition-all border ${
+                  radiusFilterKm === r.km
+                    ? 'bg-[#008235] text-white border-[#008235] shadow-xs'
+                    : 'bg-white text-gray-600 border-[#E2ECE5] hover:bg-[#F7FAF7]'
+                }`}
+              >
+                {r.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Restaurants Grid */}
+        <motion.div 
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+          className="grid grid-cols-1 md:grid-cols-2 gap-6"
+        >
+          {filteredRestaurants.length === 0 ? (
+            <div className="col-span-2 bg-white rounded-3xl border border-[#E2ECE5] p-8 text-center space-y-3">
+              <span className="text-3xl">📍</span>
+              <h4 className="font-extrabold text-base text-[#07431E]">Aucun restaurant trouvé dans un rayon de {radiusFilterKm} km</h4>
+              <p className="text-xs text-gray-500">Nous élargissons automatiquement la recherche à 10 km pour vous proposer nos partenaires de Dakar.</p>
+              <button
+                onClick={() => setRadiusFilterKm(10)}
+                className="px-4 py-2 rounded-xl brand-gradient text-white text-xs font-bold shadow-md"
+              >
+                Élargir à 10 km ➔
+              </button>
+            </div>
+          ) : (
+            filteredRestaurants.map((resto) => (
+              <motion.div
+                key={resto.id}
+                variants={cardVariants}
+                whileHover={{ y: -5, transition: { duration: 0.2 } }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => setSelectedRestaurant(resto)}
+                className="bg-white rounded-3xl border border-[#E2ECE5] overflow-hidden card-hover-lift cursor-pointer flex flex-col sm:flex-row group shadow-xs relative"
+              >
+                {/* Distance Badge on Card */}
+                <div className="absolute top-3 right-3 z-10 px-2.5 py-1 rounded-full bg-[#008235] text-white text-[11px] font-black shadow-md flex items-center gap-1">
+                  <Navigation className="w-3 h-3 text-[#FA8038]" />
+                  <span>{formatDistanceString(resto.distanceKm)}</span>
+                </div>
+
+                {/* Image */}
+                <div className="relative sm:w-2/5 h-48 sm:h-auto overflow-hidden bg-gray-100">
+                  <img
+                    src={resto.coverImage}
+                    alt={resto.name}
+                    className="w-full h-full object-cover group-hover:scale-108 transition-transform duration-500"
+                  />
+                  <div className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-white/90 backdrop-blur-xs text-[#07431E] font-bold text-xs flex items-center gap-1 shadow-sm">
+                    <Star className="w-3.5 h-3.5 text-[#F5B738] fill-[#F5B738]" />
+                    <span>{resto.rating}</span>
+                    <span className="text-gray-400 text-[10px]">({resto.reviewCount})</span>
+                  </div>
+                </div>
+
+                {/* Info */}
+                <div className="p-5 sm:w-3/5 flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center gap-1.5 text-xs text-[#008235] font-semibold mb-1">
+                      <MapPin className="w-3.5 h-3.5" />
+                      <span>{resto.neighborhood} • {resto.address}</span>
+                    </div>
+                    <h3 className="font-extrabold text-base text-[#07431E] group-hover:text-[#008235] transition-colors">
+                      {resto.name}
+                    </h3>
+                    <p className="text-xs text-[#576A5E] mt-1 line-clamp-2">
+                      {resto.tagline}
+                    </p>
+                  </div>
+
+                  <div className="mt-4 pt-3 border-t border-[#E2ECE5] space-y-2">
+                    <div className="flex flex-wrap gap-1.5">
+                      {resto.featuredTags.map((tag, idx) => (
+                        <span key={idx} className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-[#F7FAF7] text-[#07431E] border border-[#E2ECE5]">
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs text-gray-500 pt-1">
+                      <div className="flex items-center gap-1">
+                        <Clock className="w-3.5 h-3.5 text-[#008235]" />
+                        <span>{resto.deliveryTimeEstimate}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Bike className="w-3.5 h-3.5 text-[#FA8038]" />
+                        <span>Livraison {formatFCFA(resto.deliveryFee)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            ))
+          )}
+        </motion.div>
+      </section>
+
+      {/* 🍽️ SECTION : PLATS POPULAIRES */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-12">
         <div className="flex items-center justify-between mb-6">
           <div>
             <div className="flex items-center gap-2">
@@ -301,24 +666,32 @@ export default function ClientSpace({
 
                   <div className="mt-4 pt-3 border-t border-[#E2ECE5] flex items-center justify-between">
                     <div>
-                      <span className="text-[10px] text-gray-400 uppercase font-semibold block">Prix</span>
-                      <span className="text-sm font-black text-[#07431E]">
+                      <span className="text-[10px] text-gray-400 block font-bold">Prix</span>
+                      <span className="text-sm font-black text-[#008235]">
                         {formatFCFA(dish.price)}
                       </span>
                     </div>
 
-                    <motion.button
-                      whileTap={{ scale: 0.85 }}
+                    <button
                       onClick={(e) => handleQuickAdd(dish, e)}
-                      className={`w-9 h-9 rounded-2xl flex items-center justify-center transition-all ${
+                      className={`px-3.5 py-2 rounded-2xl text-xs font-bold flex items-center gap-1.5 transition-all shadow-xs ${
                         isAdded
-                          ? 'bg-[#008235] text-white scale-110'
-                          : 'bg-[#FA8038] hover:bg-[#E36D26] text-white shadow-md'
+                          ? 'bg-[#008235] text-white'
+                          : 'bg-[#F7FAF7] text-[#07431E] hover:bg-[#008235] hover:text-white'
                       }`}
-                      title="Ajouter au panier"
                     >
-                      {isAdded ? <Check className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-                    </motion.button>
+                      {isAdded ? (
+                        <>
+                          <Check className="w-3.5 h-3.5" />
+                          <span>Ajouté !</span>
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Ajouter</span>
+                        </>
+                      )}
+                    </button>
                   </div>
                 </div>
               </motion.div>
@@ -327,93 +700,7 @@ export default function ClientSpace({
         </motion.div>
       </section>
 
-      {/* 🏢 SECTION : RESTAURANTS PARTENAIRES */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-16">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-[#008235]"></span>
-              <h2 className="text-xl sm:text-2xl font-black text-[#07431E]">
-                Restaurants Partenaires à {selectedNeighborhood}
-              </h2>
-            </div>
-            <p className="text-xs text-[#576A5E] mt-1">
-              Les adresses incontournables des Almadies, du Plateau, de Mermoz et Ngor
-            </p>
-          </div>
-        </div>
-
-        <motion.div 
-          variants={containerVariants}
-          initial="hidden"
-          animate="visible"
-          className="grid grid-cols-1 md:grid-cols-2 gap-6"
-        >
-          {filteredRestaurants.map((resto) => (
-            <motion.div
-              key={resto.id}
-              variants={cardVariants}
-              whileHover={{ y: -5, transition: { duration: 0.2 } }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => setSelectedRestaurant(resto)}
-              className="bg-white rounded-3xl border border-[#E2ECE5] overflow-hidden card-hover-lift cursor-pointer flex flex-col sm:flex-row group shadow-xs"
-            >
-              {/* Image */}
-              <div className="relative sm:w-2/5 h-48 sm:h-auto overflow-hidden bg-gray-100">
-                <img
-                  src={resto.coverImage}
-                  alt={resto.name}
-                  className="w-full h-full object-cover group-hover:scale-108 transition-transform duration-500"
-                />
-                <div className="absolute top-3 left-3 px-2.5 py-1 rounded-full bg-white/90 backdrop-blur-xs text-[#07431E] font-bold text-xs flex items-center gap-1 shadow-sm">
-                  <Star className="w-3.5 h-3.5 text-[#F5B738] fill-[#F5B738]" />
-                  <span>{resto.rating}</span>
-                  <span className="text-gray-400 text-[10px]">({resto.reviewCount})</span>
-                </div>
-              </div>
-
-              {/* Info */}
-              <div className="p-5 sm:w-3/5 flex flex-col justify-between">
-                <div>
-                  <div className="flex items-center gap-1.5 text-xs text-[#008235] font-semibold mb-1">
-                    <MapPin className="w-3.5 h-3.5" />
-                    <span>{resto.neighborhood}</span>
-                  </div>
-                  <h3 className="font-extrabold text-base text-[#07431E] group-hover:text-[#008235] transition-colors">
-                    {resto.name}
-                  </h3>
-                  <p className="text-xs text-[#576A5E] mt-1 line-clamp-2">
-                    {resto.tagline}
-                  </p>
-                </div>
-
-                <div className="mt-4 pt-3 border-t border-[#E2ECE5] space-y-2">
-                  <div className="flex flex-wrap gap-1.5">
-                    {resto.featuredTags.map((tag, idx) => (
-                      <span key={idx} className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-[#F7FAF7] text-[#07431E] border border-[#E2ECE5]">
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-
-                  <div className="flex items-center justify-between text-xs text-gray-500 pt-1">
-                    <div className="flex items-center gap-1">
-                      <Clock className="w-3.5 h-3.5 text-[#008235]" />
-                      <span>{resto.deliveryTimeEstimate}</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Bike className="w-3.5 h-3.5 text-[#FA8038]" />
-                      <span>Livraison {formatFCFA(resto.deliveryFee)}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          ))}
-        </motion.div>
-      </section>
-
-      {/* 🍲 MODAL : PERSONNALISATION DU PLAT WITH ANIMATEPRESENCE */}
+      {/* 🍲 MODAL : PERSONNALISATION DU PLAT */}
       <AnimatePresence>
         {selectedDishForModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -478,99 +765,18 @@ export default function ClientSpace({
                 <div className="pt-3 border-t border-[#E2ECE5] flex items-center justify-between">
                   <div>
                     <span className="text-[10px] text-gray-400 uppercase font-bold block">Prix</span>
-                    <span className="text-base font-black text-[#FA8038]">
+                    <span className="text-xl font-black text-[#008235]">
                       {formatFCFA(selectedDishForModal.price)}
                     </span>
                   </div>
 
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
+                  <button
                     onClick={handleAddWithCustomNotes}
-                    className="px-6 py-2.5 rounded-full brand-gradient-orange text-white text-xs font-bold shadow-lg flex items-center gap-1.5"
+                    className="px-6 py-3 rounded-2xl brand-gradient text-white text-xs font-bold shadow-md hover:opacity-95 transition-all flex items-center gap-2"
                   >
                     <Plus className="w-4 h-4" />
                     <span>Ajouter au panier</span>
-                  </motion.button>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* 🏢 MODAL : DETAIL D'UN RESTAURANT WITH ANIMATEPRESENCE */}
-      <AnimatePresence>
-        {selectedRestaurant && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setSelectedRestaurant(null)}
-              className="absolute inset-0 bg-black/60 backdrop-blur-xs"
-            />
-            <motion.div 
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-              className="relative z-10 bg-white w-full max-w-3xl rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
-            >
-              <div className="relative h-44 w-full">
-                <img
-                  src={selectedRestaurant.coverImage}
-                  alt={selectedRestaurant.name}
-                  className="w-full h-full object-cover"
-                />
-                <div className="absolute inset-0 bg-linear-to-t from-black/70 to-transparent"></div>
-                <button
-                  onClick={() => setSelectedRestaurant(null)}
-                  className="absolute top-4 right-4 w-9 h-9 rounded-full bg-black/50 text-white flex items-center justify-center hover:bg-black/70"
-                >
-                  ✕
-                </button>
-                <div className="absolute bottom-4 left-6 text-white">
-                  <span className="text-xs font-bold bg-[#008235] px-2.5 py-0.5 rounded-md">
-                    📍 {selectedRestaurant.neighborhood}
-                  </span>
-                  <h3 className="text-2xl font-black mt-1">{selectedRestaurant.name}</h3>
-                  <p className="text-xs text-white/80">{selectedRestaurant.address}</p>
-                </div>
-              </div>
-
-              <div className="p-6 overflow-y-auto space-y-4">
-                <h4 className="font-extrabold text-sm text-[#07431E] uppercase tracking-wider">
-                  Menu & Spécialités du Restaurant
-                </h4>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {menuItems
-                    .filter((m) => m.restaurantId === selectedRestaurant.id)
-                    .map((dish) => (
-                      <div
-                        key={dish.id}
-                        className="p-3.5 rounded-2xl bg-[#F7FAF7] border border-[#E2ECE5] flex items-center justify-between gap-3"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <h5 className="font-bold text-xs text-[#0D1C12] truncate">{dish.name}</h5>
-                          <p className="text-[11px] text-[#FA8038] font-bold mt-0.5">
-                            {formatFCFA(dish.price)}
-                          </p>
-                        </div>
-                        <motion.button
-                          whileHover={{ scale: 1.05 }}
-                          whileTap={{ scale: 0.92 }}
-                          onClick={() => {
-                            addToCart(dish);
-                            setSelectedRestaurant(null);
-                          }}
-                          className="px-3 py-1.5 rounded-xl brand-gradient-orange text-white text-xs font-bold shadow-xs"
-                        >
-                          + Ajouter
-                        </motion.button>
-                      </div>
-                    ))}
+                  </button>
                 </div>
               </div>
             </motion.div>

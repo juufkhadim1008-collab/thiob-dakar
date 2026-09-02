@@ -54,6 +54,16 @@ import { CATEGORIES, DAKAR_NEIGHBORHOODS, DAKAR_ZONES } from '@/lib/mock-data';
 import { MenuItem, Restaurant, Order, OrderStatus, PaymentMethod, Reservation, OutingPlan } from '@/lib/types';
 import { formatFCFA, getStatusBadge } from '@/lib/utils';
 import confetti from 'canvas-confetti';
+import { calculateDistanceKm, formatDistanceString, DAKAR_DEFAULT_COORDS } from '@/lib/geolocation';
+import MiniLocationPicker from '@/components/map/MiniLocationPicker';
+import CourierLiveRadar from '@/components/map/CourierLiveRadar';
+import dynamic from 'next/dynamic';
+
+const ThiobMap = dynamic(() => import('@/components/map/ThiobMap'), { 
+  ssr: false,
+  loading: () => <div className="h-44 bg-[#F0F5F2] rounded-2xl flex items-center justify-center text-xs text-gray-500 animate-pulse">Chargement de la carte...</div>
+});
+
 
 // =========================================================================
 // 1. MOBILE APP CLIENT VIEW (INSPIRÉ DES MAQUETTES FOODKO, KFC & DELICIOUS FOOD)
@@ -83,6 +93,12 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
     deleteOutingPlan,
     toggleFavoriteRestaurant,
     updateRestaurantShowcase,
+    clientCoords,
+    clientNeighborhood,
+    clientAddress,
+    isClientGpsActive,
+    requestClientGps,
+    setClientLocation,
   } = useApp();
 
   const [activeTab, setActiveTab] = useState<'home' | 'menu' | 'orders' | 'favorites' | 'profile'>('home');
@@ -98,11 +114,12 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('wave');
   const [clientName, setClientName] = useState('Moussa Diop');
   const [clientPhone, setClientPhone] = useState('+221 77 654 32 10');
-  const [deliveryStreet, setDeliveryStreet] = useState('Ngor Virage, Corniche Ouest');
+  const [deliveryStreet, setDeliveryStreet] = useState('Malika, Dakar');
   
   // Yango / Yassir style Live GPS & Locality Filter
-  const [userLiveLocation, setUserLiveLocation] = useState('Pikine'); // Example user at Pikine who wants to explore Almadies or Ngor!
+  const userLiveLocation = clientNeighborhood || 'Malika';
   const [localitySearchQuery, setLocalitySearchQuery] = useState('');
+
 
   // 🏛️ Vitrine Numérique Dédiée (Showcase Modal)
   const [selectedShowcaseResto, setSelectedShowcaseResto] = useState<Restaurant | null>(null);
@@ -1677,8 +1694,11 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
               {/* 1-Click GPS Quick Location Button (Style Yango / Yassir) */}
               <motion.div
                 whileTap={{ scale: 0.98 }}
-                onClick={() => {
-                  setSelectedNeighborhood('Ngor');
+                onClick={async () => {
+                  try {
+                    await requestClientGps();
+                  } catch {}
+                  setSelectedNeighborhood(clientNeighborhood || 'Malika');
                   setIsNeighborhoodPickerOpen(false);
                 }}
                 className="p-3.5 rounded-2xl bg-gradient-to-r from-[#064E2B] to-[#0A6E3B] text-white flex items-center justify-between cursor-pointer shadow-md"
@@ -1691,13 +1711,14 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
                     <span className="text-[9px] uppercase tracking-wider text-emerald-200 font-extrabold block">
                       Ma position GPS en direct
                     </span>
-                    <h4 className="text-xs font-black">{userLiveLocation} (Autour de moi)</h4>
+                    <h4 className="text-xs font-black">{clientNeighborhood || userLiveLocation} (Autour de moi)</h4>
                   </div>
                 </div>
                 <span className="text-[10px] bg-white/20 px-2.5 py-1 rounded-full font-black text-white shrink-0">
-                  Filtrer ➔
+                  Activer GPS ➔
                 </span>
               </motion.div>
+
 
               {/* Search for Locality / Neighborhood */}
               <div className="relative">
@@ -3942,12 +3963,34 @@ function MobileRestaurantApp({ onLogout }: { onLogout?: () => void }) {
                   />
                 </div>
 
+                {/* Localisation PostGIS sur carte */}
+                <div className="pt-1">
+                  <MiniLocationPicker
+                    initialCoords={currentResto.coordinates || undefined}
+                    initialAddress={editAddress}
+                    title={editName || currentResto.name}
+                    badgeLabel="Position Fixe Resto"
+                    onLocationSelected={(geo) => {
+                      setEditAddress(geo.address);
+                      setEditNeighborhood(geo.neighborhood);
+                      updateRestaurantShowcase(currentResto.id, {
+                        address: geo.address,
+                        neighborhood: geo.neighborhood,
+                        coordinates: { lat: geo.lat, lng: geo.lng },
+                        latitude: geo.lat,
+                        longitude: geo.lng,
+                      });
+                    }}
+                  />
+                </div>
+
                 <button
                   type="submit"
                   className="w-full py-3 rounded-2xl brand-gradient text-white font-black text-xs shadow-md mt-2"
                 >
                   Enregistrer les modifications ➔
                 </button>
+
 
                 {onLogout && (
                   <div className="pt-2 border-t border-gray-100 flex items-center justify-between">
@@ -4382,17 +4425,32 @@ function MobileCourierApp({ onLogout }: { onLogout?: () => void }) {
         </div>
 
         {activeOrder && (
-          <div className="bg-white p-4 rounded-2xl border-2 border-[#0A6E3B] space-y-2 shadow-md">
-            <span className="text-xs font-black text-[#0A6E3B]">Mission en cours {activeOrder.orderNumber}</span>
-            <p className="text-xs font-bold text-[#081A10]">{activeOrder.clientName} ({activeOrder.deliveryAddress.neighborhood})</p>
+          <div className="bg-white p-4 rounded-3xl border-2 border-[#0A6E3B] space-y-3 shadow-md">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-black text-[#0A6E3B]">🚨 Mission en cours {activeOrder.orderNumber}</span>
+              <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-md">GPS Actif</span>
+            </div>
+            <p className="text-xs font-bold text-[#081A10]">{activeOrder.restaurantName} ➔ {activeOrder.deliveryAddress.neighborhood}</p>
+            
+            <CourierLiveRadar
+              courierPos={currentCourier?.coordinates || { lat: 14.708, lng: -17.472 }}
+              restaurantPos={{ lat: 14.755, lng: -17.514 }}
+              destinationPos={{ lat: 14.671, lng: -17.432 }}
+              courierName={currentCourier?.name || 'Ibrahima Fall'}
+              restaurantName={activeOrder.restaurantName}
+              destinationAddress={activeOrder.deliveryAddress.neighborhood}
+              orderNumber={activeOrder.orderNumber}
+            />
+
             <button
               onClick={() => completeDeliveryMission(currentCourier.id, activeOrder.id)}
-              className="w-full py-2 rounded-xl brand-gradient text-white text-xs font-black"
+              className="w-full py-2.5 rounded-xl brand-gradient text-white text-xs font-black shadow-sm"
             >
-              Livré avec succès ✓
+              Confirmer la Livraison Réussie ✓
             </button>
           </div>
         )}
+
 
         <div className="space-y-2 pt-2">
           <h5 className="text-xs font-black text-[#081A10]">Missions disponibles ({availableOrders.length})</h5>
@@ -4664,6 +4722,18 @@ export default function MobileDeviceShowcase() {
               </div>
 
               <div className="space-y-2 text-xs">
+                {/* Live Radar inside mobile modal */}
+                <CourierLiveRadar
+                  courierPos={{ lat: 14.708, lng: -17.472 }}
+                  restaurantPos={{ lat: 14.755, lng: -17.514 }}
+                  destinationPos={{ lat: 14.671, lng: -17.432 }}
+                  courierName={selectedOrderForTracking.courierName || 'Ibrahima Fall (Moto Jakarta)'}
+                  restaurantName={selectedOrderForTracking.restaurantName}
+                  destinationAddress={`${selectedOrderForTracking.deliveryAddress.street}, ${selectedOrderForTracking.deliveryAddress.neighborhood}`}
+                  orderNumber={selectedOrderForTracking.orderNumber}
+                  isSimulatingLiveMove={true}
+                />
+
                 <div className="p-3 rounded-xl bg-[#F4F7F4] border border-[#D8EADB] space-y-1">
                   <p className="font-bold text-[#081A10]">Livreur : {selectedOrderForTracking.courierName || 'Ibrahima Fall (Moto Jakarta)'}</p>
                   <p className="text-[11px] text-gray-500">Destination : {selectedOrderForTracking.deliveryAddress.street}, {selectedOrderForTracking.deliveryAddress.neighborhood}</p>
@@ -4681,6 +4751,7 @@ export default function MobileDeviceShowcase() {
               >
                 Fermer
               </button>
+
             </motion.div>
           </div>
         )}

@@ -55,10 +55,13 @@ export interface Restaurant {
   reviews?: RestaurantReview[];
   neighborhood: string; // Ex: Almadies, Plateau, Point E, Mermoz, Ngor, Yoff, Pikine
   address: string;
+  latitude?: number;
+  longitude?: number;
   coordinates?: {
     lat: number;
     lng: number;
   };
+
   priceRange?: string;
   ambianceTags?: string[]; // Ex: "Vue Océan", "Romantique", "Sortie Couple", "Rooftop", "Ambiance Teranga", "Cosy"
   amenities?: string[]; // Ex: "Terrasse vue mer", "Climatisation", "Parking gardé", "Wifi haut débit", "Espace VIP"
@@ -137,8 +140,13 @@ export interface Order {
     street: string;
     details?: string;
   };
+  deliveryCoords?: { lat: number; lng: number };
+  pickupCoords?: { lat: number; lng: number };
+  courierCoords?: { lat: number; lng: number };
   estimatedDeliveryTime?: string;
 }
+
+export type CourierStatus = 'OFFLINE' | 'ONLINE' | 'AVAILABLE' | 'BUSY';
 
 export interface Courier {
   id: string;
@@ -147,7 +155,13 @@ export interface Courier {
   vehicleType: 'moto' | 'scooter' | 'velo';
   plateNumber: string;
   isOnline: boolean;
+  isAvailable?: boolean;
+  status?: CourierStatus;
   currentNeighborhood: string;
+  latitude?: number;
+  longitude?: number;
+  coordinates?: { lat: number; lng: number };
+  lastLocationUpdate?: string;
   rating: number;
   completedDeliveries: number;
   todayEarnings: number; // FCFA
@@ -162,3 +176,4 @@ export interface PlatformMetrics {
   activeCouriersCount: number;
   satisfactionRate: number;
 }
+

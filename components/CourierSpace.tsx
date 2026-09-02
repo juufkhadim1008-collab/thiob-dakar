@@ -1,16 +1,22 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useApp } from '@/lib/store';
 import { formatFCFA } from '@/lib/utils';
+import { DAKAR_GEO_PRESETS, DAKAR_DEFAULT_COORDS } from '@/lib/geolocation';
+import CourierLiveRadar from './map/CourierLiveRadar';
 import { 
   Bike, 
   MapPin, 
   Navigation, 
   Phone, 
   CheckCircle2, 
-  Compass
+  Compass,
+  Power,
+  ShieldCheck,
+  Radio,
+  Clock
 } from 'lucide-react';
 
 export default function CourierSpace() {
@@ -18,18 +24,51 @@ export default function CourierSpace() {
     couriers, 
     orders, 
     toggleCourierOnline, 
+    setCourierStatus,
+    updateCourierLocation,
     acceptDeliveryMission, 
     completeDeliveryMission 
   } = useApp();
 
   const currentCourier = couriers[0]; // Ibrahima Fall
   const isOnline = currentCourier.isOnline;
+  const courierStatus = currentCourier.status || (isOnline ? 'AVAILABLE' : 'OFFLINE');
 
   const activeOrder = orders.find((o) => o.id === currentCourier.activeOrderId);
 
   const availableOrders = orders.filter(
     (o) => (o.status === 'ready_for_pickup' || o.status === 'preparing') && !o.courierId
   );
+
+  // Active courier coordinates
+  const courierCoords = currentCourier.coordinates || DAKAR_GEO_PRESETS[currentCourier.currentNeighborhood] || DAKAR_DEFAULT_COORDS;
+
+  // Background GPS updater when online (throttled)
+  useEffect(() => {
+    if (!isOnline) return;
+
+    // Emulate or track GPS position updates
+    const intervalTime = activeOrder ? 6000 : 18000; // 6s in delivery, 18s if available
+    const interval = setInterval(() => {
+      // Micro jitter for live movement simulation if real GPS is not moving
+      const jitterLat = (Math.random() - 0.5) * 0.0008;
+      const jitterLng = (Math.random() - 0.5) * 0.0008;
+      updateCourierLocation(
+        currentCourier.id, 
+        { lat: courierCoords.lat + jitterLat, lng: courierCoords.lng + jitterLng },
+        activeOrder ? 'BUSY' : 'AVAILABLE'
+      );
+    }, intervalTime);
+
+    return () => clearInterval(interval);
+  }, [isOnline, activeOrder, courierCoords.lat, courierCoords.lng, currentCourier.id]);
+
+  const handleZoneChange = (zoneKey: string) => {
+    const preset = DAKAR_GEO_PRESETS[zoneKey];
+    if (preset) {
+      updateCourierLocation(currentCourier.id, { lat: preset.lat, lng: preset.lng }, courierStatus);
+    }
+  };
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
@@ -45,9 +84,15 @@ export default function CourierSpace() {
             🛵
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold uppercase tracking-wider text-[#008235] bg-[#EBF7EE] px-2.5 py-0.5 rounded-full">
-                Livreur Partenaire Dakar
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className={`text-xs font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full ${
+                courierStatus === 'BUSY'
+                  ? 'bg-rose-100 text-rose-800'
+                  : isOnline
+                  ? 'bg-[#EBF7EE] text-[#008235]'
+                  : 'bg-gray-100 text-gray-600'
+              }`}>
+                {courierStatus === 'BUSY' ? '🚨 En Livraison Active' : isOnline ? '🟢 En Ligne (Disponible)' : '⚫ Hors Service'}
               </span>
               <span className="text-xs font-bold text-gray-500">
                 Moto Jakarta ({currentCourier.plateNumber})
@@ -58,26 +103,60 @@ export default function CourierSpace() {
             </h1>
             <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
               <MapPin className="w-3.5 h-3.5 text-[#FA8038]" />
-              <span>Zone active : {currentCourier.currentNeighborhood} & Corniche Ouest</span>
+              <span>Zone GPS active : {currentCourier.currentNeighborhood} & Presqu'île de Dakar</span>
             </p>
           </div>
         </div>
 
         {/* Online/Offline Toggle Button */}
-        <motion.button
-          whileHover={{ scale: 1.03 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={() => toggleCourierOnline(currentCourier.id)}
-          className={`px-5 py-3 rounded-2xl font-extrabold text-xs flex items-center gap-2 shadow-md transition-all ${
-            isOnline
-              ? 'bg-[#008235] text-white ring-4 ring-[#008235]/20'
-              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-          }`}
-        >
-          <span className={`w-2.5 h-2.5 rounded-full ${isOnline ? 'bg-white animate-ping' : 'bg-gray-400'}`}></span>
-          <span>{isOnline ? 'EN SERVICE (Prêt à livrer)' : 'HORS SERVICE'}</span>
-        </motion.button>
+        <div className="flex flex-col items-end gap-1.5">
+          <motion.button
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => toggleCourierOnline(currentCourier.id)}
+            className={`px-5 py-3 rounded-2xl font-extrabold text-xs flex items-center gap-2 shadow-md transition-all ${
+              isOnline
+                ? 'bg-[#008235] text-white ring-4 ring-[#008235]/20'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+          >
+            <span className={`w-2.5 h-2.5 rounded-full ${isOnline ? 'bg-white animate-ping' : 'bg-gray-400'}`}></span>
+            <span>{isOnline ? '🟢 EN LIGNE (Prêt à livrer)' : '⚫ HORS SERVICE'}</span>
+          </motion.button>
+          
+          <span className="text-[10px] text-gray-400 font-semibold">
+            {isOnline ? 'Fréquence GPS optimisée (15s/5s)' : 'Suivi GPS désactivé'}
+          </span>
+        </div>
       </motion.div>
+
+      {/* Quick Zone Switcher */}
+      <div className="bg-white p-4 rounded-3xl border border-[#E2ECE5] shadow-xs space-y-2">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-bold text-gray-500 uppercase flex items-center gap-1.5">
+            <Radio className="w-3.5 h-3.5 text-[#008235]" />
+            <span>Position de départ & Zone de patrouille Dakar :</span>
+          </span>
+          <span className="text-[11px] font-mono text-[#008235] font-bold">
+            {courierCoords.lat.toFixed(4)}, {courierCoords.lng.toFixed(4)}
+          </span>
+        </div>
+        <div className="flex flex-wrap gap-1.5">
+          {['Almadies', 'Ngor', 'Plateau', 'Mermoz', 'Point E', 'Yoff', 'Ouakam', 'Pikine'].map((zone) => (
+            <button
+              key={zone}
+              onClick={() => handleZoneChange(zone)}
+              className={`px-3 py-1 rounded-xl text-xs font-bold transition-all ${
+                currentCourier.currentNeighborhood === zone
+                  ? 'bg-[#008235] text-white shadow-xs'
+                  : 'bg-[#F0F5F2] text-[#07431E] hover:bg-[#E2ECE5]'
+              }`}
+            >
+              📍 {zone}
+            </button>
+          ))}
+        </div>
+      </div>
 
       {/* Courier Stats Row */}
       <div className="grid grid-cols-3 gap-4">
@@ -106,7 +185,7 @@ export default function CourierSpace() {
         </motion.div>
       </div>
 
-      {/* ACTIVE MISSION CARD */}
+      {/* ACTIVE MISSION CARD WITH LIVE RADAR */}
       <AnimatePresence>
         {activeOrder && (
           <motion.div 
@@ -128,6 +207,17 @@ export default function CourierSpace() {
               </h2>
             </div>
 
+            {/* LIVE RADAR MAP DISPLAY */}
+            <CourierLiveRadar
+              courierPos={courierCoords}
+              restaurantPos={DAKAR_GEO_PRESETS['Ngor']}
+              destinationPos={DAKAR_GEO_PRESETS[activeOrder.deliveryAddress.neighborhood] || DAKAR_GEO_PRESETS['Plateau']}
+              courierName={currentCourier.name}
+              restaurantName={activeOrder.restaurantName}
+              destinationAddress={`${activeOrder.deliveryAddress.street}, ${activeOrder.deliveryAddress.neighborhood}`}
+              orderNumber={activeOrder.orderNumber}
+            />
+
             {/* Route details */}
             <div className="bg-[#F7FAF7] p-4 rounded-2xl border border-[#E2ECE5] space-y-3">
               <div className="flex items-start gap-3">
@@ -137,7 +227,7 @@ export default function CourierSpace() {
                 <div className="text-xs">
                   <span className="font-bold text-gray-500 uppercase text-[10px] block">1. Récupération Restaurant</span>
                   <p className="font-extrabold text-[#07431E] text-sm">{activeOrder.restaurantName}</p>
-                  <p className="text-gray-500">Corniche des Almadies, Dakar</p>
+                  <p className="text-gray-500">Corniche des Almadies / Ngor, Dakar</p>
                 </div>
               </div>
 
@@ -236,7 +326,7 @@ export default function CourierSpace() {
                       {mission.restaurantName} ➔ {mission.deliveryAddress.neighborhood}
                     </h4>
                     <p className="text-xs text-gray-500">
-                      {mission.items.length} plats à récupérer • Distance ~3.2 km
+                      {mission.items.length} plats à récupérer • Course à proximité
                     </p>
                   </div>
 

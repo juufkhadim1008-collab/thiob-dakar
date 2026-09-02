@@ -5,6 +5,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useApp } from '@/lib/store';
 import { formatFCFA, getStatusBadge } from '@/lib/utils';
 import { OrderStatus } from '@/lib/types';
+import { DAKAR_GEO_PRESETS, DAKAR_DEFAULT_COORDS } from '@/lib/geolocation';
+import CourierLiveRadar from './map/CourierLiveRadar';
 import { 
   X, 
   MapPin, 
@@ -18,7 +20,7 @@ import {
 } from 'lucide-react';
 
 export default function OrderTrackingModal() {
-  const { activeTrackingOrder, setActiveTrackingOrder } = useApp();
+  const { activeTrackingOrder, setActiveTrackingOrder, restaurants, couriers } = useApp();
 
   const steps: { status: OrderStatus; label: string; icon: React.ReactNode; desc: string }[] = [
     { 
@@ -70,6 +72,14 @@ export default function OrderTrackingModal() {
   const currentStepIdx = getStepIndex(activeTrackingOrder.status);
   const badge = getStatusBadge(activeTrackingOrder.status);
 
+  // Origin & destination coordinates
+  const matchedResto = restaurants.find((r) => r.id === activeTrackingOrder.restaurantId);
+  const matchedCourier = couriers.find((c) => c.id === activeTrackingOrder.courierId) || couriers[0];
+
+  const restaurantPos = matchedResto?.coordinates || DAKAR_GEO_PRESETS[matchedResto?.neighborhood || 'Ngor'] || DAKAR_DEFAULT_COORDS;
+  const destinationPos = DAKAR_GEO_PRESETS[activeTrackingOrder.deliveryAddress.neighborhood] || DAKAR_GEO_PRESETS['Plateau'] || DAKAR_DEFAULT_COORDS;
+  const courierPos = matchedCourier?.coordinates || DAKAR_GEO_PRESETS['Mermoz'] || DAKAR_DEFAULT_COORDS;
+
   return (
     <AnimatePresence>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -101,7 +111,7 @@ export default function OrderTrackingModal() {
                 </span>
               </div>
               <h3 className="text-2xl font-black tracking-tight">
-                Suivi de Livraison en Direct
+                Suivi GPS de Livraison en Direct
               </h3>
               <p className="text-xs text-white/80 mt-1 flex items-center gap-1.5">
                 <MapPin className="w-3.5 h-3.5 text-[#FA8038]" />
@@ -119,8 +129,21 @@ export default function OrderTrackingModal() {
             </motion.button>
           </div>
 
-          {/* Status Timeline */}
+          {/* Status Timeline & Live Radar Map */}
           <div className="p-6 overflow-y-auto space-y-6">
+            
+            {/* LIVE RADAR MAP DISPLAY */}
+            <CourierLiveRadar
+              courierPos={courierPos}
+              restaurantPos={restaurantPos}
+              destinationPos={destinationPos}
+              courierName={activeTrackingOrder.courierName || matchedCourier?.name || 'Ibrahima Fall'}
+              restaurantName={activeTrackingOrder.restaurantName}
+              destinationAddress={`${activeTrackingOrder.deliveryAddress.street}, ${activeTrackingOrder.deliveryAddress.neighborhood}`}
+              orderNumber={activeTrackingOrder.orderNumber}
+              isSimulatingLiveMove={activeTrackingOrder.status === 'in_transit'}
+            />
+
             {/* Estimated Time Card */}
             <div className="p-4 rounded-2xl bg-[#EBF7EE] border border-[#008235]/20 flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -193,16 +216,16 @@ export default function OrderTrackingModal() {
                     Votre Livreur Partenaire
                   </span>
                   <h5 className="font-bold text-sm text-[#07431E]">
-                    {activeTrackingOrder.courierName || 'Ibrahima Fall (Moto Dakar)'}
+                    {activeTrackingOrder.courierName || matchedCourier?.name || 'Ibrahima Fall (Moto Dakar)'}
                   </h5>
                   <p className="text-xs text-gray-500">
-                    {activeTrackingOrder.courierPhone || '+221 70 812 34 56'}
+                    {activeTrackingOrder.courierPhone || matchedCourier?.phone || '+221 70 812 34 56'}
                   </p>
                 </div>
               </div>
 
               <a
-                href={`tel:${activeTrackingOrder.courierPhone || '+221708123456'}`}
+                href={`tel:${activeTrackingOrder.courierPhone || matchedCourier?.phone || '+221708123456'}`}
                 className="px-3.5 py-2 rounded-xl bg-white border border-[#008235]/30 text-[#008235] hover:bg-[#008235] hover:text-white transition-colors text-xs font-bold flex items-center gap-1.5 shadow-xs"
               >
                 <Phone className="w-3.5 h-3.5" />

@@ -21,6 +21,7 @@ import {
   Clock
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import MiniLocationPicker from '@/components/map/MiniLocationPicker';
 
 interface OnboardingFlowProps {
   onComplete: (role: UserRole) => void;
@@ -542,7 +543,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
           </motion.div>
         )}
 
-        {/* RESTO STEP 2: LOCALISATION */}
+        {/* RESTO STEP 2: LOCALISATION AVEC CARTE POSTGIS */}
         {step === 'resto_step2' && (
           <motion.div
             key="resto_step2"
@@ -562,76 +563,28 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                   <span>Retour</span>
                 </button>
                 <div className="text-[10px] font-black text-[#0A6E3B] bg-emerald-100/80 px-2.5 py-0.5 rounded-full border border-emerald-300/30">
-                  Étape 2 sur 3 — Localisation
+                  Étape 2 sur 3 — Localisation PostGIS
                 </div>
               </div>
 
               <div>
                 <h3 className="text-base font-black text-[#081A10]">Où se trouve votre restaurant ?</h3>
-                <p className="text-[11px] text-gray-500">Pour permettre aux clients de Dakar de vous trouver facilement.</p>
+                <p className="text-[11px] text-gray-500">Position géographique fixe enregistrée dans Thiob Express.</p>
               </div>
 
-              {/* GPS Geolocation Main Action Button */}
-              <div className="ice-glass-card p-4 rounded-3xl border border-white/90 text-center space-y-3">
-                <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-[#064E2B] to-[#10B981] text-white flex items-center justify-center mx-auto shadow-md">
-                  <MapPin className="w-6 h-6 animate-bounce" />
-                </div>
-
-                <div className="space-y-1">
-                  <h4 className="text-xs font-black text-[#081A10]">Détection GPS en direct</h4>
-                  <p className="text-[10px] text-gray-500">Récupérez automatiquement vos coordonnées exactes à Dakar.</p>
-                </div>
-
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => handleGeoLocate('resto')}
-                  disabled={isLocatingResto}
-                  className={`w-full py-2.5 rounded-2xl font-black text-xs flex items-center justify-center gap-2 transition-all shadow-md ${
-                    restoLocSuccess 
-                      ? 'bg-emerald-600 text-white' 
-                      : 'brand-gradient text-white border border-emerald-400/30'
-                  }`}
-                >
-                  {isLocatingResto ? (
-                    <>
-                      <span className="w-3.5 h-3.5 rounded-full border-2 border-white border-t-transparent animate-spin" />
-                      <span>Localisation en cours...</span>
-                    </>
-                  ) : restoLocSuccess ? (
-                    <>
-                      <CheckCircle2 className="w-4 h-4 text-emerald-200" />
-                      <span>✓ Position GPS Confirmée</span>
-                    </>
-                  ) : (
-                    <>
-                      <Navigation className="w-3.5 h-3.5" />
-                      <span>📍 Partager ma localisation</span>
-                    </>
-                  )}
-                </motion.button>
-              </div>
-
-              {/* Manual Confirmation / Edit Field */}
-              <div className="space-y-1">
-                <label className="text-[11px] font-black text-[#081A10]">Adresse & Quartier affiché *</label>
-                <input
-                  type="text"
-                  placeholder="Ex: Route des Almadies, en face de l'océan..."
-                  value={restoLocation}
-                  onChange={(e) => setRestoLocation(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-white/85 backdrop-blur-md border border-white/90 rounded-2xl text-xs font-bold text-[#081A10] placeholder-gray-400 focus:bg-white focus:border-[#0A6E3B] focus:outline-hidden shadow-inner"
+              {/* MiniLocationPicker Interactive Component */}
+              <div className="space-y-2">
+                <MiniLocationPicker
+                  initialCoords={restoGpsCoords || undefined}
+                  initialAddress={restoLocation}
+                  title={restoName || 'Mon Restaurant Dakar'}
+                  badgeLabel="Position Fixe Restaurant"
+                  onLocationSelected={(geo) => {
+                    setRestoGpsCoords({ lat: geo.lat, lng: geo.lng });
+                    setRestoLocation(geo.address);
+                    setRestoLocSuccess(true);
+                  }}
                 />
-              </div>
-
-              {/* Visual Map Mockup */}
-              <div className="relative h-24 rounded-2xl overflow-hidden bg-emerald-950/20 border border-white/90 p-2 flex items-center justify-center text-center">
-                <div className="space-y-1">
-                  <span className="text-[10px] font-black text-[#0A6E3B] bg-white/90 px-2 py-0.5 rounded-full shadow-2xs">
-                    📍 Repère Carte : {restoLocation}
-                  </span>
-                  <p className="text-[9px] text-gray-500 font-semibold">Précision zone Dakar : 99.4%</p>
-                </div>
               </div>
 
             </div>
@@ -647,6 +600,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
             </motion.button>
           </motion.div>
         )}
+
 
         {/* RESTO STEP 3: FINALISATION */}
         {step === 'resto_step3' && (

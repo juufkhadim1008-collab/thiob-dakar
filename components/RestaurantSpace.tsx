@@ -43,6 +43,13 @@ import {
   Heart
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import MiniLocationPicker from '@/components/map/MiniLocationPicker';
+import dynamic from 'next/dynamic';
+
+const ThiobMap = dynamic(() => import('@/components/map/ThiobMap'), { 
+  ssr: false,
+  loading: () => <div className="h-48 bg-[#F0F5F2] rounded-2xl flex items-center justify-center text-xs text-gray-500 animate-pulse">Chargement de la carte...</div>
+});
 
 export default function RestaurantSpace() {
   const { 
@@ -57,10 +64,12 @@ export default function RestaurantSpace() {
     deleteMenuItem,
     updateRestaurantShowcase,
     updateCurrentRestaurant,
+    updateRestaurantLocation,
     createReservation,
     addToCart,
     currentRestaurant,
   } = useApp();
+
 
   // Top-level Two Buttons View Switcher: 'vitrine' | 'dashboard'
   const [viewMode, setViewMode] = useState<'vitrine' | 'dashboard'>('vitrine');
@@ -873,6 +882,20 @@ export default function RestaurantSpace() {
                               </div>
                             </div>
                           </div>
+
+                          {/* Localisation PostGIS & Carte Interactive */}
+                          <div className="space-y-2">
+                            <MiniLocationPicker
+                              initialCoords={currentResto.coordinates || (currentResto.latitude && currentResto.longitude ? { lat: currentResto.latitude, lng: currentResto.longitude } : undefined)}
+                              initialAddress={currentResto.address}
+                              title={`Localisation de ${currentResto.name}`}
+                              badgeLabel="Coordonnées PostGIS"
+                              onLocationSelected={(geo) => {
+                                updateRestaurantLocation(currentResto.id, { lat: geo.lat, lng: geo.lng }, geo.address, geo.neighborhood);
+                              }}
+                            />
+                          </div>
+
 
                           {/* Badges */}
                           <div className="p-4 rounded-3xl bg-[#F4F7F4] border border-[#D8EADB] space-y-2.5">
