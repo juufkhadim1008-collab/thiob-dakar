@@ -238,57 +238,58 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // 2. Fetch from Supabase Central Database
     const fetchSupabaseData = async () => {
       try {
-        const { data: dbRestos } = await supabase.from('restaurants').select('*');
+        console.log('[Supabase] Fetching central data from Supabase...');
+        const { data: dbRestos, error: rErr } = await supabase.from('restaurants').select('*');
+        if (rErr) console.error('[Supabase] Error restaurants:', rErr);
+
         if (dbRestos && dbRestos.length > 0) {
-          setRestaurants((prev) => {
-            const mapped: Restaurant[] = dbRestos.map((r: any) => ({
-              id: r.id,
-              name: r.name,
-              logo: r.logo || 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=300&q=80',
-              coverImage: r.cover_image || 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=1200&q=80',
-              tagline: r.tagline || 'L’Excellence et la Saveur de Dakar',
-              description: r.description || '',
-              neighborhood: r.neighborhood || 'Dakar',
-              address: r.address || 'Dakar, Sénégal',
-              coordinates: { lat: r.latitude || 14.7431, lng: r.longitude || -17.5186 },
-              phone: r.phone || '+221 77 100 00 00',
-              ownerName: r.owner_name || 'Chef Partenaire',
-              rating: Number(r.rating) || 5.0,
-              reviewCount: r.review_count || 1,
-              priceRange: r.price_range || '2 500 - 6 500 FCFA',
-              deliveryTimeEstimate: r.delivery_time_estimate || '20-30 min',
-              deliveryFee: r.delivery_fee || 1500,
-              minOrder: r.min_order || 3000,
-              isOpen: r.is_open ?? true,
-              featuredTags: r.featured_tags || ['Nouveau Resto Dakar'],
-              openingHours: r.opening_hours || '11h30 - 23h30 (7j/7)',
-              gallery: r.gallery || [],
-              ambianceTags: r.ambiance_tags || ['Terrasse', 'Fait Maison'],
-              amenities: r.amenities || ['Wifi', 'Paiement Wave'],
-            }));
-            const merged = [...mapped, ...prev.filter(p => !mapped.some(m => m.id === p.id))];
-            return merged;
-          });
+          const mapped: Restaurant[] = dbRestos.map((r: any) => ({
+            id: r.id,
+            name: r.name,
+            logo: r.logo || 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=300&q=80',
+            coverImage: r.cover_image || 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=1200&q=80',
+            tagline: r.tagline || 'L’Excellence et la Saveur de Dakar',
+            description: r.description || '',
+            neighborhood: r.neighborhood || 'Dakar',
+            address: r.address || 'Dakar, Sénégal',
+            coordinates: { lat: Number(r.latitude) || 14.7431, lng: Number(r.longitude) || -17.5186 },
+            phone: r.phone || '+221 77 100 00 00',
+            ownerName: r.owner_name || 'Chef Partenaire',
+            rating: Number(r.rating) || 5.0,
+            reviewCount: Number(r.review_count) || 1,
+            priceRange: r.price_range || '2 500 - 6 500 FCFA',
+            deliveryTimeEstimate: r.delivery_time_estimate || '20-30 min',
+            deliveryFee: Number(r.delivery_fee) || 1500,
+            minOrder: Number(r.min_order) || 3000,
+            isOpen: r.is_open ?? true,
+            featuredTags: r.featured_tags || ['Nouveau Resto Dakar'],
+            openingHours: r.opening_hours || '11h30 - 23h30 (7j/7)',
+            gallery: r.gallery || [],
+            ambianceTags: r.ambiance_tags || ['Terrasse', 'Fait Maison'],
+            amenities: r.amenities || ['Wifi', 'Paiement Wave'],
+          }));
+          setRestaurants(mapped);
+          setCurrentRestaurantId(prevId => (prevId && prevId !== 'resto-empty' ? prevId : mapped[0].id));
         }
 
-        const { data: dbItems } = await supabase.from('menu_items').select('*');
+        const { data: dbItems, error: mErr } = await supabase.from('menu_items').select('*');
+        if (mErr) console.error('[Supabase] Error menu_items:', mErr);
+
         if (dbItems && dbItems.length > 0) {
-          setMenuItems((prev) => {
-            const mapped: MenuItem[] = dbItems.map((m: any) => ({
-              id: m.id,
-              restaurantId: m.restaurant_id,
-              name: m.name,
-              description: m.description || '',
-              price: m.price,
-              category: m.category_id || 'cat-thieb',
-              image: m.image || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80',
-              isAvailable: m.is_available ?? true,
-              isPopular: m.is_popular ?? false,
-              preparationTimeMinutes: m.preparation_time_minutes || 20,
-              tags: m.tags || [],
-            }));
-            return [...mapped, ...prev.filter(p => !mapped.some(m => m.id === p.id))];
-          });
+          const mapped: MenuItem[] = dbItems.map((m: any) => ({
+            id: m.id,
+            restaurantId: m.restaurant_id,
+            name: m.name,
+            description: m.description || '',
+            price: Number(m.price) || 0,
+            category: m.category_id || 'cat-thieb',
+            image: m.image || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80',
+            isAvailable: m.is_available ?? true,
+            isPopular: m.is_popular ?? false,
+            preparationTimeMinutes: Number(m.preparation_time_minutes) || 20,
+            tags: m.tags || [],
+          }));
+          setMenuItems(mapped);
         }
 
         const { data: dbOrders } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
