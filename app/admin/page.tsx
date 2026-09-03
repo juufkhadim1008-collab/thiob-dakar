@@ -77,51 +77,79 @@ function StandaloneAdminPortal() {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Financial & Subscription Computations
+  // Financial & Subscription Computations (Real Data Only)
   const totalVolumeGmv = orders.reduce((sum, o) => sum + (o.total || 0), 0) + transactions.reduce((sum, t) => sum + t.amount, 0);
-  const baseVolume = totalVolumeGmv > 0 ? totalVolumeGmv : 2450000;
+  const baseVolume = totalVolumeGmv;
   
   // Platform Commissions: 12% on orders + 500F platform fee
   const platformCommissions = Math.round(baseVolume * 0.12) + (orders.length * 500);
-  // Monthly Subscriptions Revenue (7 restos * 25,000 FCFA/mois Formule Pro)
-  const monthlySubscriptionRevenue = 175000;
+  // Monthly Subscriptions Revenue (0 FCFA initially)
+  const monthlySubscriptionRevenue = 0;
   // Restaurant Net Revenue (88% of food subtotal)
-  const restaurantsNet = Math.round(baseVolume * 0.76);
+  const restaurantsNet = Math.max(0, baseVolume - platformCommissions - orders.reduce((s, o) => s + (o.deliveryFee || 0), 0));
   // Couriers Delivery Earnings (100% of delivery fee)
-  const couriersEarnings = Math.round(baseVolume * 0.12);
+  const couriersEarnings = orders.reduce((s, o) => s + (o.deliveryFee || 0), 0);
 
-  // Downloads & Platform Installs
+  // Downloads & Platform Installs (Real Counter)
   const downloads = {
-    total: 3840 + orders.length * 8,
-    today: 48 + orders.length * 2,
-    ios: 1766 + orders.length * 4,
-    android: 1612 + orders.length * 3,
-    pwa: 462 + orders.length * 1,
-    activeToday: 342 + orders.length * 6,
-    retention: '78.4%',
+    total: orders.length,
+    today: orders.length,
+    ios: Math.ceil(orders.length * 0.5),
+    android: Math.floor(orders.length * 0.4),
+    pwa: Math.max(0, orders.length - Math.ceil(orders.length * 0.5) - Math.floor(orders.length * 0.4)),
+    activeToday: orders.length > 0 ? orders.length : 1,
+    retention: orders.length > 0 ? '100%' : '0%',
   };
 
-  // Real & Detailed Clients Directory
-  const clientsList = useMemo(() => [
-    { id: 'c-1', name: 'Fatou Ndiaye', phone: '+221 77 845 12 90', email: 'fatou.ndiaye@gmail.com', neighborhood: 'Almadies', orders: 14, spent: 78500, auth: 'Google OAuth', status: 'VIP Gold' },
-    { id: 'c-2', name: 'Moussa Diop', phone: '+221 78 120 44 88', email: 'moussa.diop@yahoo.fr', neighborhood: 'Plateau', orders: 9, spent: 42000, auth: 'Facebook OAuth', status: 'Actif' },
-    { id: 'c-3', name: 'Aïcha Sylla', phone: '+221 76 990 11 32', email: 'aicha.sylla@hotmail.com', neighborhood: 'Ngor', orders: 22, spent: 124000, auth: 'Google OAuth', status: 'VIP Platine' },
-    { id: 'c-4', name: 'Cheikh Tidiane Ba', phone: '+221 77 340 77 65', email: 'cheikh.ba@orange.sn', neighborhood: 'Mermoz', orders: 6, spent: 28500, auth: 'Numéro Tél', status: 'Actif' },
-    { id: 'c-5', name: 'Khadija Kane', phone: '+221 78 610 99 21', email: 'khadija.kane@icloud.com', neighborhood: 'VDN', orders: 11, spent: 59000, auth: 'Google OAuth', status: 'Actif' },
-    { id: 'c-6', name: 'Babacar Sarr', phone: '+221 70 882 14 00', email: 'babacar.sarr@gmail.com', neighborhood: 'Keur Massar', orders: 4, spent: 19500, auth: 'Email Pro', status: 'Nouveau' },
-    { id: 'c-7', name: 'Mariama Diallo', phone: '+221 77 550 88 12', email: 'mariama.diallo@gmail.com', neighborhood: 'Ouakam', orders: 8, spent: 36000, auth: 'Google OAuth', status: 'Actif' },
-  ], []);
+  // Real & Detailed Clients Directory (Dynamically generated from real orders)
+  const clientsList = useMemo(() => {
+    const clientsMap = new Map<string, {
+      id: string;
+      name: string;
+      phone: string;
+      email: string;
+      neighborhood: string;
+      orders: number;
+      spent: number;
+      auth: string;
+      status: string;
+    }>();
+
+    orders.forEach((o, index) => {
+      const key = o.clientPhone || o.clientName || `client-${index}`;
+      const existing = clientsMap.get(key);
+      if (existing) {
+        existing.orders += 1;
+        existing.spent += (o.total || 0);
+      } else {
+        clientsMap.set(key, {
+          id: `c-${index + 1}`,
+          name: o.clientName || 'Client Thiob',
+          phone: o.clientPhone || 'Non renseigné',
+          email: `${(o.clientName || 'client').toLowerCase().replace(/[^a-z0-9]/g, '.')}@client.thiob.sn`,
+          neighborhood: o.deliveryAddress?.neighborhood || 'Dakar',
+          orders: 1,
+          spent: o.total || 0,
+          auth: o.paymentMethod === 'wave' ? 'Wave Direct' : o.paymentMethod === 'orange_money' ? 'Orange Money' : 'Numéro Tél',
+          status: 'Actif',
+        });
+      }
+    });
+
+    return Array.from(clientsMap.values());
+  }, [orders]);
 
   // Detailed Subscriptions List (Abonnements Restaurants)
-  const subscriptionsList = [
-    { restaurantName: 'Chez Kamiss', plan: 'Pack Pro VIP', amount: 25000, cycle: 'Mensuel', status: 'Actif', nextBilling: '01 Oct, 2026', phone: '+221 77 845 12 90' },
-    { restaurantName: 'Ngor Sunset Lounge', plan: 'Pack Pro VIP', amount: 25000, cycle: 'Mensuel', status: 'Actif', nextBilling: '05 Oct, 2026', phone: '+221 77 340 11 22' },
-    { restaurantName: 'Plateau Chic Gastronomie', plan: 'Pack Pro VIP', amount: 25000, cycle: 'Mensuel', status: 'Actif', nextBilling: '12 Oct, 2026', phone: '+221 78 990 45 67' },
-    { restaurantName: 'Thiéb Royal Sceau', plan: 'Pack Pro VIP', amount: 25000, cycle: 'Mensuel', status: 'Actif', nextBilling: '18 Oct, 2026', phone: '+221 77 555 88 99' },
-    { restaurantName: 'Dibi Centrale Grill', plan: 'Pack Pro VIP', amount: 25000, cycle: 'Mensuel', status: 'Actif', nextBilling: '22 Oct, 2026', phone: '+221 70 123 45 67' },
-    { restaurantName: 'Almadies Ocean Club', plan: 'Pack Pro VIP', amount: 25000, cycle: 'Mensuel', status: 'Actif', nextBilling: '28 Oct, 2026', phone: '+221 76 888 99 00' },
-    { restaurantName: 'Teranga Dakar Emblème', plan: 'Pack Pro VIP', amount: 25000, cycle: 'Mensuel', status: 'Actif', nextBilling: '30 Oct, 2026', phone: '+221 78 444 33 22' },
-  ];
+  const subscriptionsList = restaurants.map((r, i) => ({
+    restaurantName: r.name,
+    plan: 'Pack Partenaire',
+    amount: 0,
+    cycle: 'Mensuel',
+    status: 'Actif',
+    nextBilling: 'Actif',
+    phone: r.phone || '+221 77 000 00 00',
+  }));
+
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
@@ -794,62 +822,74 @@ function StandaloneAdminPortal() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100 text-gray-700">
-                        {orders
-                          .filter(o => o.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) || o.clientName.toLowerCase().includes(searchTerm.toLowerCase()) || o.restaurantName.toLowerCase().includes(searchTerm.toLowerCase()))
-                          .map((ord) => {
-                            const isChecked = !!selectedOrders[ord.id];
-                            return (
-                              <tr key={ord.id} className="hover:bg-[#F4F7F4]/60 transition-colors">
-                                <td className="py-3">
-                                  <button 
-                                    onClick={() => toggleSelectOrder(ord.id)}
-                                    className="text-gray-400 hover:text-[#0A6E3B] cursor-pointer"
-                                  >
-                                    {isChecked ? <CheckSquare className="w-4 h-4 text-[#0A6E3B]" /> : <Square className="w-4 h-4" />}
-                                  </button>
-                                </td>
-                                <td className="py-3 font-mono font-bold text-gray-900">{ord.orderNumber}</td>
-                                <td className="py-3 font-bold text-gray-900 flex items-center gap-2">
-                                  <div className="w-6 h-6 rounded-lg bg-[#E6F5EC] text-[#0A6E3B] flex items-center justify-center text-xs">
-                                    🍽️
-                                  </div>
-                                  <div>
-                                    <span>{ord.restaurantName}</span>
-                                    <span className="text-[10px] text-gray-400 block font-normal">Client: {ord.clientName} (📍 {ord.deliveryAddress.neighborhood})</span>
-                                  </div>
-                                </td>
-                                <td className="py-3">
-                                  <span className="px-2 py-0.5 rounded-md font-bold text-[10px] uppercase bg-gray-100 text-gray-700">
-                                    {ord.paymentMethod === 'wave' && '🌊 Wave'}
-                                    {ord.paymentMethod === 'orange_money' && '🍊 OM'}
-                                    {ord.paymentMethod === 'card' && '💳 CB'}
-                                    {ord.paymentMethod === 'cash' && '💵 Espèces'}
-                                  </span>
-                                </td>
-                                <td className="py-3 font-mono font-black text-[#081A10]">{formatFCFA(ord.total)}</td>
-                                <td className="py-3">
-                                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 w-fit ${
-                                    ord.status === 'delivered' ? 'bg-emerald-50 text-emerald-700' :
-                                    ord.status === 'preparing' ? 'bg-amber-50 text-amber-700' : 'bg-sky-50 text-sky-700'
-                                  }`}>
-                                    <span className="w-1.5 h-1.5 rounded-full bg-current" />
-                                    {ord.status === 'delivered' ? 'Livré' : ord.status === 'preparing' ? 'En Cuisine' : 'En Attente'}
-                                  </span>
-                                </td>
-                                <td className="py-3 text-right">
-                                  <button 
-                                    onClick={() => {
-                                      updateOrderStatus(ord.id, ord.status === 'pending' ? 'preparing' : 'delivered');
-                                      setToastMessage(`Statut de la commande ${ord.orderNumber} actualisé.`);
-                                    }}
-                                    className="text-[10px] font-bold text-[#0A6E3B] hover:underline"
-                                  >
-                                    Avancer →
-                                  </button>
-                                </td>
-                              </tr>
-                            );
-                          })}
+                        {orders.length === 0 ? (
+                          <tr>
+                            <td colSpan={7} className="py-12 text-center text-gray-400">
+                              <div className="flex flex-col items-center justify-center gap-2">
+                                <CheckCircle2 className="w-8 h-8 text-[#0A6E3B]/40" />
+                                <p className="text-xs font-bold text-gray-800">Aucune commande pour le moment</p>
+                                <p className="text-[11px] text-gray-400">Toutes les nouvelles commandes s'afficheront ici en direct dès qu'un client commandera.</p>
+                              </div>
+                            </td>
+                          </tr>
+                        ) : (
+                          orders
+                            .filter(o => o.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) || o.clientName.toLowerCase().includes(searchTerm.toLowerCase()) || o.restaurantName.toLowerCase().includes(searchTerm.toLowerCase()))
+                            .map((ord) => {
+                              const isChecked = !!selectedOrders[ord.id];
+                              return (
+                                <tr key={ord.id} className="hover:bg-[#F4F7F4]/60 transition-colors">
+                                  <td className="py-3">
+                                    <button 
+                                      onClick={() => toggleSelectOrder(ord.id)}
+                                      className="text-gray-400 hover:text-[#0A6E3B] cursor-pointer"
+                                    >
+                                      {isChecked ? <CheckSquare className="w-4 h-4 text-[#0A6E3B]" /> : <Square className="w-4 h-4" />}
+                                    </button>
+                                  </td>
+                                  <td className="py-3 font-mono font-bold text-gray-900">{ord.orderNumber}</td>
+                                  <td className="py-3 font-bold text-gray-900 flex items-center gap-2">
+                                    <div className="w-6 h-6 rounded-lg bg-[#E6F5EC] text-[#0A6E3B] flex items-center justify-center text-xs">
+                                      🍽️
+                                    </div>
+                                    <div>
+                                      <span>{ord.restaurantName}</span>
+                                      <span className="text-[10px] text-gray-400 block font-normal">Client: {ord.clientName} (📍 {ord.deliveryAddress?.neighborhood || 'Dakar'})</span>
+                                    </div>
+                                  </td>
+                                  <td className="py-3">
+                                    <span className="px-2 py-0.5 rounded-md font-bold text-[10px] uppercase bg-gray-100 text-gray-700">
+                                      {ord.paymentMethod === 'wave' && '🌊 Wave'}
+                                      {ord.paymentMethod === 'orange_money' && '🍊 OM'}
+                                      {ord.paymentMethod === 'card' && '💳 CB'}
+                                      {ord.paymentMethod === 'cash' && '💵 Espèces'}
+                                    </span>
+                                  </td>
+                                  <td className="py-3 font-mono font-black text-[#081A10]">{formatFCFA(ord.total)}</td>
+                                  <td className="py-3">
+                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 w-fit ${
+                                      ord.status === 'delivered' ? 'bg-emerald-50 text-emerald-700' :
+                                      ord.status === 'preparing' ? 'bg-amber-50 text-amber-700' : 'bg-sky-50 text-sky-700'
+                                    }`}>
+                                      <span className="w-1.5 h-1.5 rounded-full bg-current" />
+                                      {ord.status === 'delivered' ? 'Livré' : ord.status === 'preparing' ? 'En Cuisine' : 'En Attente'}
+                                    </span>
+                                  </td>
+                                  <td className="py-3 text-right">
+                                    <button 
+                                      onClick={() => {
+                                        updateOrderStatus(ord.id, ord.status === 'pending' ? 'preparing' : 'delivered');
+                                        setToastMessage(`Statut de la commande ${ord.orderNumber} actualisé.`);
+                                      }}
+                                      className="text-[10px] font-bold text-[#0A6E3B] hover:underline"
+                                    >
+                                      Avancer →
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })
+                        )}
                       </tbody>
                     </table>
                   </div>

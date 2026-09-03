@@ -168,11 +168,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [metrics, setMetrics] = useState<PlatformMetrics>(INITIAL_METRICS);
   const [reservations, setReservations] = useState<Reservation[]>(INITIAL_RESERVATIONS);
   const [outingPlans, setOutingPlans] = useState<OutingPlan[]>(INITIAL_OUTING_PLANS);
-  const [favoriteRestaurantIds, setFavoriteRestaurantIds] = useState<string[]>(['resto-kamiss', 'resto-1']);
+  const [favoriteRestaurantIds, setFavoriteRestaurantIds] = useState<string[]>([]);
 
   // Client profile info
-  const [clientName, setClientName] = useState<string>('Gourmet Thiob');
-  const [clientPhone, setClientPhone] = useState<string>('+221 77 123 45 67');
+  const [clientName, setClientName] = useState<string>('');
+  const [clientPhone, setClientPhone] = useState<string>('');
 
   // Geolocation states
   const [clientCoords, setClientCoords] = useState<GeoPoint | null>(null);

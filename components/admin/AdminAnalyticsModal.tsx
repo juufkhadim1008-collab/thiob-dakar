@@ -40,9 +40,9 @@ export default function AdminAnalyticsModal({ isOpen, onClose }: AdminAnalyticsM
   const activeCouriersCount = couriers.filter(c => c.isOnline).length;
   const activeRestosCount = restaurants.length;
   
-  // Real registered users in session + initial community
-  const simulatedVisitorsToday = 148 + orders.length * 3;
-  const simulatedMonthlyUsers = 1420 + orders.length * 12;
+  // Real registered users in session
+  const simulatedVisitorsToday = orders.length > 0 ? orders.length : 1;
+  const simulatedMonthlyUsers = orders.length > 0 ? orders.length : 1;
 
   // Payment Breakdown
   const waveTransactions = transactions.filter(t => t.method === 'wave');

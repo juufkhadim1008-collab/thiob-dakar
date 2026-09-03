@@ -449,52 +449,10 @@ export const RESTAURANTS: Restaurant[] = [
 ];
 
 
-export const INITIAL_RESERVATIONS: Reservation[] = [
-  {
-    id: 'res-1',
-    reservationNumber: 'RES-8492',
-    restaurantId: 'resto-kamiss',
-    restaurantName: 'Chez Kamiss',
-    clientName: 'Moussa Diop',
-    clientPhone: '+221 77 654 32 10',
-    date: '2026-09-05',
-    time: '20:00',
-    guestsCount: 2,
-    occasion: 'Sortie avec ma copine',
-    status: 'confirmed',
-    notes: 'Table en terrasse face au coucher de soleil si possible.',
-    createdAt: '2026-09-02T10:30:00Z',
-  },
-  {
-    id: 'res-2',
-    reservationNumber: 'RES-8493',
-    restaurantId: 'resto-1',
-    restaurantName: 'Le Thiéb Royal de Dakar',
-    clientName: 'Fatou Bintou',
-    clientPhone: '+221 77 111 22 33',
-    date: '2026-09-06',
-    time: '13:00',
-    guestsCount: 4,
-    occasion: 'Déjeuner en famille',
-    status: 'pending',
-    notes: 'Prévoir chaises d\'enfants.',
-    createdAt: '2026-09-02T11:15:00Z',
-  }
-];
+export const INITIAL_RESERVATIONS: Reservation[] = [];
 
-export const INITIAL_OUTING_PLANS: OutingPlan[] = [
-  {
-    id: 'outing-1',
-    title: 'Sortie en amoureux aux Almadies',
-    restaurantId: 'resto-kamiss',
-    restaurantName: 'Chez Kamiss',
-    neighborhood: 'Ngor Virage',
-    plannedDate: 'Samedi 5 Septembre 20h00',
-    targetTag: 'Sortie Couple',
-    notes: 'Prendre la table vue mer et tester le Thiébou jeun royal et les cocktails locaux.',
-    createdAt: '2026-09-02T12:00:00Z',
-  }
-];
+export const INITIAL_OUTING_PLANS: OutingPlan[] = [];
+
 
 export const MENU_ITEMS: MenuItem[] = [
   // Plats Phares Thiob Express Dakar
@@ -771,157 +729,17 @@ export const MENU_ITEMS: MenuItem[] = [
 ];
 
 
-export const INITIAL_ORDERS: Order[] = [
-  {
-    id: 'ord-101',
-    orderNumber: 'DKR-8942',
-    createdAt: 'Il y a 8 min',
-    clientId: 'user-client-1',
-    clientName: 'Moussa Diop',
-    clientPhone: '+221 77 654 32 10',
-    restaurantId: 'resto-1',
-    restaurantName: 'Le Thiéb Royal de Dakar',
-    courierId: 'cour-1',
-    courierName: 'Ibrahima Fall (Moto Jakarta)',
-    courierPhone: '+221 70 812 34 56',
-    status: 'in_transit',
-    items: [
-      { menuItemId: 'menu-1', name: 'Ceebu Jën Rouge Royal', price: 4500, quantity: 2, notes: 'Bien pimenté svp' },
-      { menuItemId: 'menu-9', name: 'Jus de Bissap Maison', price: 1000, quantity: 2 },
-    ],
-    subtotal: 11000,
-    deliveryFee: 1500,
-    platformFee: 500,
-    total: 13000,
-    paymentMethod: 'wave',
-    paymentStatus: 'paid',
-    deliveryAddress: {
-      neighborhood: 'Almadies',
-      street: 'Rue du Jardin x Route des Almadies',
-      details: 'Villa N° 45, portail vert',
-    },
-    estimatedDeliveryTime: '12 min',
-  },
-  {
-    id: 'ord-102',
-    orderNumber: 'DKR-8943',
-    createdAt: 'Il y a 14 min',
-    clientId: 'user-client-2',
-    clientName: 'Aïssatou Sow',
-    clientPhone: '+221 78 111 22 33',
-    restaurantId: 'resto-1',
-    restaurantName: 'Le Thiéb Royal de Dakar',
-    status: 'preparing',
-    items: [
-      { menuItemId: 'menu-2', name: 'Ceebu Jën Blanc', price: 4500, quantity: 1 },
-      { menuItemId: 'menu-10', name: 'Jus de Bouye Onctueux', price: 1200, quantity: 1 },
-    ],
-    subtotal: 5700,
-    deliveryFee: 1500,
-    platformFee: 500,
-    total: 7700,
-    paymentMethod: 'orange_money',
-    paymentStatus: 'paid',
-    deliveryAddress: {
-      neighborhood: 'Mermoz',
-      street: 'Avenue Cheikh Anta Diop',
-      details: 'Immeuble Horizon, 3ème étage',
-    },
-    estimatedDeliveryTime: '25 min',
-  },
-  {
-    id: 'ord-103',
-    orderNumber: 'DKR-8944',
-    createdAt: 'Il y a 2 min',
-    clientId: 'user-client-3',
-    clientName: 'Cheikh Ndao',
-    clientPhone: '+221 76 333 44 55',
-    restaurantId: 'resto-1',
-    restaurantName: 'Le Thiéb Royal de Dakar',
-    status: 'pending',
-    items: [
-      { menuItemId: 'menu-3', name: 'Ceebu Yapp', price: 4000, quantity: 3 },
-      { menuItemId: 'menu-11', name: 'Thiakry / Dégué Onctueux', price: 1500, quantity: 3 },
-    ],
-    subtotal: 16500,
-    deliveryFee: 1500,
-    platformFee: 700,
-    total: 18700,
-    paymentMethod: 'wave',
-    paymentStatus: 'paid',
-    deliveryAddress: {
-      neighborhood: 'Plateau',
-      street: 'Boulevard de la République',
-      details: 'Bureau 402',
-    },
-    estimatedDeliveryTime: '35 min',
-  },
-];
+export const INITIAL_ORDERS: Order[] = [];
 
-export const INITIAL_COURIERS: Courier[] = [
-  {
-    id: 'cour-1',
-    name: 'Ibrahima Fall',
-    phone: '+221 70 812 34 56',
-    vehicleType: 'moto',
-    plateNumber: 'DK-4921-AZ',
-    isOnline: true,
-    isAvailable: true,
-    status: 'AVAILABLE',
-    currentNeighborhood: 'Almadies',
-    latitude: 14.7431,
-    longitude: -17.5186,
-    coordinates: { lat: 14.7431, lng: -17.5186 },
-    lastLocationUpdate: 'À l’instant',
-    rating: 4.95,
-    completedDeliveries: 148,
-    todayEarnings: 18500,
-    activeOrderId: 'ord-101',
-  },
-  {
-    id: 'cour-2',
-    name: 'Modou Diouf',
-    phone: '+221 77 987 65 43',
-    vehicleType: 'scooter',
-    plateNumber: 'DK-1082-BC',
-    isOnline: true,
-    isAvailable: true,
-    status: 'AVAILABLE',
-    currentNeighborhood: 'Plateau',
-    latitude: 14.6710,
-    longitude: -17.4320,
-    coordinates: { lat: 14.6710, lng: -17.4320 },
-    lastLocationUpdate: 'Il y a 3 min',
-    rating: 4.88,
-    completedDeliveries: 94,
-    todayEarnings: 12000,
-  },
-  {
-    id: 'cour-3',
-    name: 'Amadou Seck',
-    phone: '+221 78 444 55 66',
-    vehicleType: 'moto',
-    plateNumber: 'DK-7733-XY',
-    isOnline: false,
-    isAvailable: false,
-    status: 'OFFLINE',
-    currentNeighborhood: 'Yoff',
-    latitude: 14.7610,
-    longitude: -17.4720,
-    coordinates: { lat: 14.7610, lng: -17.4720 },
-    lastLocationUpdate: 'Il y a 2h',
-    rating: 4.75,
-    completedDeliveries: 210,
-    todayEarnings: 0,
-  },
-];
-
+export const INITIAL_COURIERS: Courier[] = [];
 
 export const INITIAL_METRICS: PlatformMetrics = {
-  totalRevenueGmv: 4850000, // FCFA
-  platformCommissionEarned: 679000, // FCFA (~14%)
-  totalOrdersToday: 384,
-  activeRestaurantsCount: 42,
-  activeCouriersCount: 28,
-  satisfactionRate: 98.4,
+  totalRevenueGmv: 0,
+  platformCommissionEarned: 0,
+  totalOrdersToday: 0,
+  activeRestaurantsCount: 4,
+  activeCouriersCount: 0,
+  satisfactionRate: 100,
 };
+
+
