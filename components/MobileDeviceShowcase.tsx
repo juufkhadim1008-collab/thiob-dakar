@@ -5422,13 +5422,22 @@ export default function MobileDeviceShowcase() {
 
         {/* 3 Mobile Roles Selector + Onboarding Trigger + Analytics + Desktop HQ */}
         <div className="flex flex-wrap items-center gap-2">
+          {/* Direct Link to Standalone /admin Route */}
+          <a
+            href="/admin"
+            className="px-3.5 py-1.5 rounded-xl text-xs font-black transition-all border flex items-center gap-1.5 shadow-md bg-[#064E2B] hover:bg-[#0A6E3B] text-white border-emerald-400/30 cursor-pointer"
+          >
+            <ShieldCheck className="w-3.5 h-3.5 text-amber-300" />
+            <span>👑 Dashboard Admin (/admin)</span>
+          </a>
+
           {/* Grand Dashboard Bureau Full-Screen Button */}
           <button
             onClick={() => setIsDesktopCommandCenter(true)}
             className="px-3.5 py-1.5 rounded-xl text-xs font-black transition-all border flex items-center gap-1.5 shadow-md bg-gradient-to-r from-[#0A6E3B] to-[#10B981] hover:brightness-110 text-white border-emerald-400/30 cursor-pointer"
           >
             <Globe className="w-3.5 h-3.5 text-emerald-200" />
-            <span>🖥️ Grand Dashboard PC</span>
+            <span>🖥️ Vue Plein Écran</span>
           </button>
 
           {/* Analytics Studio Button */}
