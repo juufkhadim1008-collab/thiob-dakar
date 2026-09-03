@@ -5062,6 +5062,63 @@ export default function MobileDeviceShowcase() {
   const [selectedOrderForTracking, setSelectedOrderForTracking] = useState<Order | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [isReady, setIsReady] = useState(false);
+  const [showInactivitySplash, setShowInactivitySplash] = useState(false);
+
+  // 1-Minute App Inactivity / App Exit Detection ➔ 5s Splash Logo Fade
+  useEffect(() => {
+    let leaveTimestamp: number | null = null;
+    let splashTimeout: NodeJS.Timeout | null = null;
+
+    const onAppHidden = () => {
+      leaveTimestamp = Date.now();
+    };
+
+    const onAppVisible = () => {
+      if (leaveTimestamp) {
+        const timeAway = Date.now() - leaveTimestamp;
+        // Si l'utilisateur est sorti plus de 1 minute (60 000 ms)
+        if (timeAway >= 60000) {
+          setShowInactivitySplash(true);
+          if (splashTimeout) clearTimeout(splashTimeout);
+          splashTimeout = setTimeout(() => {
+            setShowInactivitySplash(false);
+          }, 5000); // Reste 5 secondes puis fondu
+        }
+        leaveTimestamp = null;
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        onAppHidden();
+      } else {
+        onAppVisible();
+      }
+    };
+
+    const handleWindowBlur = () => {
+      if (!leaveTimestamp) leaveTimestamp = Date.now();
+    };
+
+    const handleWindowFocus = () => {
+      onAppVisible();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('blur', handleWindowBlur);
+    window.addEventListener('focus', handleWindowFocus);
+    window.addEventListener('pagehide', onAppHidden);
+    window.addEventListener('pageshow', onAppVisible);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('blur', handleWindowBlur);
+      window.removeEventListener('focus', handleWindowFocus);
+      window.removeEventListener('pagehide', onAppHidden);
+      window.removeEventListener('pageshow', onAppVisible);
+      if (splashTimeout) clearTimeout(splashTimeout);
+    };
+  }, []);
 
   // 1-Time Session Persistence: Only show onboarding on first launch ever
   useEffect(() => {
@@ -5088,6 +5145,7 @@ export default function MobileDeviceShowcase() {
     }
     setIsReady(true);
   }, [setCurrentRole, setCurrentRestaurantId]);
+
 
   const handleCompleteOnboarding = (newRole: UserRole) => {
     setCurrentRole(newRole);
@@ -5225,6 +5283,37 @@ export default function MobileDeviceShowcase() {
 
           {/* Main App Content Viewport */}
           <div className="flex-1 overflow-hidden relative">
+
+            {/* 🌟 5-Second Inactivity Return Splash Screen (Logo pur uniquement avec fondu) */}
+            <AnimatePresence>
+              {showInactivitySplash && (
+                <motion.div
+                  key="inactivity_return_splash"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.9, ease: 'easeInOut' }}
+                  className="absolute inset-0 z-[100] bg-gradient-to-b from-[#0A6E3B] via-[#064E2B] to-[#041F11] flex items-center justify-center p-8 select-none pointer-events-auto"
+                >
+                  {/* Uniquement le logo, ni texte ni rien */}
+                  <motion.div
+                    initial={{ scale: 0.85, opacity: 0 }}
+                    animate={{ scale: [0.85, 1.05, 1], opacity: 1 }}
+                    exit={{ scale: 0.95, opacity: 0 }}
+                    transition={{ duration: 0.8, ease: 'easeOut' }}
+                    className="flex items-center justify-center"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src="/shapes/logo-thiob.svg"
+                      alt=""
+                      className="w-56 max-w-[75%] h-auto drop-shadow-2xl pointer-events-none"
+                    />
+                  </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             <AnimatePresence mode="wait">
               {showOnboarding ? (
                 <motion.div
@@ -5257,6 +5346,7 @@ export default function MobileDeviceShowcase() {
               )}
             </AnimatePresence>
           </div>
+
 
           {/* iOS Bottom Home Indicator Bar (Desktop Simulator only) */}
           <div className="hidden md:flex h-4 bg-white items-center justify-center shrink-0 z-30">
