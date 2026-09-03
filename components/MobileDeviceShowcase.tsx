@@ -4109,124 +4109,167 @@ function MobileRestaurantApp({ onLogout }: { onLogout?: () => void }) {
         )}
 
         {/* =====================================================================
-            TAB 1: KDS CUISINE & COMMANDES (KITCHEN DISPLAY SYSTEM)
+            TAB 1: KDS CUISINE & FILE D'ATTENTE DES COMMANDES (ORDER QUEUES)
            ===================================================================== */}
         {restoTab === 'orders' && (
-          <div className="space-y-3">
+          <div className="space-y-4">
+            
+            {/* Header: Order Queues */}
             <div className="flex items-center justify-between">
-              <h4 className="text-xs font-black text-[#081A10] uppercase tracking-wider flex items-center gap-1.5">
-                <span>🔥 Flux Cuisine en Direct</span>
-              </h4>
-              <span className="text-[10px] text-gray-500 font-bold">
-                {pendingOrders.length + preparingOrders.length} à traiter
-              </span>
+              <div>
+                <h4 className="text-sm font-black text-[#081A10] tracking-tight flex items-center gap-1.5">
+                  <span>Order Queues</span>
+                  <span className="text-[10px] font-black bg-[#FF7824] text-white px-2 py-0.5 rounded-full">
+                    {pendingOrders.length + preparingOrders.length} actives
+                  </span>
+                </h4>
+                <p className="text-[10px] text-gray-400">File d'attente des commandes en cuisine en direct</p>
+              </div>
+
+              <div className="flex items-center gap-1 bg-[#F4F7F4] p-1 rounded-xl border border-[#D8EADB] text-[10px] font-bold">
+                <span className="px-2 py-0.5 rounded-lg bg-white text-[#0A6E3B] shadow-2xs font-black">
+                  En Direct 🟢
+                </span>
+              </div>
             </div>
 
             {myOrders.length === 0 ? (
               <div className="p-8 text-center bg-white rounded-3xl border border-[#D8EADB] text-xs text-gray-400 space-y-2 shadow-2xs">
                 <span className="text-3xl block">👨‍🍳</span>
                 <p className="font-bold text-gray-700">Aucune commande en cuisine pour le moment.</p>
-                <p className="text-[10px]">Dès qu'un client passe commande sur Thiob Express, elle apparaîtra ici en temps réel.</p>
+                <p className="text-[10px]">Dès qu'un client passe commande sur Thiob Express, elle apparaîtra ici avec son minuteur.</p>
               </div>
             ) : (
-              myOrders.map((ord) => {
-                const isPending = ord.status === 'pending' || ord.status === 'accepted';
-                const isPreparing = ord.status === 'preparing';
-                const isReady = ord.status === 'ready_for_pickup' || ord.status === 'in_transit';
-                const isDelivered = ord.status === 'delivered';
+              <div className="space-y-3">
+                {myOrders.map((ord) => {
+                  const isPending = ord.status === 'pending' || ord.status === 'accepted';
+                  const isPreparing = ord.status === 'preparing';
+                  const isReady = ord.status === 'ready_for_pickup' || ord.status === 'in_transit';
+                  const isDelivered = ord.status === 'delivered';
 
-                return (
-                  <motion.div
-                    key={ord.id}
-                    layout
-                    className={`bg-white p-3.5 rounded-2xl border transition-all space-y-2.5 shadow-xs ${
-                      isPreparing ? 'border-amber-300 ring-1 ring-amber-200' : 'border-[#D8EADB]'
-                    }`}
-                  >
-                    {/* Header line */}
-                    <div className="flex items-start justify-between">
-                      <div>
+                  return (
+                    <motion.div
+                      key={ord.id}
+                      layout
+                      className={`bg-white p-4 rounded-[26px] border transition-all space-y-3 shadow-sm ${
+                        isPreparing 
+                          ? 'border-[#FF7824] ring-2 ring-[#FF7824]/20' 
+                          : isReady 
+                          ? 'border-[#0A6E3B] bg-[#F8FAF8]' 
+                          : 'border-[#D8EADB]'
+                      }`}
+                    >
+                      {/* Top Row: Order ID + Table/Neighborhood Pill + Time */}
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono font-black text-xs text-[#081A10]">{ord.orderNumber}</span>
+                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-[#F4F7F4] text-gray-700 border border-[#D8EADB]">
+                              📍 {ord.deliveryAddress.neighborhood || 'Dakar'}
+                            </span>
+                          </div>
+                          <h5 className="font-black text-sm text-[#081A10] mt-1">{ord.clientName}</h5>
+                          <span className="text-[10px] text-gray-400 font-medium">Aujourd'hui • 11:10 PM</span>
+                        </div>
+
+                        {/* Status Progress Pill / Ring Badge */}
+                        <div className="text-right flex flex-col items-end">
+                          <span className="text-sm font-black text-[#0A6E3B]">{formatFCFA(ord.total)}</span>
+                          <span className="text-[9px] font-bold px-2 py-0.5 rounded-md mt-1 uppercase tracking-wider bg-[#E6F5EC] text-[#0A6E3B]">
+                            {ord.paymentMethod === 'wave' && '🌊 Wave Payé'}
+                            {ord.paymentMethod === 'orange_money' && '🍊 OM Payé'}
+                            {ord.paymentMethod === 'card' && '💳 CB Payé'}
+                            {ord.paymentMethod === 'cash' && '💵 Espèces'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Cooking Progress Bar */}
+                      <div className="p-2.5 rounded-2xl bg-[#F4F7F4] border border-[#D8EADB] flex items-center justify-between text-xs">
                         <div className="flex items-center gap-2">
-                          <span className="font-black text-xs text-[#081A10]">{ord.orderNumber}</span>
-                          <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${
-                            isPending ? 'bg-blue-100 text-blue-800' :
-                            isPreparing ? 'bg-amber-100 text-amber-800 animate-pulse' :
-                            isReady ? 'bg-purple-100 text-purple-800' : 'bg-emerald-100 text-emerald-800'
-                          }`}>
-                            {isPending ? '🔔 Nouvelle' :
-                             isPreparing ? '🔥 En cuisson' :
-                             isReady ? '🛵 Livreur en route' : '✓ Livrée'}
-                          </span>
+                          <div className="w-8 h-8 rounded-full bg-white border border-[#D8EADB] flex items-center justify-center font-black text-[10px] text-[#FF7824] shadow-2xs">
+                            {isDelivered ? '✓' : isReady ? '100%' : isPreparing ? '64%' : '10%'}
+                          </div>
+                          <div>
+                            <span className="font-black text-xs text-[#081A10] block">
+                              {isDelivered ? 'Commande Livrée' : isReady ? 'Prête en salle' : isPreparing ? 'En Cuisson 🔥' : 'En Attente de Cuisine'}
+                            </span>
+                            <span className="text-[9px] text-gray-400 font-medium">
+                              {isPreparing ? '12 min restantes estimées' : `${ord.items.length} articles commandés`}
+                            </span>
+                          </div>
                         </div>
-                        <p className="text-[11px] font-bold text-gray-700 mt-0.5">
-                          {ord.clientName} • <span className="text-gray-400">{ord.deliveryAddress.neighborhood}</span>
-                        </p>
+
+                        <span className="text-[11px] font-black text-[#0A6E3B]">
+                          {ord.items.reduce((acc, it) => acc + it.quantity, 0)} plats ↗
+                        </span>
                       </div>
 
-                      <div className="text-right">
-                        <span className="text-xs font-black text-[#0A6E3B]">{formatFCFA(ord.subtotal)}</span>
-                        <span className="text-[9px] text-gray-400 block">{ord.paymentMethod.toUpperCase()}</span>
+                      {/* Items List Breakdown */}
+                      <div className="space-y-1 pt-1 divide-y divide-gray-100">
+                        {ord.items.map((it, i) => (
+                          <div key={i} className="pt-1.5 first:pt-0 flex justify-between items-center text-xs">
+                            <span className="font-bold text-[#081A10] flex items-center gap-1.5">
+                              <span className="w-5 h-5 rounded-md bg-[#E6F5EC] text-[#0A6E3B] font-black flex items-center justify-center text-[10px]">
+                                {it.quantity}x
+                              </span>
+                              <span>{it.name}</span>
+                            </span>
+                            <span className="text-[11px] font-mono font-bold text-gray-600">{formatFCFA(it.price * it.quantity)}</span>
+                          </div>
+                        ))}
                       </div>
-                    </div>
 
-                    {/* Items detail list */}
-                    <div className="bg-[#F4F7F4] p-2.5 rounded-xl border border-[#D8EADB] text-xs space-y-1 divide-y divide-gray-100">
-                      {ord.items.map((it, i) => (
-                        <div key={i} className="pt-1 first:pt-0 flex justify-between items-center">
-                          <span className="font-bold text-[#081A10]">
-                            <strong className="text-[#0A6E3B]">{it.quantity}x</strong> {it.name}
+                      {/* Tiak-Tiak Courier Assigned Notice */}
+                      {ord.courierName && (
+                        <div className="text-[10px] text-gray-600 flex items-center justify-between bg-sky-50 p-2 rounded-xl border border-sky-100">
+                          <span className="flex items-center gap-1 font-bold text-sky-900">
+                            🛵 Livreur Tiak-Tiak : {ord.courierName}
                           </span>
-                          <span className="text-[10px] text-gray-400">{formatFCFA(it.price * it.quantity)}</span>
+                          <span className="font-mono text-sky-700 font-bold">{ord.courierPhone}</span>
                         </div>
-                      ))}
-                    </div>
+                      )}
 
-                    {/* Courier assigned or status details */}
-                    {ord.courierName && (
-                      <div className="text-[10px] text-gray-600 flex items-center gap-1.5 bg-blue-50 p-1.5 rounded-lg border border-blue-100">
-                        <span>🛵 Livreur :</span>
-                        <span className="font-bold text-blue-900">{ord.courierName} ({ord.courierPhone})</span>
+                      {/* KDS Kitchen Action Buttons */}
+                      <div className="flex gap-2 pt-1">
+                        {isPending && (
+                          <button
+                            onClick={() => updateOrderStatus(ord.id, 'preparing')}
+                            className="flex-1 py-2.5 rounded-2xl brand-gradient text-white text-xs font-black shadow-md hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-1.5"
+                          >
+                            <span>🔥 Lancer la Cuisson</span>
+                          </button>
+                        )}
+                        {isPreparing && (
+                          <button
+                            onClick={() => updateOrderStatus(ord.id, 'ready_for_pickup')}
+                            className="flex-1 py-2.5 rounded-2xl bg-[#FF7824] hover:bg-[#E86315] text-white text-xs font-black shadow-md active:scale-95 transition-all flex items-center justify-center gap-1.5"
+                          >
+                            <span>🛵 Commande Prête ! Appeler Tiak-Tiak</span>
+                          </button>
+                        )}
+                        {isReady && (
+                          <button
+                            onClick={() => updateOrderStatus(ord.id, 'delivered')}
+                            className="flex-1 py-2.5 rounded-2xl bg-[#064E2B] hover:bg-[#0A6E3B] text-white text-xs font-black shadow-md active:scale-95 transition-all flex items-center justify-center gap-1.5"
+                          >
+                            <span>✓ Valider la Remise au Client</span>
+                          </button>
+                        )}
+
+                        <button
+                          onClick={() => alert(`Appel client : ${ord.clientPhone || '+221 77 000 00 00'}`)}
+                          className="px-3.5 py-2 rounded-2xl bg-[#F4F7F4] hover:bg-gray-200 text-gray-700 text-xs font-bold border border-[#D8EADB] active:scale-95 transition-all"
+                          title="Appeler le client"
+                        >
+                          📞
+                        </button>
                       </div>
-                    )}
 
-                    {/* Action progression buttons */}
-                    <div className="flex gap-2 pt-1">
-                      {isPending && (
-                        <button
-                          onClick={() => updateOrderStatus(ord.id, 'preparing')}
-                          className="flex-1 py-2 rounded-xl brand-gradient text-white text-xs font-black shadow-xs hover:opacity-95"
-                        >
-                          🔥 Lancer la préparation en cuisine
-                        </button>
-                      )}
-                      {isPreparing && (
-                        <button
-                          onClick={() => updateOrderStatus(ord.id, 'ready_for_pickup')}
-                          className="flex-1 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-black shadow-xs flex items-center justify-center gap-1"
-                        >
-                          <span>🛵 Prêt ! Appeler le Tiak-Tiak</span>
-                        </button>
-                      )}
-                      {isReady && (
-                        <button
-                          onClick={() => updateOrderStatus(ord.id, 'delivered')}
-                          className="flex-1 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black shadow-xs"
-                        >
-                          ✓ Marquer comme Livré
-                        </button>
-                      )}
-                      <button
-                        onClick={() => alert(`Appel client : ${ord.clientPhone}`)}
-                        className="px-3 py-2 rounded-xl bg-gray-100 text-gray-600 text-xs font-bold hover:bg-gray-200"
-                        title="Appeler le client"
-                      >
-                        📞
-                      </button>
-                    </div>
-
-                  </motion.div>
-                );
-              })
+                    </motion.div>
+                  );
+                })}
+              </div>
             )}
           </div>
         )}
@@ -4301,7 +4344,6 @@ function MobileRestaurantApp({ onLogout }: { onLogout?: () => void }) {
                         </span>
                       </div>
 
-                      {/* Assign Table selector */}
                       <select
                         value={assigned || ''}
                         onChange={(e) => handleAssignTable(res.id, e.target.value)}
@@ -4323,62 +4365,112 @@ function MobileRestaurantApp({ onLogout }: { onLogout?: () => void }) {
         )}
 
         {/* =====================================================================
-            TAB 4: GESTION DE LA CARTE & MENUS (MENU MANAGER)
+            TAB 4: GESTION DE LA CARTE & PRODUCT LISTS (INSPIRÉ DE L'IMAGE 1)
            ===================================================================== */}
         {restoTab === 'menu' && (
-          <div className="space-y-3">
+          <div className="space-y-4">
+            
+            {/* Header: Product Lists */}
             <div className="flex items-center justify-between">
               <div>
-                <h4 className="text-xs font-black text-[#081A10] uppercase tracking-wider">
-                  Menu & Plats ({myDishes.length})
-                </h4>
-                <p className="text-[10px] text-gray-400">Gérez vos stocks et tarifs en temps réel</p>
+                <h4 className="text-sm font-black text-[#081A10] tracking-tight">Product Lists</h4>
+                <p className="text-[10px] text-gray-400">Gérez vos plats, stocks et tarifs en temps réel</p>
               </div>
               <button
                 onClick={() => setIsAddDishModalOpen(true)}
-                className="px-3 py-1.5 rounded-xl brand-gradient text-white text-[10px] font-black shadow-xs flex items-center gap-1"
+                className="px-3.5 py-2 rounded-2xl brand-gradient text-white text-xs font-black shadow-md flex items-center gap-1.5 active:scale-95 transition-all"
               >
                 <Plus className="w-3.5 h-3.5" />
-                <span>Nouveau plat</span>
+                <span>+ Nouveau plat</span>
               </button>
             </div>
 
-            <div className="space-y-2.5">
-              {myDishes.map((dish) => (
-                <div
-                  key={dish.id}
-                  className="bg-white p-3 rounded-2xl border border-[#D8EADB] flex items-center justify-between gap-3 shadow-2xs"
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={dish.image} alt={dish.name} className="w-14 h-14 rounded-xl object-cover shrink-0" />
-                  
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <h5 className="font-bold text-xs text-[#081A10] truncate">{dish.name}</h5>
-                      {dish.isPopular && (
-                        <span className="text-[8px] font-black bg-[#FF7824] text-white px-1.5 py-0.2 rounded-md">
-                          Star
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-[10px] text-gray-400 line-clamp-1">{dish.description}</p>
-                    <span className="text-xs font-black text-[#0A6E3B]">{formatFCFA(dish.price)}</span>
-                  </div>
-
-                  {/* Availability toggle switch */}
+            {/* Category Pills Filter */}
+            <div className="flex overflow-x-auto no-scrollbar gap-1.5 pb-1">
+              {[
+                { id: 'all', label: `Tous les plats (${myDishes.length})` },
+                { id: 'cat-thieb', label: '🍲 Thiéboudienne' },
+                { id: 'cat-dibi', label: '🍖 Dibi & Grillades' },
+                { id: 'cat-yassa', label: '🍗 Yassa Poulet' },
+                { id: 'cat-jus', label: '🍹 Jus Locaux' },
+              ].map((cat) => {
+                const isSel = vitrineCategory === cat.id;
+                return (
                   <button
-                    onClick={() => toggleMenuItemAvailability(dish.id)}
-                    className={`px-2.5 py-1.5 rounded-xl text-[10px] font-black transition-all ${
-                      dish.isAvailable
-                        ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200'
-                        : 'bg-rose-100 text-rose-800 hover:bg-rose-200'
+                    key={cat.id}
+                    onClick={() => setVitrineCategory(cat.id)}
+                    className={`px-3 py-1.5 rounded-xl text-[11px] font-black shrink-0 transition-all ${
+                      isSel
+                        ? 'bg-[#064E2B] text-white shadow-xs'
+                        : 'bg-white text-gray-600 border border-[#D8EADB] hover:border-gray-300'
                     }`}
                   >
-                    {dish.isAvailable ? 'En stock 🟢' : 'Épuisé 🔴'}
+                    {cat.label}
                   </button>
-                </div>
-              ))}
+                );
+              })}
             </div>
+
+            {/* Grid of Dish Product Cards (2 columns on mobile) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {myDishes
+                .filter(d => vitrineCategory === 'all' || d.category === vitrineCategory)
+                .map((dish) => (
+                  <div
+                    key={dish.id}
+                    className="bg-white rounded-[26px] border border-[#D8EADB] overflow-hidden shadow-xs flex flex-col justify-between space-y-3 p-3.5 hover:border-[#0A6E3B]/40 transition-all"
+                  >
+                    {/* Dish Image + Discount Tag */}
+                    <div className="relative aspect-4/3 rounded-2xl overflow-hidden bg-gray-100">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={dish.image} alt={dish.name} className="w-full h-full object-cover" />
+                      
+                      {dish.isPopular && (
+                        <span className="absolute top-2 left-2 px-2 py-0.5 rounded-lg bg-[#FF7824] text-white text-[9px] font-black shadow-sm">
+                          ⭐ Star
+                        </span>
+                      )}
+
+                      <span className="absolute bottom-2 left-2 px-2.5 py-1 rounded-xl bg-black/75 text-white font-mono font-black text-xs backdrop-blur-xs shadow-md">
+                        {formatFCFA(dish.price)}
+                      </span>
+                    </div>
+
+                    {/* Dish Info */}
+                    <div>
+                      <h5 className="font-black text-xs text-[#081A10] leading-tight">{dish.name}</h5>
+                      <p className="text-[10px] text-gray-400 line-clamp-2 mt-0.5">{dish.description}</p>
+                      
+                      {/* Ingredient / Flavor tags */}
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        <span className="px-2 py-0.5 rounded-md bg-[#F4F7F4] text-gray-600 text-[9px] font-bold">
+                          Authentique
+                        </span>
+                        <span className="px-2 py-0.5 rounded-md bg-[#E6F5EC] text-[#0A6E3B] text-[9px] font-bold">
+                          Fait Maison
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Availability Stock Switch Button */}
+                    <div className="pt-2 border-t border-gray-100 flex items-center justify-between">
+                      <span className="text-[10px] font-bold text-gray-500">Disponibilité :</span>
+                      <button
+                        onClick={() => toggleMenuItemAvailability(dish.id)}
+                        className={`px-3 py-1.5 rounded-xl text-[10px] font-black transition-all cursor-pointer ${
+                          dish.isAvailable
+                            ? 'bg-[#E6F5EC] text-[#0A6E3B] border border-[#0A6E3B]/30'
+                            : 'bg-rose-50 text-rose-700 border border-rose-200'
+                        }`}
+                      >
+                        {dish.isAvailable ? '🟢 En Stock' : '🔴 Épuisé'}
+                      </button>
+                    </div>
+
+                  </div>
+                ))}
+            </div>
+
           </div>
         )}
 
