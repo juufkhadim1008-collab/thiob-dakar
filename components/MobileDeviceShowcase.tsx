@@ -23,6 +23,7 @@ import {
   Clock,
   Plus,
   Minus,
+  Activity,
   Check,
   CheckCircle2,
   Navigation,
@@ -5208,12 +5209,14 @@ function MobileCourierApp({ onLogout }: { onLogout?: () => void }) {
 // 4. MAIN SMARTPHONE SHELL & SHOWCASE CONTAINER
 // =========================================================================
 import OnboardingFlow from './OnboardingFlow';
+import AdminAnalyticsModal from '@/components/admin/AdminAnalyticsModal';
 import { supabase } from '@/lib/supabase';
 
 export default function MobileDeviceShowcase() {
   const { currentRole, setCurrentRole, currentRestaurantId, setCurrentRestaurantId, setClientProfile } = useApp();
   const [selectedOrderForTracking, setSelectedOrderForTracking] = useState<Order | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [isAdminAnalyticsOpen, setIsAdminAnalyticsOpen] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [showInactivitySplash, setShowInactivitySplash] = useState(false);
   const [showOpeningSplash, setShowOpeningSplash] = useState(true);
@@ -5406,8 +5409,17 @@ export default function MobileDeviceShowcase() {
           </div>
         </div>
 
-        {/* 3 Mobile Roles Selector + Onboarding Trigger */}
+        {/* 3 Mobile Roles Selector + Onboarding Trigger + Analytics */}
         <div className="flex flex-wrap items-center gap-2">
+          {/* Analytics Studio Button */}
+          <button
+            onClick={() => setIsAdminAnalyticsOpen(true)}
+            className="px-3 py-1.5 rounded-xl text-xs font-black transition-all border flex items-center gap-1.5 shadow-md bg-white/10 hover:bg-white/20 text-emerald-300 border-white/20"
+          >
+            <Activity className="w-3.5 h-3.5 text-emerald-400" />
+            <span>📊 Analytics & Audience</span>
+          </button>
+
           {/* Onboarding Trigger Button */}
           <button
             onClick={() => setShowOnboarding(true)}
@@ -5669,6 +5681,12 @@ export default function MobileDeviceShowcase() {
           </div>
         )}
       </AnimatePresence>
+
+      {/* Real-time Administrator & Audience Analytics Modal */}
+      <AdminAnalyticsModal
+        isOpen={isAdminAnalyticsOpen}
+        onClose={() => setIsAdminAnalyticsOpen(false)}
+      />
 
     </div>
   );
