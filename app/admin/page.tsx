@@ -30,7 +30,28 @@ import {
   Globe,
   RefreshCw,
   Eye,
-  EyeOff
+  EyeOff,
+  Sun,
+  Moon,
+  LayoutGrid,
+  Calendar,
+  MessageSquare,
+  FileText,
+  Settings,
+  HelpCircle,
+  Bell,
+  Info,
+  ArrowDownLeft,
+  Filter,
+  Plus,
+  CreditCard,
+  Check,
+  ChevronDown,
+  ArrowRight,
+  TrendingUp,
+  MoreVertical,
+  CheckSquare,
+  Square
 } from 'lucide-react';
 
 export default function AdminRoutePage() {
@@ -46,13 +67,17 @@ function StandaloneAdminPortal() {
   
   // Auth state for the separated admin portal
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [adminEmail, setAdminEmail] = useState('');
-  const [adminPassword, setAdminPassword] = useState('');
+  const [adminEmail, setAdminEmail] = useState('mastu@thiob.sn');
+  const [adminPassword, setAdminPassword] = useState('thiob2026');
   const [showPassword, setShowPassword] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'downloads' | 'accounting' | 'community' | 'orders'>('overview');
-  const [communitySubTab, setCommunitySubTab] = useState<'clients' | 'restaurants' | 'couriers'>('clients');
+
+  // Active Navigation Tab
+  const [activeTab, setActiveTab] = useState<'overview' | 'downloads' | 'accounting' | 'clients' | 'restaurants' | 'couriers'>('overview');
+  const [selectedCurrency, setSelectedCurrency] = useState<'FCFA' | 'EUR' | 'USD'>('FCFA');
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedOrders, setSelectedOrders] = useState<{ [id: string]: boolean }>({});
+  const [isDarkMode, setIsDarkMode] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Financial Computations
@@ -87,21 +112,22 @@ function StandaloneAdminPortal() {
     e.preventDefault();
     setAuthError(null);
 
-    // Accept admin credentials or any valid input for convenience
     if (!adminEmail.trim() || !adminPassword.trim()) {
       setAuthError('Veuillez renseigner votre email et mot de passe.');
       return;
     }
 
-    // Success login
     setIsAuthenticated(true);
-    setToastMessage('Connexion réussie au Dashboard Administrateur !');
+    setToastMessage('Bienvenue Mastü ! Connexion réussie au Dashboard.');
     setTimeout(() => setToastMessage(null), 3500);
   };
 
   const handleLogout = () => {
     setIsAuthenticated(false);
-    setAdminPassword('');
+  };
+
+  const toggleSelectOrder = (id: string) => {
+    setSelectedOrders(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
   const handleExportCSV = () => {
@@ -112,35 +138,35 @@ function StandaloneAdminPortal() {
     const uri = encodeURI(csv);
     const a = document.createElement('a');
     a.href = uri;
-    a.download = `Comptabilite_Thiob_Dakar_${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `Bilan_Comptable_Thiob_Dakar_${new Date().toISOString().split('T')[0]}.csv`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
 
-    setToastMessage('✅ Fichier comptable CSV téléchargé !');
+    setToastMessage('✅ Rapport comptable exporté avec succès !');
     setTimeout(() => setToastMessage(null), 3000);
   };
 
   // =========================================================================
-  // ÉCRAN 1: FORMULAIRE DE CONNEXION SÉCURISÉ (LOGIN GATE)
+  // 1. ÉCRAN DE CONNEXION SÉPARÉ (LOGIN MODERNE FINEXY STYLE)
   // =========================================================================
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-[#071E11] text-white font-sans flex flex-col items-center justify-center p-4 relative overflow-hidden selection:bg-[#0A6E3B]">
+      <div className="min-h-screen bg-[#F0F2F5] text-[#0F172A] font-sans flex flex-col items-center justify-center p-4 relative overflow-hidden">
         
-        {/* Background glow & mesh */}
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[600px] h-[400px] bg-[#0A6E3B]/25 rounded-full blur-[130px] pointer-events-none" />
-        <div className="absolute bottom-10 right-10 w-[300px] h-[300px] bg-[#FF7824]/15 rounded-full blur-[100px] pointer-events-none" />
+        {/* Soft background aesthetics */}
+        <div className="absolute top-12 left-1/3 w-[500px] h-[500px] bg-[#FF5B29]/8 rounded-full blur-[140px] pointer-events-none" />
+        <div className="absolute bottom-10 right-1/4 w-[400px] h-[400px] bg-[#0A6E3B]/8 rounded-full blur-[120px] pointer-events-none" />
 
         <motion.div
-          initial={{ opacity: 0, y: 25, scale: 0.96 }}
+          initial={{ opacity: 0, y: 20, scale: 0.97 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           transition={{ duration: 0.35 }}
-          className="relative z-10 w-full max-w-md bg-[#0A2616] p-8 rounded-[36px] border border-emerald-500/30 shadow-[0_20px_60px_rgba(0,0,0,0.6)] space-y-6"
+          className="relative z-10 w-full max-w-md bg-white p-8 sm:p-10 rounded-[36px] shadow-[0_20px_50px_rgba(0,0,0,0.06)] border border-[#E5E9F0] space-y-6"
         >
           {/* Logo & Header */}
           <div className="flex flex-col items-center text-center space-y-2">
-            <div className="w-16 h-16 rounded-3xl p-1 bg-white shadow-xl border border-emerald-400/50 flex items-center justify-center mb-1">
+            <div className="w-16 h-16 rounded-3xl p-1 bg-white shadow-md border border-gray-100 flex items-center justify-center mb-1">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src="/images/Icone app.png"
@@ -149,98 +175,81 @@ function StandaloneAdminPortal() {
               />
             </div>
             
-            <div className="flex items-center gap-1.5">
-              <span className="text-[10px] uppercase font-black tracking-widest bg-emerald-500/20 text-emerald-300 px-2.5 py-0.5 rounded-full border border-emerald-500/30 flex items-center gap-1">
-                <Lock className="w-3 h-3 text-emerald-400" />
-                Accès Restreint
-              </span>
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FF5B29]/10 text-[#FF5B29] text-[10px] font-black uppercase tracking-wider">
+              <ShieldCheck className="w-3.5 h-3.5" />
+              <span>Portail Super Administrateur</span>
             </div>
 
-            <h1 className="text-2xl font-black text-white">
-              Thiob<span className="text-[#FF7824]">.Dakar</span> Admin
+            <h1 className="text-2xl font-black text-[#0F172A] tracking-tight">
+              Thiob<span className="text-[#FF5B29]">.Dakar</span> HQ
             </h1>
-            <p className="text-xs text-emerald-300/70">
-              Connexion sécurisée à votre tableau de bord de gestion
+            <p className="text-xs text-gray-500">
+              Veuillez vous authentifier pour accéder à la tour de contrôle
             </p>
           </div>
 
-          {/* Error Alert */}
+          {/* Error Notice */}
           {authError && (
-            <div className="p-3 rounded-2xl bg-rose-500/20 border border-rose-500/40 text-rose-200 text-xs font-bold text-center">
+            <div className="p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-bold text-center">
               ⚠️ {authError}
             </div>
           )}
 
-          {/* Form */}
+          {/* Login Form */}
           <form onSubmit={handleLogin} className="space-y-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-emerald-200 block">Identifiant / E-mail Admin</label>
+              <label className="text-xs font-bold text-gray-700 block">Identifiant / E-mail</label>
               <div className="relative">
-                <Mail className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-emerald-400/60" />
+                <Mail className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
                   type="email"
                   required
                   value={adminEmail}
                   onChange={(e) => setAdminEmail(e.target.value)}
-                  placeholder="admin@thiob.sn"
-                  className="w-full bg-black/40 border border-emerald-900/60 focus:border-emerald-400 rounded-2xl pl-10 pr-4 py-3 text-xs text-white placeholder:text-gray-500 focus:outline-none transition-all"
+                  placeholder="mastu@thiob.sn"
+                  className="w-full bg-[#F8FAFC] border border-gray-200 focus:border-[#FF5B29] focus:bg-white rounded-2xl pl-10 pr-4 py-3 text-xs text-gray-900 placeholder:text-gray-400 focus:outline-none transition-all shadow-2xs"
                 />
               </div>
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-emerald-200 block">Mot de passe / Code d'accès</label>
+              <label className="text-xs font-bold text-gray-700 block">Mot de passe</label>
               <div className="relative">
-                <KeyRound className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-emerald-400/60" />
+                <KeyRound className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
                   type={showPassword ? 'text' : 'password'}
                   required
                   value={adminPassword}
                   onChange={(e) => setAdminPassword(e.target.value)}
                   placeholder="••••••••••••"
-                  className="w-full bg-black/40 border border-emerald-900/60 focus:border-emerald-400 rounded-2xl pl-10 pr-10 py-3 text-xs text-white placeholder:text-gray-500 focus:outline-none transition-all"
+                  className="w-full bg-[#F8FAFC] border border-gray-200 focus:border-[#FF5B29] focus:bg-white rounded-2xl pl-10 pr-10 py-3 text-xs text-gray-900 placeholder:text-gray-400 focus:outline-none transition-all shadow-2xs"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 cursor-pointer"
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
             </div>
 
-            {/* Quick prefill helper */}
-            <div className="flex items-center justify-between text-[11px] text-emerald-300/60 pt-1">
-              <button
-                type="button"
-                onClick={() => {
-                  setAdminEmail('admin@thiob.sn');
-                  setAdminPassword('thiob2026');
-                }}
-                className="text-emerald-400 hover:underline font-bold"
-              >
-                Remplir identifiants par défaut
-              </button>
-              <span>Dakar HQ 🇸🇳</span>
-            </div>
-
             <button
               type="submit"
-              className="w-full py-3.5 rounded-2xl brand-gradient hover:brightness-110 text-white font-black text-sm shadow-xl shadow-emerald-950/40 flex items-center justify-center gap-2 active:scale-98 transition-all cursor-pointer mt-2"
+              className="w-full py-3.5 rounded-2xl bg-[#FF5B29] hover:bg-[#E84E1F] text-white font-black text-xs shadow-lg shadow-[#FF5B29]/25 flex items-center justify-center gap-2 active:scale-98 transition-all cursor-pointer mt-2"
             >
-              <ShieldCheck className="w-4 h-4 text-emerald-200" />
-              <span>Se Connecter au Dashboard</span>
+              <Lock className="w-4 h-4" />
+              <span>Ouvrir Mon Tableau de Bord</span>
             </button>
           </form>
 
-          {/* Footer link to public app */}
-          <div className="text-center pt-2 border-t border-emerald-900/40">
+          {/* Quick return link */}
+          <div className="text-center pt-2 border-t border-gray-100">
             <a
               href="/"
-              className="text-xs text-emerald-300/70 hover:text-white flex items-center justify-center gap-1 font-bold"
+              className="text-xs text-gray-500 hover:text-[#FF5B29] font-bold transition-colors"
             >
-              <span>← Retour à l'application Thiob Express</span>
+              ← Retour à l'application Thiob Express
             </a>
           </div>
         </motion.div>
@@ -249,10 +258,10 @@ function StandaloneAdminPortal() {
   }
 
   // =========================================================================
-  // ÉCRAN 2: DASHBOARD ADMINISTRATEUR SÉPARÉ (CONNECTÉ)
+  // 2. DASHBOARD ULTRA-MODERNE INSPIRÉ DE LA MAQUETTE (LIGHT / FINEXY STYLE)
   // =========================================================================
   return (
-    <div className="min-h-screen bg-[#071A0E] text-[#E0EBE3] font-sans flex flex-col selection:bg-[#0A6E3B] selection:text-white">
+    <div className={`min-h-screen font-sans flex text-[#0F172A] ${isDarkMode ? 'bg-[#0F172A] text-white' : 'bg-[#F4F5F8]'}`}>
       
       {/* Toast Notification */}
       <AnimatePresence>
@@ -261,572 +270,548 @@ function StandaloneAdminPortal() {
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -20 }}
-            className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-[#0A6E3B] text-white px-5 py-2.5 rounded-2xl shadow-2xl border border-emerald-400/50 flex items-center gap-2 text-xs font-bold"
+            className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-[#0F172A] text-white px-5 py-2.5 rounded-2xl shadow-2xl border border-white/10 flex items-center gap-2 text-xs font-bold"
           >
             <span>{toastMessage}</span>
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* 1. TOP DEDICATED ADMIN HEADER */}
-      <header className="bg-[#092515] border-b border-emerald-900/50 px-6 py-4 flex items-center justify-between sticky top-0 z-50 shadow-lg">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-3">
+      {/* ---------------------------------------------------------------------
+          A. LEFT THIN FLOATING ICON DOCK (Identique à la maquette de gauche)
+         --------------------------------------------------------------------- */}
+      <aside className="w-20 bg-white border-r border-[#EAEAEA] flex flex-col items-center justify-between py-6 shrink-0 z-20 shadow-xs">
+        
+        {/* Top: Logo & Theme Switcher */}
+        <div className="flex flex-col items-center gap-6">
+          <div className="w-10 h-10 rounded-2xl bg-[#FF5B29] flex items-center justify-center text-white shadow-md shadow-[#FF5B29]/20 font-black text-sm">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/images/Icone app.png"
-              alt="Thiob Dakar"
-              className="w-10 h-10 rounded-2xl object-cover shadow-md border border-emerald-400/40"
-            />
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-base font-black text-white">
-                  Dashboard Administrateur Thiob
-                </h1>
-                <span className="text-[9px] font-black uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  Connecté ({adminEmail || 'admin@thiob.sn'})
-                </span>
-              </div>
-              <p className="text-[10px] text-emerald-300/60">
-                Supervision en direct de toute la plateforme Dakar
-              </p>
-            </div>
+            <img src="/images/Icone app.png" alt="Thiob" className="w-full h-full rounded-2xl object-cover" />
           </div>
+
+          {/* Theme switcher toggle */}
+          <button
+            onClick={() => setIsDarkMode(!isDarkMode)}
+            className="w-9 h-9 rounded-2xl bg-[#F4F5F8] text-gray-500 hover:text-gray-900 flex items-center justify-center transition-all cursor-pointer shadow-2xs"
+            title="Changer le thème"
+          >
+            {isDarkMode ? <Sun className="w-4 h-4 text-amber-500" /> : <Moon className="w-4 h-4" />}
+          </button>
         </div>
 
-        {/* 5 Clean Navigation Tabs */}
-        <div className="flex items-center gap-1.5 bg-black/40 p-1.5 rounded-2xl border border-emerald-900/60">
+        {/* Middle Navigation Icons */}
+        <div className="flex flex-col items-center gap-3">
           {[
-            { id: 'overview', label: '📊 Vue d’ensemble', icon: BarChart3 },
-            { id: 'downloads', label: `📥 Téléchargements (${downloads.total})`, icon: Smartphone },
-            { id: 'accounting', label: `💰 Comptabilité (${formatFCFA(platformCommissions)})`, icon: Wallet },
-            { id: 'community', label: `👥 Répertoire (Clients, Restos, Livreurs)`, icon: Users },
-            { id: 'orders', label: `📦 Commandes Live (${orders.length})`, icon: Sparkles },
-          ].map((tab) => {
-            const isSel = activeTab === tab.id;
-            const Icon = tab.icon;
+            { id: 'overview', icon: LayoutGrid, label: 'Vue Globale' },
+            { id: 'downloads', icon: Smartphone, label: 'Téléchargements' },
+            { id: 'accounting', icon: Receipt, label: 'Comptabilité' },
+            { id: 'clients', icon: Users, label: 'Clients' },
+            { id: 'restaurants', icon: Store, label: 'Restaurants' },
+            { id: 'couriers', icon: Bike, label: 'Livreurs' },
+          ].map((item) => {
+            const isSel = activeTab === item.id;
+            const Icon = item.icon;
             return (
               <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
+                key={item.id}
+                onClick={() => setActiveTab(item.id as any)}
+                className={`w-11 h-11 rounded-2xl flex items-center justify-center transition-all cursor-pointer ${
                   isSel
-                    ? 'bg-[#0A6E3B] text-white shadow-md'
-                    : 'text-emerald-300/70 hover:text-white hover:bg-white/5'
+                    ? 'bg-[#1E293B] text-white shadow-md'
+                    : 'text-gray-400 hover:text-gray-800 hover:bg-[#F4F5F8]'
                 }`}
+                title={item.label}
               >
-                <Icon className="w-3.5 h-3.5" />
-                <span>{tab.label}</span>
+                <Icon className="w-5 h-5" />
               </button>
             );
           })}
         </div>
 
-        {/* Actions: Export + App Link + Logout */}
-        <div className="flex items-center gap-2.5">
+        {/* Bottom: Help & Logout */}
+        <div className="flex flex-col items-center gap-3">
           <a
             href="/"
             target="_blank"
             rel="noreferrer"
-            className="px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-emerald-300 border border-emerald-900/50 text-xs font-bold flex items-center gap-1.5 transition-all"
+            className="w-10 h-10 rounded-2xl bg-[#F4F5F8] text-gray-500 hover:text-[#FF5B29] flex items-center justify-center transition-all shadow-2xs"
+            title="Ouvrir l'application client"
           >
-            <span>📱 Ouvrir l'App</span>
-            <ExternalLink className="w-3 h-3 text-gray-400" />
+            <ExternalLink className="w-4 h-4" />
           </a>
 
           <button
             onClick={handleLogout}
-            className="px-3 py-1.5 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 text-xs font-black flex items-center gap-1.5 transition-all cursor-pointer"
+            className="w-10 h-10 rounded-2xl bg-rose-50 text-rose-600 hover:bg-rose-100 flex items-center justify-center transition-all cursor-pointer shadow-2xs"
+            title="Déconnexion"
           >
-            <LogOut className="w-3.5 h-3.5" />
-            <span>Déconnexion</span>
+            <LogOut className="w-4 h-4" />
           </button>
         </div>
-      </header>
+      </aside>
 
-      {/* 2. MAIN BODY */}
-      <main className="flex-1 p-6 space-y-6 max-w-[1600px] w-full mx-auto">
+      {/* ---------------------------------------------------------------------
+          B. MAIN CONTENT AREA (Header + Top Tabs + Cards Grid)
+         --------------------------------------------------------------------- */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
         
-        {/* =========================================================================
-            TAB 1: VUE D'ENSEMBLE SIMPLE & CLAIRE
-           ========================================================================= */}
-        {activeTab === 'overview' && (
-          <div className="space-y-6">
-            
-            {/* 4 Big Main Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              
-              {/* 1. Téléchargements */}
-              <div 
-                onClick={() => setActiveTab('downloads')}
-                className="bg-[#0A2616] p-5 rounded-3xl border border-emerald-900/50 shadow-lg space-y-1 cursor-pointer hover:border-emerald-500/50 transition-all"
-              >
-                <div className="flex items-center justify-between text-emerald-400">
-                  <span className="text-[10px] uppercase font-black tracking-wider text-emerald-300/70">Téléchargements App</span>
-                  <Smartphone className="w-4 h-4 text-emerald-400" />
-                </div>
-                <div className="flex items-baseline gap-2">
-                  <h3 className="text-3xl font-black text-white">{downloads.total.toLocaleString()}</h3>
-                  <span className="text-[10px] font-bold text-emerald-400">+{downloads.today} aujourd'hui</span>
-                </div>
-                <p className="text-[10px] text-emerald-300/50">46% iOS • 42% Android • 12% PWA</p>
+        {/* 1. TOP HEADER WITH PILL TABS, SEARCH & USER PROFILE */}
+        <header className="px-8 py-4 bg-white border-b border-[#EAEAEA] flex items-center justify-between sticky top-0 z-30 shadow-2xs">
+          
+          {/* Brand Name & App Switcher */}
+          <div className="flex items-center gap-6">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-xl bg-[#FF5B29] flex items-center justify-center text-white text-xs font-black">
+                T
               </div>
-
-              {/* 2. Chiffre d'Affaires Brut */}
-              <div 
-                onClick={() => setActiveTab('accounting')}
-                className="bg-[#0A2616] p-5 rounded-3xl border border-emerald-900/50 shadow-lg space-y-1 cursor-pointer hover:border-emerald-500/50 transition-all"
-              >
-                <div className="flex items-center justify-between text-emerald-400">
-                  <span className="text-[10px] uppercase font-black tracking-wider text-emerald-300/70">Volume des Ventes (GMV)</span>
-                  <DollarSign className="w-4 h-4 text-amber-400" />
-                </div>
-                <h3 className="text-2xl font-black text-emerald-400 truncate">{formatFCFA(baseVolume)}</h3>
-                <p className="text-[10px] text-emerald-300/50">Montant total des commandes Dakar</p>
-              </div>
-
-              {/* 3. Commissions Thiob Encaissées */}
-              <div 
-                onClick={() => setActiveTab('accounting')}
-                className="bg-[#0A2616] p-5 rounded-3xl border border-emerald-900/50 shadow-lg space-y-1 cursor-pointer hover:border-emerald-500/50 transition-all"
-              >
-                <div className="flex items-center justify-between text-emerald-400">
-                  <span className="text-[10px] uppercase font-black tracking-wider text-emerald-300/70">Gains Plateforme Thiob</span>
-                  <Wallet className="w-4 h-4 text-[#FF7824]" />
-                </div>
-                <h3 className="text-2xl font-black text-[#FF7824] truncate">{formatFCFA(platformCommissions)}</h3>
-                <p className="text-[10px] text-emerald-300/50">12% commission + 500F service/commande</p>
-              </div>
-
-              {/* 4. Écosystème Connecté */}
-              <div 
-                onClick={() => setActiveTab('community')}
-                className="bg-[#0A2616] p-5 rounded-3xl border border-emerald-900/50 shadow-lg space-y-1 cursor-pointer hover:border-emerald-500/50 transition-all"
-              >
-                <div className="flex items-center justify-between text-purple-400">
-                  <span className="text-[10px] uppercase font-black tracking-wider text-purple-300/70">Comptes Actifs</span>
-                  <Users className="w-4 h-4 text-purple-400" />
-                </div>
-                <div className="flex items-baseline gap-2">
-                  <h3 className="text-2xl font-black text-white">
-                    {clientsList.length} clients • {restaurants.length} restos • {couriers.length} livreurs
-                  </h3>
-                </div>
-                <p className="text-[10px] text-emerald-300/50">100% synchronisés sur Supabase</p>
-              </div>
-
+              <h2 className="font-black text-base text-[#0F172A] tracking-tight">
+                Thiob<span className="text-[#FF5B29]">.HQ</span>
+              </h2>
             </div>
 
-            {/* Live Orders & Quick Stats */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              
-              {/* Dernières Commandes Passées */}
-              <div className="bg-[#0A2616] p-5 rounded-3xl border border-emerald-900/50 shadow-xl space-y-3">
-                <div className="flex items-center justify-between border-b border-emerald-900/40 pb-2.5">
-                  <h3 className="font-black text-sm text-white flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-emerald-400" />
-                    <span>Dernières Commandes en Temps Réel</span>
-                  </h3>
-                  <button onClick={() => setActiveTab('orders')} className="text-xs text-emerald-400 font-bold hover:underline">
-                    Voir tout ({orders.length}) →
+            {/* Pill Navigation Tabs (Exactement comme dans la maquette Finexy) */}
+            <div className="hidden lg:flex items-center bg-[#F4F5F8] p-1 rounded-full border border-gray-200">
+              {[
+                { id: 'overview', label: 'Overview' },
+                { id: 'downloads', label: 'Activity' },
+                { id: 'accounting', label: 'Manage' },
+                { id: 'clients', label: 'Program' },
+                { id: 'restaurants', label: 'Account' },
+                { id: 'couriers', label: 'Reports' },
+              ].map((tab) => {
+                const isSel = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id as any)}
+                    className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                      isSel
+                        ? 'bg-[#1E293B] text-white shadow-xs'
+                        : 'text-gray-500 hover:text-gray-900'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Right: Search, Notifications, Profile Card */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1.5 text-gray-400">
+              <button className="w-9 h-9 rounded-full bg-[#F4F5F8] hover:bg-gray-200 flex items-center justify-center text-gray-600 transition-colors">
+                <Search className="w-4 h-4" />
+              </button>
+              <button className="w-9 h-9 rounded-full bg-[#F4F5F8] hover:bg-gray-200 flex items-center justify-center text-gray-600 transition-colors relative">
+                <Bell className="w-4 h-4" />
+                <span className="w-2 h-2 rounded-full bg-[#FF5B29] absolute top-2 right-2 ring-2 ring-white" />
+              </button>
+              <button 
+                onClick={handleExportCSV}
+                className="w-9 h-9 rounded-full bg-[#F4F5F8] hover:bg-gray-200 flex items-center justify-center text-gray-600 transition-colors"
+                title="Exporter Bilan CSV"
+              >
+                <Download className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Profile Chip */}
+            <div className="flex items-center gap-2.5 pl-3 border-l border-gray-200">
+              <div className="w-9 h-9 rounded-full overflow-hidden bg-[#FF5B29]/10 border border-[#FF5B29]/30 flex items-center justify-center text-[#FF5B29] font-black text-xs">
+                M
+              </div>
+              <div className="text-left hidden sm:block">
+                <div className="flex items-center gap-1">
+                  <span className="text-xs font-black text-[#0F172A] leading-none">Mastü</span>
+                  <ChevronDown className="w-3 h-3 text-gray-400" />
+                </div>
+                <span className="text-[10px] text-gray-400 leading-none">mastu@thiob.sn</span>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* 2. MAIN SCROLLABLE DASHBOARD VIEW */}
+        <main className="p-8 space-y-6 max-w-[1600px] w-full mx-auto">
+          
+          {/* Greeting Banner */}
+          <div className="space-y-0.5">
+            <h1 className="text-2xl font-black text-[#0F172A] tracking-tight">
+              Salam Mastü 👋
+            </h1>
+            <p className="text-xs text-gray-500 font-medium">
+              Gardez le contrôle sur les téléchargements, les finances en temps réel et les livraisons à Dakar.
+            </p>
+          </div>
+
+          {/* =================================================================
+              TOP 3 COLUMNS GRID (Identique à la disposition de l'image)
+             ================================================================= */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            {/* COLUMN 1 (4 cols): TOTAL BALANCE & WALLETS */}
+            <div className="lg:col-span-4 bg-white p-6 rounded-[28px] border border-[#EAEAEA] shadow-[0_4px_20px_rgba(0,0,0,0.03)] space-y-5 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between text-gray-400 text-xs">
+                  <span className="font-bold">Total Balance</span>
+                  <div className="flex items-center gap-1 bg-[#F4F5F8] px-2 py-0.5 rounded-lg border border-gray-200 text-gray-700 font-bold text-[11px]">
+                    <span>🇸🇳 FCFA</span>
+                    <ChevronDown className="w-3 h-3 text-gray-400" />
+                  </div>
+                </div>
+
+                <div className="mt-2">
+                  <h2 className="text-3xl font-black text-[#0F172A] tracking-tight">
+                    {formatFCFA(baseVolume)}
+                  </h2>
+                  <span className="text-xs font-bold text-emerald-600 flex items-center gap-1 mt-1">
+                    <TrendingUp className="w-3.5 h-3.5" />
+                    <span>↑ 14% vs mois dernier</span>
+                  </span>
+                </div>
+
+                {/* Transfer & Request Buttons */}
+                <div className="grid grid-cols-2 gap-2.5 mt-5">
+                  <button 
+                    onClick={handleExportCSV}
+                    className="py-2.5 rounded-2xl bg-[#1E293B] hover:bg-black text-white font-black text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all cursor-pointer"
+                  >
+                    <span>⇄ Bilan CSV</span>
+                  </button>
+                  <button 
+                    onClick={() => setActiveTab('accounting')}
+                    className="py-2.5 rounded-2xl bg-[#F4F5F8] hover:bg-gray-200 text-[#0F172A] font-black text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                  >
+                    <span>⇅ Détails</span>
                   </button>
                 </div>
-
-                <div className="space-y-2 max-h-[320px] overflow-y-auto no-scrollbar">
-                  {orders.slice(0, 5).map((ord) => (
-                    <div key={ord.id} className="p-3 rounded-2xl bg-black/30 border border-emerald-900/40 flex items-center justify-between text-xs">
-                      <div>
-                        <p className="font-bold text-white">
-                          <span className="text-amber-400 font-mono">{ord.orderNumber}</span> • {ord.restaurantName}
-                        </p>
-                        <p className="text-[10px] text-gray-400">Client : {ord.clientName} (📍 {ord.deliveryAddress.neighborhood})</p>
-                      </div>
-                      <div className="text-right">
-                        <span className="font-mono font-black text-emerald-400 block">{formatFCFA(ord.total)}</span>
-                        <span className="text-[9px] uppercase font-bold text-gray-400">{ord.paymentMethod}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
               </div>
 
-              {/* Modes de Paiement (Wave / OM / CB) */}
-              <div className="bg-[#0A2616] p-5 rounded-3xl border border-emerald-900/50 shadow-xl space-y-3">
-                <h3 className="font-black text-sm text-white flex items-center gap-2 border-b border-emerald-900/40 pb-2.5">
-                  <Receipt className="w-4 h-4 text-cyan-400" />
-                  <span>Répartition des Paiements au Sénégal</span>
-                </h3>
-
-                <div className="space-y-3 text-xs pt-1">
-                  <div className="space-y-1">
-                    <div className="flex justify-between font-bold">
-                      <span className="flex items-center gap-1.5 text-white">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src="/images/wave_civ_logo.jpeg" alt="Wave" className="w-4 h-4 rounded-md object-contain" />
-                        Wave Sénégal (68%)
-                      </span>
-                      <span className="font-mono text-cyan-300 font-black">{formatFCFA(Math.round(baseVolume * 0.68))}</span>
-                    </div>
-                    <div className="w-full h-2.5 bg-gray-900 rounded-full overflow-hidden">
-                      <div className="w-[68%] h-full bg-[#1DC3EC] rounded-full" />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <div className="flex justify-between font-bold">
-                      <span className="flex items-center gap-1.5 text-white">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src="/images/orange_ci.png" alt="OM" className="w-4 h-4 rounded-md object-contain" />
-                        Orange Money (22%)
-                      </span>
-                      <span className="font-mono text-orange-300 font-black">{formatFCFA(Math.round(baseVolume * 0.22))}</span>
-                    </div>
-                    <div className="w-full h-2.5 bg-gray-900 rounded-full overflow-hidden">
-                      <div className="w-[22%] h-full bg-[#FF7824] rounded-full" />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <div className="flex justify-between font-bold">
-                      <span className="text-gray-300">💵 Espèces & Carte Bancaire (10%)</span>
-                      <span className="font-mono text-emerald-400 font-black">{formatFCFA(Math.round(baseVolume * 0.10))}</span>
-                    </div>
-                    <div className="w-full h-2.5 bg-gray-900 rounded-full overflow-hidden">
-                      <div className="w-[10%] h-full bg-emerald-600 rounded-full" />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-            </div>
-
-          </div>
-        )}
-
-        {/* =========================================================================
-            TAB 2: TÉLÉCHARGEMENTS & INSTALLATIONS D'APPLICATION
-           ========================================================================= */}
-        {activeTab === 'downloads' && (
-          <div className="space-y-6">
-            <div className="bg-[#0A2616] p-6 rounded-3xl border border-emerald-900/50 shadow-xl space-y-6">
-              <div>
-                <h2 className="text-xl font-black text-white flex items-center gap-2">
-                  <Smartphone className="w-5 h-5 text-emerald-400" />
-                  <span>Statistiques des Téléchargements & Installations d'Applications</span>
-                </h2>
-                <p className="text-xs text-emerald-300/60 mt-0.5">
-                  Nombre d'installations sur smartphone iOS, Android et Progressive Web App (PWA)
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-black/30 p-5 rounded-3xl border border-emerald-900/40 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="font-black text-sm text-white flex items-center gap-1.5">
-                      <Apple className="w-4 h-4" /> Apple iOS (iPhone)
-                    </span>
-                    <span className="text-xs font-black text-emerald-400">46%</span>
-                  </div>
-                  <h3 className="text-2xl font-black text-white">{downloads.ios.toLocaleString()}</h3>
-                  <p className="text-[10px] text-gray-400">Installations Safari & PWA iPhone</p>
+              {/* Wallets Row */}
+              <div className="space-y-2 pt-4 border-t border-gray-100">
+                <div className="flex items-center justify-between text-xs text-gray-400 font-bold">
+                  <span>Portefeuilles & Passerelles</span>
+                  <span className="text-[#FF5B29]">3 Actifs</span>
                 </div>
 
-                <div className="bg-black/30 p-5 rounded-3xl border border-emerald-900/40 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="font-black text-sm text-white flex items-center gap-1.5">
-                      <Cpu className="w-4 h-4 text-[#3DDC84]" /> Google Android
-                    </span>
-                    <span className="text-xs font-black text-[#3DDC84]">42%</span>
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="p-2.5 rounded-2xl bg-[#F4F5F8] border border-gray-100 space-y-1">
+                    <span className="text-[10px] font-bold text-gray-500 block">🌊 Wave</span>
+                    <span className="font-mono font-black text-xs text-[#0F172A] block">{formatFCFA(Math.round(baseVolume * 0.68))}</span>
+                    <span className="text-[9px] text-emerald-600 font-bold block">● Actif</span>
                   </div>
-                  <h3 className="text-2xl font-black text-white">{downloads.android.toLocaleString()}</h3>
-                  <p className="text-[10px] text-gray-400">Samsung, Xiaomi, Tecno & Infinix</p>
-                </div>
 
-                <div className="bg-black/30 p-5 rounded-3xl border border-emerald-900/40 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="font-black text-sm text-white flex items-center gap-1.5">
-                      <Globe className="w-4 h-4 text-purple-400" /> Navigateurs Web Desktop
-                    </span>
-                    <span className="text-xs font-black text-purple-300">12%</span>
+                  <div className="p-2.5 rounded-2xl bg-[#F4F5F8] border border-gray-100 space-y-1">
+                    <span className="text-[10px] font-bold text-gray-500 block">🍊 OM</span>
+                    <span className="font-mono font-black text-xs text-[#0F172A] block">{formatFCFA(Math.round(baseVolume * 0.22))}</span>
+                    <span className="text-[9px] text-emerald-600 font-bold block">● Actif</span>
                   </div>
-                  <h3 className="text-2xl font-black text-white">{downloads.pwa.toLocaleString()}</h3>
-                  <p className="text-[10px] text-gray-400">Accès depuis ordinateurs & tablettes</p>
+
+                  <div className="p-2.5 rounded-2xl bg-[#F4F5F8] border border-gray-100 space-y-1">
+                    <span className="text-[10px] font-bold text-gray-500 block">💵 Cash</span>
+                    <span className="font-mono font-black text-xs text-[#0F172A] block">{formatFCFA(Math.round(baseVolume * 0.10))}</span>
+                    <span className="text-[9px] text-gray-400 font-bold block">Livreurs</span>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
 
-        {/* =========================================================================
-            TAB 3: COMPTABILITÉ & TRÉSORERIE
-           ========================================================================= */}
-        {activeTab === 'accounting' && (
-          <div className="space-y-6">
-            <div className="bg-[#0A2616] p-6 rounded-3xl border border-emerald-900/50 shadow-xl space-y-6">
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-emerald-900/40 pb-4">
-                <div>
-                  <h2 className="text-xl font-black text-white flex items-center gap-2">
-                    <Wallet className="w-5 h-5 text-emerald-400" />
-                    <span>Grand Livre Comptable & Trésorerie en Direct</span>
-                  </h2>
-                  <p className="text-xs text-emerald-300/60 mt-0.5">
-                    Ventilation des commissions, des paiements restaurants et des rémunérations des livreurs
-                  </p>
-                </div>
-
-                <button
-                  onClick={handleExportCSV}
-                  className="px-4 py-2 rounded-xl brand-gradient text-white font-black text-xs flex items-center gap-2 shadow-md cursor-pointer"
-                >
-                  <Download className="w-4 h-4" />
-                  <span>Exporter Bilan Comptable CSV</span>
-                </button>
-              </div>
-
-              {/* 4 Financial Totals */}
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-                <div className="p-4 rounded-2xl bg-black/30 border border-emerald-900/40">
-                  <span className="text-[10px] uppercase text-gray-400 font-bold block">Volume Total Transigé (GMV)</span>
-                  <span className="text-xl font-black text-emerald-400">{formatFCFA(baseVolume)}</span>
-                </div>
-                <div className="p-4 rounded-2xl bg-black/30 border border-emerald-900/40">
-                  <span className="text-[10px] uppercase text-gray-400 font-bold block">Commissions Nettes Thiob</span>
-                  <span className="text-xl font-black text-[#FF7824]">{formatFCFA(platformCommissions)}</span>
-                </div>
-                <div className="p-4 rounded-2xl bg-black/30 border border-emerald-900/40">
-                  <span className="text-[10px] uppercase text-gray-400 font-bold block">Reversé aux Restaurants (88%)</span>
-                  <span className="text-xl font-black text-purple-300">{formatFCFA(restaurantsNet)}</span>
-                </div>
-                <div className="p-4 rounded-2xl bg-black/30 border border-emerald-900/40">
-                  <span className="text-[10px] uppercase text-gray-400 font-bold block">Rémunération Flotte Livreurs</span>
-                  <span className="text-xl font-black text-sky-400">{formatFCFA(couriersEarnings)}</span>
-                </div>
-              </div>
-
-              {/* Ledger Table */}
-              <div className="overflow-x-auto no-scrollbar">
-                <table className="w-full text-left text-xs">
-                  <thead>
-                    <tr className="border-b border-emerald-900/40 text-emerald-400 text-[10px] uppercase font-black">
-                      <th className="pb-2.5">Commande</th>
-                      <th className="pb-2.5">Restaurant</th>
-                      <th className="pb-2.5">Client</th>
-                      <th className="pb-2.5">Moyen</th>
-                      <th className="pb-2.5 text-right">Montant Brut</th>
-                      <th className="pb-2.5 text-right text-[#FF7824]">Comm. Thiob (12%)</th>
-                      <th className="pb-2.5 text-right text-purple-300">Part Restaurant</th>
-                      <th className="pb-2.5 text-right text-sky-400">Course Livreur</th>
-                      <th className="pb-2.5 text-right">Statut</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-emerald-900/30 text-emerald-100">
-                    {orders.map((ord) => {
-                      const comm = Math.round(ord.total * 0.12) + 500;
-                      const partResto = ord.total - comm - ord.deliveryFee;
-                      return (
-                        <tr key={ord.id} className="hover:bg-white/5 transition-colors">
-                          <td className="py-2.5 font-mono font-bold text-amber-400">{ord.orderNumber}</td>
-                          <td className="py-2.5 font-bold text-white">{ord.restaurantName}</td>
-                          <td className="py-2.5 text-gray-300">{ord.clientName}</td>
-                          <td className="py-2.5 uppercase font-bold text-[10px] text-gray-400">{ord.paymentMethod}</td>
-                          <td className="py-2.5 text-right font-mono font-black text-white">{formatFCFA(ord.total)}</td>
-                          <td className="py-2.5 text-right font-mono font-black text-[#FF7824]">+{formatFCFA(comm)}</td>
-                          <td className="py-2.5 text-right font-mono font-bold text-purple-300">{formatFCFA(partResto)}</td>
-                          <td className="py-2.5 text-right font-mono font-bold text-sky-400">{formatFCFA(ord.deliveryFee)}</td>
-                          <td className="py-2.5 text-right">
-                            <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950 px-2 py-0.5 rounded-md border border-emerald-700/50">
-                              ✓ Réglé
-                            </span>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* =========================================================================
-            TAB 4: RÉPERTOIRE (CLIENTS, RESTAURANTS, LIVREURS)
-           ========================================================================= */}
-        {activeTab === 'community' && (
-          <div className="space-y-6">
-            <div className="bg-[#0A2616] p-6 rounded-3xl border border-emerald-900/50 shadow-xl space-y-4">
+            {/* COLUMN 2 (4 cols): 4-GRID METRICS CARDS */}
+            <div className="lg:col-span-4 grid grid-cols-2 gap-4">
               
-              {/* Subtabs for Clients vs Restaurants vs Couriers */}
-              <div className="flex items-center justify-between border-b border-emerald-900/40 pb-3">
-                <div className="flex items-center gap-2">
-                  {[
-                    { id: 'clients', label: `👤 Clients (${clientsList.length})` },
-                    { id: 'restaurants', label: `🍽️ Restaurants (${restaurants.length})` },
-                    { id: 'couriers', label: `🛵 Livreurs Tiak-Tiak (${couriers.length})` },
-                  ].map((st) => (
-                    <button
-                      key={st.id}
-                      onClick={() => setCommunitySubTab(st.id as any)}
-                      className={`px-3.5 py-1.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
-                        communitySubTab === st.id
-                          ? 'bg-[#0A6E3B] text-white shadow-md'
-                          : 'bg-black/30 text-gray-400 hover:text-white'
-                      }`}
-                    >
-                      {st.label}
-                    </button>
-                  ))}
+              {/* Card 1: Vibrant Orange Card (Total Earnings / Commissions Thiob) */}
+              <div className="bg-[#FF5B29] p-5 rounded-[28px] text-white shadow-lg shadow-[#FF5B29]/25 flex flex-col justify-between space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-white/80">Commissions Thiob</span>
+                  <div className="w-7 h-7 rounded-xl bg-white/20 flex items-center justify-center text-white">
+                    <Wallet className="w-3.5 h-3.5" />
+                  </div>
                 </div>
-
-                <div className="relative">
-                  <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Filtrer..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="bg-black/40 border border-emerald-900/50 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder:text-gray-500 focus:outline-none focus:border-emerald-500"
-                  />
+                <div>
+                  <h3 className="text-2xl font-black text-white">
+                    {formatFCFA(platformCommissions)}
+                  </h3>
+                  <span className="text-[10px] font-bold text-white/90 flex items-center gap-0.5 mt-0.5">
+                    ↑ 12% commission
+                  </span>
                 </div>
               </div>
 
-              {/* Subtab 1: Clients */}
-              {communitySubTab === 'clients' && (
-                <div className="overflow-x-auto no-scrollbar">
-                  <table className="w-full text-left text-xs">
-                    <thead>
-                      <tr className="border-b border-emerald-900/40 text-emerald-400 text-[10px] uppercase font-black">
-                        <th className="pb-2.5">Nom Client</th>
-                        <th className="pb-2.5">Téléphone</th>
-                        <th className="pb-2.5">E-mail</th>
-                        <th className="pb-2.5">Quartier</th>
-                        <th className="pb-2.5">Commandes</th>
-                        <th className="pb-2.5">Total Dépensé</th>
-                        <th className="pb-2.5">Auth</th>
-                        <th className="pb-2.5 text-right">Statut</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-emerald-900/30 text-emerald-100">
-                      {clientsList
-                        .filter(c => c.name.toLowerCase().includes(searchTerm.toLowerCase()) || c.phone.includes(searchTerm))
-                        .map((cli) => (
-                          <tr key={cli.id} className="hover:bg-white/5 transition-colors">
-                            <td className="py-3 font-bold text-white">{cli.name}</td>
-                            <td className="py-3 font-mono text-gray-300">{cli.phone}</td>
-                            <td className="py-3 text-gray-400">{cli.email}</td>
-                            <td className="py-3 text-emerald-300">📍 {cli.neighborhood}</td>
-                            <td className="py-3 font-bold text-white">{cli.orders} courses</td>
-                            <td className="py-3 font-mono font-black text-[#0A6E3B] bg-white/5 px-2 py-0.5 rounded-md inline-block">
-                              {formatFCFA(cli.spent)}
-                            </td>
-                            <td className="py-3 text-gray-400 font-mono text-[10px]">{cli.auth}</td>
-                            <td className="py-3 text-right">
-                              <span className="text-[10px] font-black px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-300">
-                                {cli.status}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                    </tbody>
-                  </table>
+              {/* Card 2: Dépenses / Frais Livreurs */}
+              <div className="bg-white p-5 rounded-[28px] border border-[#EAEAEA] shadow-[0_4px_20px_rgba(0,0,0,0.03)] flex flex-col justify-between space-y-3">
+                <div className="flex items-center justify-between text-gray-400">
+                  <span className="text-xs font-bold text-gray-500">Gains Livreurs</span>
+                  <div className="w-7 h-7 rounded-xl bg-[#F4F5F8] flex items-center justify-center text-gray-700">
+                    <Bike className="w-3.5 h-3.5" />
+                  </div>
                 </div>
-              )}
+                <div>
+                  <h3 className="text-2xl font-black text-[#0F172A]">
+                    {formatFCFA(couriersEarnings)}
+                  </h3>
+                  <span className="text-[10px] font-bold text-sky-600 flex items-center gap-0.5 mt-0.5">
+                    100% courses payées
+                  </span>
+                </div>
+              </div>
 
-              {/* Subtab 2: Restaurants */}
-              {communitySubTab === 'restaurants' && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {restaurants.map((resto) => (
-                    <div key={resto.id} className="p-4 rounded-3xl bg-black/30 border border-emerald-900/40 space-y-2">
-                      <div className="flex items-center gap-3">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={resto.logo} alt={resto.name} className="w-12 h-12 rounded-2xl object-cover" />
-                        <div className="min-w-0 flex-1">
-                          <h4 className="font-black text-sm text-white truncate">{resto.name}</h4>
-                          <p className="text-[10px] text-gray-400">📍 {resto.neighborhood} • ⭐ {resto.rating}</p>
-                          <p className="text-[10px] text-emerald-400 font-mono">{resto.phone || '+221 77 845 12 90'}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between text-[11px] pt-2 border-t border-white/5">
-                        <span className="text-gray-400">Horaires : {typeof resto.openingHours === 'string' ? resto.openingHours : '11h30 - 23h30'}</span>
-                        <span className="text-emerald-400 font-bold">● Ouvert</span>
-                      </div>
-                    </div>
-                  ))}
+              {/* Card 3: Part Restaurants (88%) */}
+              <div className="bg-white p-5 rounded-[28px] border border-[#EAEAEA] shadow-[0_4px_20px_rgba(0,0,0,0.03)] flex flex-col justify-between space-y-3">
+                <div className="flex items-center justify-between text-gray-400">
+                  <span className="text-xs font-bold text-gray-500">Part Restos (88%)</span>
+                  <div className="w-7 h-7 rounded-xl bg-[#F4F5F8] flex items-center justify-center text-gray-700">
+                    <Store className="w-3.5 h-3.5" />
+                  </div>
                 </div>
-              )}
+                <div>
+                  <h3 className="text-xl font-black text-[#0F172A] truncate">
+                    {formatFCFA(restaurantsNet)}
+                  </h3>
+                  <span className="text-[10px] font-bold text-emerald-600 flex items-center gap-0.5 mt-0.5">
+                    ↑ 18% ce mois
+                  </span>
+                </div>
+              </div>
 
-              {/* Subtab 3: Couriers */}
-              {communitySubTab === 'couriers' && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {couriers.map((courier) => (
-                    <div key={courier.id} className="p-4 rounded-3xl bg-black/30 border border-emerald-900/40 space-y-2">
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-2xl bg-sky-500/20 text-sky-300 flex items-center justify-center text-xl font-black">
-                          🛵
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <h4 className="font-black text-sm text-white truncate">{courier.name}</h4>
-                          <p className="text-[10px] text-gray-400">{courier.vehicleName || 'Moto Jakarta'} • 📍 Dakar</p>
-                          <p className="text-[10px] text-sky-400 font-mono">{courier.phone}</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between text-[11px] pt-2 border-t border-white/5">
-                        <span className="text-emerald-400 font-bold">● GPS Connecté</span>
-                        <span className="text-gray-400">⭐ {courier.rating || 4.9}</span>
-                      </div>
-                    </div>
-                  ))}
+              {/* Card 4: Téléchargements App */}
+              <div className="bg-white p-5 rounded-[28px] border border-[#EAEAEA] shadow-[0_4px_20px_rgba(0,0,0,0.03)] flex flex-col justify-between space-y-3">
+                <div className="flex items-center justify-between text-gray-400">
+                  <span className="text-xs font-bold text-gray-500">Téléchargements</span>
+                  <div className="w-7 h-7 rounded-xl bg-[#F4F5F8] flex items-center justify-center text-gray-700">
+                    <Smartphone className="w-3.5 h-3.5" />
+                  </div>
                 </div>
-              )}
+                <div>
+                  <h3 className="text-2xl font-black text-[#0F172A]">
+                    {downloads.total.toLocaleString()}
+                  </h3>
+                  <span className="text-[10px] font-bold text-emerald-600 flex items-center gap-0.5 mt-0.5">
+                    +{downloads.today} aujourd'hui
+                  </span>
+                </div>
+              </div>
 
             </div>
-          </div>
-        )}
 
-        {/* =========================================================================
-            TAB 5: COMMANDES EN TEMPS RÉEL (ORDERS)
-           ========================================================================= */}
-        {activeTab === 'orders' && (
-          <div className="space-y-6">
-            <div className="bg-[#0A2616] p-6 rounded-3xl border border-emerald-900/50 shadow-xl space-y-4">
-              <div className="flex items-center justify-between border-b border-emerald-900/40 pb-3">
-                <h2 className="text-xl font-black text-white flex items-center gap-2">
-                  <Sparkles className="w-5 h-5 text-emerald-400" />
-                  <span>Flux des Commandes en Direct à Dakar</span>
-                </h2>
-                <span className="text-xs font-bold text-emerald-400 bg-emerald-950 px-3 py-1 rounded-xl border border-emerald-800/50">
-                  {orders.length} Commandes Enregistrées
-                </span>
+            {/* COLUMN 3 (4 cols): PROFIT & LOSS BAR CHART (GRAPHIQUE REVENUS) */}
+            <div className="lg:col-span-4 bg-white p-6 rounded-[28px] border border-[#EAEAEA] shadow-[0_4px_20px_rgba(0,0,0,0.03)] flex flex-col justify-between space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-black text-sm text-[#0F172A]">Total Income & Croissance</h3>
+                  <p className="text-[11px] text-gray-400">Évolution des volumes mensuels Dakar</p>
+                </div>
+                <div className="flex items-center gap-3 text-[10px] font-bold">
+                  <span className="flex items-center gap-1 text-[#FF5B29]">
+                    <span className="w-2 h-2 rounded-full bg-[#FF5B29]" /> Wave & OM
+                  </span>
+                  <span className="flex items-center gap-1 text-[#1E293B]">
+                    <span className="w-2 h-2 rounded-full bg-[#1E293B]" /> CB / Cash
+                  </span>
+                </div>
               </div>
 
-              <div className="space-y-3">
-                {orders.map((ord) => (
-                  <div key={ord.id} className="p-4 rounded-2xl bg-black/30 border border-emerald-900/40 flex items-center justify-between text-xs">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono font-black text-amber-400 text-sm">{ord.orderNumber}</span>
-                        <span className="font-bold text-white">{ord.restaurantName}</span>
-                      </div>
-                      <p className="text-gray-300">
-                        Client : <strong>{ord.clientName}</strong> • Adresse : {ord.deliveryAddress.street}, {ord.deliveryAddress.neighborhood}
-                      </p>
-                      <p className="text-[10px] text-gray-400">{ord.items.length} plats commandés • Statut : {ord.status}</p>
+              {/* Custom SVG/CSS Bar Chart (Jan to Aug) */}
+              <div className="h-44 flex items-end justify-between gap-2 pt-4 px-2 border-b border-gray-100">
+                {[
+                  { month: 'Jan', waveH: '45%', cashH: '25%' },
+                  { month: 'Fév', waveH: '60%', cashH: '30%' },
+                  { month: 'Mar', waveH: '55%', cashH: '28%' },
+                  { month: 'Avr', waveH: '70%', cashH: '35%' },
+                  { month: 'Mai', waveH: '85%', cashH: '40%' },
+                  { month: 'Juin', waveH: '75%', cashH: '32%' },
+                  { month: 'Juil', waveH: '90%', cashH: '45%' },
+                  { month: 'Août', waveH: '65%', cashH: '30%' },
+                ].map((bar, i) => (
+                  <div key={i} className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end">
+                    <div className="w-full max-w-[20px] flex flex-col gap-1 items-center">
+                      <div style={{ height: bar.waveH }} className="w-full bg-[#FF5B29] rounded-t-md transition-all hover:brightness-110" />
+                      <div style={{ height: bar.cashH }} className="w-full bg-[#1E293B] rounded-b-md transition-all" />
                     </div>
-
-                    <div className="text-right space-y-1">
-                      <span className="font-mono font-black text-emerald-400 text-base block">{formatFCFA(ord.total)}</span>
-                      <span className="text-[9px] uppercase font-bold bg-emerald-950 px-2 py-0.5 rounded-md text-emerald-300 border border-emerald-800/40">
-                        {ord.paymentMethod}
-                      </span>
-                    </div>
+                    <span className="text-[10px] text-gray-400 font-bold">{bar.month}</span>
                   </div>
                 ))}
               </div>
             </div>
-          </div>
-        )}
 
-      </main>
+          </div>
+
+          {/* =================================================================
+              BOTTOM DUAL WORKSPACE: CARDS & RECENT ACTIVITIES TABLE
+             ================================================================= */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            {/* LEFT SIDE (4 cols): SPENDING LIMIT + MY CARDS */}
+            <div className="lg:col-span-4 space-y-6">
+              
+              {/* Monthly Spending & Target Progress */}
+              <div className="bg-white p-5 rounded-[28px] border border-[#EAEAEA] shadow-[0_4px_20px_rgba(0,0,0,0.03)] space-y-3">
+                <div className="flex items-center justify-between text-xs font-bold">
+                  <span className="text-[#0F172A]">Objectif Mensuel de Ventes</span>
+                  <span className="text-gray-400">37% Réalisé</span>
+                </div>
+
+                <div className="w-full h-3 bg-[#F4F5F8] rounded-full overflow-hidden p-0.5 border border-gray-100">
+                  <div className="w-[37%] h-full bg-[#FF5B29] rounded-full" />
+                </div>
+
+                <div className="flex justify-between text-[11px] font-bold text-gray-500">
+                  <span className="text-[#FF5B29]">1 850 000 F atteints</span>
+                  <span>5 000 000 F cible</span>
+                </div>
+              </div>
+
+              {/* My Cards & Comptes Marchands */}
+              <div className="bg-white p-5 rounded-[28px] border border-[#EAEAEA] shadow-[0_4px_20px_rgba(0,0,0,0.03)] space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CreditCard className="w-4 h-4 text-gray-600" />
+                    <h3 className="font-black text-sm text-[#0F172A]">Comptes & Cartes Marchands</h3>
+                  </div>
+                  <button 
+                    onClick={() => setToastMessage('Module d’ajout de compte marchant actif.')}
+                    className="text-xs font-bold text-[#FF5B29] hover:underline"
+                  >
+                    + Nouveau
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Black Card */}
+                  <div className="h-28 rounded-2xl bg-[#0F172A] p-3 text-white flex flex-col justify-between shadow-md relative overflow-hidden">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[8px] uppercase font-bold bg-white/10 px-1.5 py-0.2 rounded-md">
+                        Wave Pro
+                      </span>
+                      <div className="flex -space-x-1">
+                        <div className="w-3.5 h-3.5 rounded-full bg-rose-500/80" />
+                        <div className="w-3.5 h-3.5 rounded-full bg-amber-400/80" />
+                      </div>
+                    </div>
+                    <div>
+                      <span className="font-mono text-xs tracking-widest font-black">•••• 6782</span>
+                      <div className="flex justify-between text-[8px] text-gray-400 mt-1">
+                        <span>EXP 09/29</span>
+                        <span>CVV 611</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Orange Card */}
+                  <div className="h-28 rounded-2xl bg-[#FF5B29] p-3 text-white flex flex-col justify-between shadow-md relative overflow-hidden">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[8px] uppercase font-bold bg-white/20 px-1.5 py-0.2 rounded-md">
+                        Orange Pro
+                      </span>
+                      <span className="text-[10px]">📱</span>
+                    </div>
+                    <div>
+                      <span className="font-mono text-xs tracking-widest font-black">•••• 4358</span>
+                      <div className="flex justify-between text-[8px] text-white/80 mt-1">
+                        <span>EXP 12/28</span>
+                        <span>OM SN</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            {/* RIGHT SIDE (8 cols): RECENT ACTIVITIES TABLE (Tableau net comme la maquette) */}
+            <div className="lg:col-span-8 bg-white p-6 rounded-[28px] border border-[#EAEAEA] shadow-[0_4px_20px_rgba(0,0,0,0.03)] space-y-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <h3 className="font-black text-sm text-[#0F172A]">Activités Récentes & Commandes</h3>
+                
+                <div className="flex items-center gap-2 w-full sm:w-auto">
+                  <div className="relative flex-1 sm:w-48">
+                    <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Rechercher..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full bg-[#F4F5F8] border border-gray-200 rounded-xl pl-8 pr-3 py-1.5 text-xs text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-[#FF5B29]"
+                    />
+                  </div>
+                  <button 
+                    onClick={() => setSearchTerm('')}
+                    className="px-3 py-1.5 rounded-xl bg-[#F4F5F8] text-gray-600 font-bold text-xs flex items-center gap-1 border border-gray-200 hover:bg-gray-200 cursor-pointer"
+                  >
+                    <Filter className="w-3 h-3" />
+                    <span>Filtre</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Table */}
+              <div className="overflow-x-auto no-scrollbar">
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-gray-100 text-gray-400 text-[10px] uppercase font-bold">
+                      <th className="pb-3 w-8"></th>
+                      <th className="pb-3">Order ID</th>
+                      <th className="pb-3">Activité / Plat</th>
+                      <th className="pb-3">Montant</th>
+                      <th className="pb-3">Statut</th>
+                      <th className="pb-3">Date & Heure</th>
+                      <th className="pb-3 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 text-gray-700">
+                    {orders
+                      .filter(o => o.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) || o.clientName.toLowerCase().includes(searchTerm.toLowerCase()))
+                      .map((ord) => {
+                        const isChecked = !!selectedOrders[ord.id];
+                        return (
+                          <tr key={ord.id} className="hover:bg-[#F8FAFC] transition-colors">
+                            <td className="py-3">
+                              <button 
+                                onClick={() => toggleSelectOrder(ord.id)}
+                                className="text-gray-400 hover:text-[#FF5B29] cursor-pointer"
+                              >
+                                {isChecked ? <CheckSquare className="w-4 h-4 text-[#FF5B29]" /> : <Square className="w-4 h-4" />}
+                              </button>
+                            </td>
+                            <td className="py-3 font-mono font-bold text-gray-900">{ord.orderNumber}</td>
+                            <td className="py-3 font-bold text-gray-900 flex items-center gap-2">
+                              <div className="w-6 h-6 rounded-lg bg-[#FF5B29]/10 text-[#FF5B29] flex items-center justify-center text-xs">
+                                🍽️
+                              </div>
+                              <div>
+                                <span>{ord.restaurantName}</span>
+                                <span className="text-[10px] text-gray-400 block font-normal">Client: {ord.clientName}</span>
+                              </div>
+                            </td>
+                            <td className="py-3 font-mono font-black text-gray-900">{formatFCFA(ord.total)}</td>
+                            <td className="py-3">
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 w-fit ${
+                                ord.status === 'delivered' ? 'bg-emerald-50 text-emerald-700' :
+                                ord.status === 'preparing' ? 'bg-amber-50 text-amber-700' : 'bg-sky-50 text-sky-700'
+                              }`}>
+                                <span className="w-1.5 h-1.5 rounded-full bg-current" />
+                                {ord.status === 'delivered' ? 'Completed' : ord.status === 'preparing' ? 'In Progress' : 'Pending'}
+                              </span>
+                            </td>
+                            <td className="py-3 text-[11px] text-gray-400 font-medium">17 Apr, 2026 03:45 PM</td>
+                            <td className="py-3 text-right">
+                              <button className="text-gray-400 hover:text-gray-700 p-1 rounded-md">
+                                <MoreVertical className="w-3.5 h-3.5" />
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                  </tbody>
+                </table>
+              </div>
+
+            </div>
+
+          </div>
+
+        </main>
+      </div>
 
     </div>
   );
