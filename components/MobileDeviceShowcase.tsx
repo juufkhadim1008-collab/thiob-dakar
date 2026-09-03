@@ -2016,8 +2016,144 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
       </AnimatePresence>
 
       {/* =========================================================================
+          4.5 NOTIFICATIONS CENTER MODAL (LIQUID GLASS & ALERTES LIVE)
+         ========================================================================= */}
+      <AnimatePresence>
+        {isNotificationsOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsNotificationsOpen(false)}
+              className="absolute inset-0 bg-black/65 backdrop-blur-xs"
+            />
+            <motion.div
+              initial={{ scale: 0.9, y: 20, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.9, y: 20, opacity: 0 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="relative z-10 w-full max-w-sm glass-panel-light rounded-[32px] p-5 space-y-4 shadow-2xl border border-white/90 overflow-hidden"
+            >
+              {/* Header Modal */}
+              <div className="flex items-center justify-between border-b border-gray-100/80 pb-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl brand-gradient text-white flex items-center justify-center shadow-xs">
+                    <Bell className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black text-[#081A10]">Notifications</h3>
+                    <p className="text-[10px] text-gray-500">Alertes en temps réel & promos</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsNotificationsOpen(false)}
+                  className="w-8 h-8 rounded-full bg-white/80 hover:bg-white text-gray-500 hover:text-gray-800 flex items-center justify-center text-xs shadow-xs transition-colors cursor-pointer"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Notification Items List */}
+              <div className="space-y-2.5 max-h-[60vh] overflow-y-auto no-scrollbar pr-0.5">
+                
+                {/* Notif 1 : Promo Thiéb */}
+                <div className="bg-white/90 p-3 rounded-2xl border border-[#D8EADB] space-y-1.5 shadow-2xs hover:border-[#0A6E3B]/40 transition-all">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[9px] font-black uppercase tracking-wider text-[#FF7824] bg-orange-50 px-2 py-0.5 rounded-full">
+                      🔥 Offre Flash Dakar
+                    </span>
+                    <span className="text-[10px] text-gray-400 font-medium">Il y a 5 min</span>
+                  </div>
+                  <h4 className="font-black text-xs text-[#081A10]">
+                    -20% sur les Thiébs aux Almadies
+                  </h4>
+                  <p className="text-[11px] text-gray-600 leading-relaxed">
+                    Profitez de réductions exclusives sur les plats traditionnels avec livraison offerte à partir de 5 000 FCFA.
+                  </p>
+                  <button
+                    onClick={() => {
+                      setIsNotificationsOpen(false);
+                      setSelectedCat('cat-thieb');
+                    }}
+                    className="text-[11px] font-black text-[#0A6E3B] hover:underline flex items-center gap-1 pt-1"
+                  >
+                    <span>Voir les plats</span>
+                    <span>➔</span>
+                  </button>
+                </div>
+
+                {/* Notif 2 : Livreur à proximité */}
+                <div className="bg-white/90 p-3 rounded-2xl border border-[#D8EADB] space-y-1.5 shadow-2xs hover:border-[#0A6E3B]/40 transition-all">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[9px] font-black uppercase tracking-wider text-[#0A6E3B] bg-[#E6F5EC] px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      Livreur Disponible
+                    </span>
+                    <span className="text-[10px] text-gray-400 font-medium">Il y a 12 min</span>
+                  </div>
+                  <h4 className="font-black text-xs text-[#081A10]">
+                    6 livreurs actifs autour de vous
+                  </h4>
+                  <p className="text-[11px] text-gray-600 leading-relaxed">
+                    Ibrahima et Moussa patrouillent dans votre secteur pour une livraison en moins de 15 minutes.
+                  </p>
+                  <button
+                    onClick={() => {
+                      setIsNotificationsOpen(false);
+                      setActiveTab('courier');
+                    }}
+                    className="text-[11px] font-black text-[#0A6E3B] hover:underline flex items-center gap-1 pt-1"
+                  >
+                    <span>Ouvrir le Radar GPS</span>
+                    <span>➔</span>
+                  </button>
+                </div>
+
+                {/* Notif 3 : Nouveau Resto Partenaire */}
+                <div className="bg-white/90 p-3 rounded-2xl border border-[#D8EADB] space-y-1.5 shadow-2xs hover:border-[#0A6E3B]/40 transition-all">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[9px] font-black uppercase tracking-wider text-purple-700 bg-purple-50 px-2 py-0.5 rounded-full">
+                      ✨ Nouveau Restaurant
+                    </span>
+                    <span className="text-[10px] text-gray-400 font-medium">Aujourd'hui</span>
+                  </div>
+                  <h4 className="font-black text-xs text-[#081A10]">
+                    Bienvenue à « Chez Kamiss »
+                  </h4>
+                  <p className="text-[11px] text-gray-600 leading-relaxed">
+                    Découvrez leurs spécialités Yassa Poulet braisé et Dibi d'agneau authentique avec vue panoramique.
+                  </p>
+                  <button
+                    onClick={() => {
+                      setIsNotificationsOpen(false);
+                      setActiveTab('menu');
+                    }}
+                    className="text-[11px] font-black text-[#0A6E3B] hover:underline flex items-center gap-1 pt-1"
+                  >
+                    <span>Explorer le menu</span>
+                    <span>➔</span>
+                  </button>
+                </div>
+
+              </div>
+
+              {/* Action Button */}
+              <button
+                onClick={() => setIsNotificationsOpen(false)}
+                className="w-full py-3 rounded-2xl brand-gradient text-white text-xs font-black shadow-md hover:brightness-110 transition-all cursor-pointer"
+              >
+                Compris
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* =========================================================================
           5. CART & CHECKOUT SHEET (INSPIRÉ DE L'ÉCRAN PAIEMENT DES MAQUETTES)
          ========================================================================= */}
+
       <AnimatePresence>
         {isCartSheetOpen && (
           <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
