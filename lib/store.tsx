@@ -184,8 +184,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [isClientGpsActive, setIsClientGpsActive] = useState<boolean>(false);
   const [radiusFilterKm, setRadiusFilterKm] = useState<number>(5);
 
-  // Load saved data from localStorage on startup if available
+  // Load saved data from localStorage & Supabase Realtime
   useEffect(() => {
+    // 1. Local storage fallback
     try {
       const savedRestoId = localStorage.getItem('thiob_active_restaurant_id');
       const savedRestos = localStorage.getItem('thiob_custom_restaurants');
@@ -215,9 +216,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           });
         }
       }
-      if (savedRestoId) {
-        setCurrentRestaurantId(savedRestoId);
-      }
+      if (savedRestoId) setCurrentRestaurantId(savedRestoId);
       if (savedClientName) setClientName(savedClientName);
       if (savedClientPhone) setClientPhone(savedClientPhone);
       if (savedClientCoords) {
@@ -225,13 +224,122 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setClientCoords(parsedCoords);
         setIsClientGpsActive(true);
       }
-      if (savedClientAccuracy) {
-        setClientAccuracy(Number(savedClientAccuracy));
-      }
+      if (savedClientAccuracy) setClientAccuracy(Number(savedClientAccuracy));
       if (savedClientAddress) setClientAddress(savedClientAddress);
       if (savedClientNeighborhood) setClientNeighborhood(savedClientNeighborhood);
     } catch {}
+
+    // 2. Fetch from Supabase Central Database
+    const fetchSupabaseData = async () => {
+      try {
+        const { data: dbRestos } = await supabase.from('restaurants').select('*');
+        if (dbRestos && dbRestos.length > 0) {
+          setRestaurants((prev) => {
+            const mapped: Restaurant[] = dbRestos.map((r: any) => ({
+              id: r.id,
+              name: r.name,
+              logo: r.logo || 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=300&q=80',
+              coverImage: r.cover_image || 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=1200&q=80',
+              tagline: r.tagline || 'L’Excellence et la Saveur de Dakar',
+              description: r.description || '',
+              neighborhood: r.neighborhood || 'Dakar',
+              address: r.address || 'Dakar, Sénégal',
+              coordinates: { lat: r.latitude || 14.7431, lng: r.longitude || -17.5186 },
+              phone: r.phone || '+221 77 100 00 00',
+              ownerName: r.owner_name || 'Chef Partenaire',
+              rating: Number(r.rating) || 5.0,
+              reviewCount: r.review_count || 1,
+              priceRange: r.price_range || '2 500 - 6 500 FCFA',
+              deliveryTimeEstimate: r.delivery_time_estimate || '20-30 min',
+              deliveryFee: r.delivery_fee || 1500,
+              minOrder: r.min_order || 3000,
+              isOpen: r.is_open ?? true,
+              featuredTags: r.featured_tags || ['Nouveau Resto Dakar'],
+              openingHours: r.opening_hours || '11h30 - 23h30 (7j/7)',
+              gallery: r.gallery || [],
+              ambianceTags: r.ambiance_tags || ['Terrasse', 'Fait Maison'],
+              amenities: r.amenities || ['Wifi', 'Paiement Wave'],
+            }));
+            const merged = [...mapped, ...prev.filter(p => !mapped.some(m => m.id === p.id))];
+            return merged;
+          });
+        }
+
+        const { data: dbItems } = await supabase.from('menu_items').select('*');
+        if (dbItems && dbItems.length > 0) {
+          setMenuItems((prev) => {
+            const mapped: MenuItem[] = dbItems.map((m: any) => ({
+              id: m.id,
+              restaurantId: m.restaurant_id,
+              name: m.name,
+              description: m.description || '',
+              price: m.price,
+              category: m.category_id || 'cat-thieb',
+              image: m.image || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80',
+              isAvailable: m.is_available ?? true,
+              isPopular: m.is_popular ?? false,
+              preparationTimeMinutes: m.preparation_time_minutes || 20,
+              tags: m.tags || [],
+            }));
+            return [...mapped, ...prev.filter(p => !mapped.some(m => m.id === p.id))];
+          });
+        }
+
+        const { data: dbOrders } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
+        if (dbOrders && dbOrders.length > 0) {
+          setOrders(dbOrders.map((o: any) => ({
+            id: o.id,
+            orderNumber: o.order_number,
+            createdAt: 'Récemment',
+            clientId: o.client_id || 'client-anon',
+            clientName: o.client_name || 'Client Thiob',
+            clientPhone: o.client_phone || '',
+            restaurantId: o.restaurant_id,
+            restaurantName: o.restaurant_name || 'Restaurant Partenaire',
+            courierId: o.courier_id,
+            courierName: o.courier_name,
+            courierPhone: o.courier_phone,
+            status: o.status || 'pending',
+            items: o.items || [],
+            subtotal: o.subtotal || 0,
+            deliveryFee: o.delivery_fee || 1500,
+            platformFee: o.platform_fee || 500,
+            total: o.total || 0,
+            paymentMethod: o.payment_method || 'wave',
+            paymentStatus: o.payment_status || 'paid',
+            deliveryAddress: {
+              neighborhood: o.delivery_neighborhood || 'Dakar',
+              street: o.delivery_street || '',
+              details: o.delivery_details || '',
+            },
+          })));
+        }
+      } catch (err) {
+        console.warn('Supabase fetch error:', err);
+      }
+    };
+
+    fetchSupabaseData();
+
+    // 3. Setup Supabase Realtime Subscriptions
+    const channel = supabase
+      .channel('schema-db-changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'restaurants' }, () => {
+        fetchSupabaseData();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
+        fetchSupabaseData();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'menu_items' }, () => {
+        fetchSupabaseData();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
+
 
   const currentRestaurant = restaurants.find((r) => r.id === currentRestaurantId) || restaurants[0];
 
@@ -523,8 +631,28 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem('thiob_custom_restaurants', JSON.stringify([newResto, ...list]));
     } catch {}
 
+    // Push to Supabase for multi-device cross-platform sync
+    try {
+      supabase.from('restaurants').insert({
+        name: newResto.name,
+        tagline: newResto.tagline,
+        description: newResto.description,
+        cover_image: newResto.coverImage,
+        logo: newResto.logo,
+        neighborhood: newResto.neighborhood,
+        address: newResto.address,
+        latitude: coords.lat,
+        longitude: coords.lng,
+        delivery_time_estimate: newResto.deliveryTimeEstimate,
+        delivery_fee: newResto.deliveryFee,
+        min_order: newResto.minOrder,
+        is_open: true,
+      }).then();
+    } catch {}
+
     return newResto;
   };
+
 
   const updateCurrentRestaurant = (updates: Partial<Restaurant>) => {
     setRestaurants((prev) => {
