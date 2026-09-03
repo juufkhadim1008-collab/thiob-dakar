@@ -683,22 +683,105 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setRestaurants((prev) => {
       const updated = prev.map((r) => (r.id === currentRestaurantId ? { ...r, ...updates } : r));
       try {
-        const customRestos = updated.filter(r => r.id.startsWith('resto-1') || r.id === currentRestaurantId);
+        const customRestos = updated.filter(r => r.id.startsWith('resto-') || r.id === currentRestaurantId);
         localStorage.setItem('thiob_custom_restaurants', JSON.stringify(customRestos));
       } catch {}
       return updated;
     });
+
+    try {
+      supabase.from('restaurants').update({
+        name: updates.name,
+        tagline: updates.tagline,
+        description: updates.description,
+        cover_image: updates.coverImage,
+        logo: updates.logo,
+        neighborhood: updates.neighborhood,
+        address: updates.address,
+        phone: updates.phone,
+        owner_name: updates.ownerName,
+        price_range: updates.priceRange,
+        opening_hours: typeof updates.openingHours === 'string' ? updates.openingHours : undefined,
+        gallery: updates.gallery,
+        ambiance_tags: updates.ambianceTags,
+        amenities: updates.amenities,
+      }).eq('id', currentRestaurantId).then();
+    } catch {}
+  };
+
+  const toggleMenuItemAvailability = (itemId: string) => {
+    setMenuItems((prev) =>
+      prev.map((m) => {
+        if (m.id === itemId) {
+          const newStatus = !m.isAvailable;
+          try {
+            supabase.from('menu_items').update({ is_available: newStatus }).eq('id', itemId).then();
+          } catch {}
+          return { ...m, isAvailable: newStatus };
+        }
+        return m;
+      })
+    );
+  };
+
+  const addMenuItem = (itemData: Omit<MenuItem, 'id'>): MenuItem => {
+    const newId = `dish-${Date.now()}`;
+    const newItem: MenuItem = {
+      ...itemData,
+      id: newId,
+      isAvailable: itemData.isAvailable ?? true,
+      isPopular: itemData.isPopular ?? false,
+      preparationTimeMinutes: itemData.preparationTimeMinutes || 20,
+      tags: itemData.tags || [],
+    };
+
+    setMenuItems((prev) => [newItem, ...prev]);
+
+    try {
+      supabase.from('menu_items').insert({
+        id: newId,
+        restaurant_id: newItem.restaurantId,
+        name: newItem.name,
+        description: newItem.description || '',
+        price: newItem.price,
+        category_id: newItem.category || 'cat-thieb',
+        image: newItem.image || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80',
+        is_available: newItem.isAvailable,
+        is_popular: newItem.isPopular,
+        preparation_time_minutes: newItem.preparationTimeMinutes,
+        tags: newItem.tags,
+      }).then(({ error }) => {
+        if (error) console.error('Supabase dish insert error:', error);
+      });
+    } catch {}
+
+    return newItem;
   };
 
   const updateMenuItem = (itemId: string, updates: Partial<MenuItem>) => {
     setMenuItems((prev) =>
       prev.map((m) => (m.id === itemId ? { ...m, ...updates } : m))
     );
+    try {
+      supabase.from('menu_items').update({
+        name: updates.name,
+        description: updates.description,
+        price: updates.price,
+        image: updates.image,
+        category_id: updates.category,
+        is_available: updates.isAvailable,
+        is_popular: updates.isPopular,
+      }).eq('id', itemId).then();
+    } catch {}
   };
 
   const deleteMenuItem = (itemId: string) => {
     setMenuItems((prev) => prev.filter((m) => m.id !== itemId));
+    try {
+      supabase.from('menu_items').delete().eq('id', itemId).then();
+    } catch {}
   };
+
 
   const [activeTrackingOrder, setActiveTrackingOrder] = useState<Order | null>(null);
   const [transactions, setTransactions] = useState<PaymentTransaction[]>([]);
@@ -929,20 +1012,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         return o;
       })
     );
-  };
-
-  const toggleMenuItemAvailability = (itemId: string) => {
-    setMenuItems((prev) =>
-      prev.map((m) => (m.id === itemId ? { ...m, isAvailable: !m.isAvailable } : m))
-    );
-  };
-
-  const addMenuItem = (item: Omit<MenuItem, 'id'>) => {
-    const newItem: MenuItem = {
-      ...item,
-      id: `menu-${Date.now()}`,
-    };
-    setMenuItems((prev) => [newItem, ...prev]);
   };
 
   const toggleCourierOnline = (courierId: string) => {
