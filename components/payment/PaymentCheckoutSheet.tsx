@@ -91,7 +91,7 @@ export default function PaymentCheckoutSheet({
   platformFee = 500,
   restaurantName,
   restaurantPhone = '+221 77 845 12 90',
-  courierName = 'Ibrahima Fall (Livreur Tiak-Tiak)',
+  courierName = 'Livreur Partenaire (Tiak-Tiak)',
   courierPhone = '+221 77 654 32 10',
   clientName,
   clientPhone,

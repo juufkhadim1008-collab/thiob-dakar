@@ -88,6 +88,7 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
     cartRestaurant,
     placeOrder,
     orders,
+    couriers,
     currentRole,
     setCurrentRole,
     activeTrackingOrder,
@@ -988,7 +989,7 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
 
               <div className="px-2.5 py-1 rounded-full bg-white/15 backdrop-blur-md border border-white/25 text-white text-[10px] font-black flex items-center gap-1">
                 <Bike className="w-3 h-3 text-emerald-300" />
-                <span>6 Actifs</span>
+                <span>{couriers.length} Actif{couriers.length > 1 ? 's' : ''}</span>
               </div>
             </div>
 
@@ -998,11 +999,11 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
                 courierPos={DAKAR_GEO_PRESETS[selectedNeighborhood] || DAKAR_GEO_PRESETS['Mermoz']}
                 restaurantPos={DAKAR_GEO_PRESETS['Ngor']}
                 destinationPos={DAKAR_GEO_PRESETS['Plateau']}
-                courierName="Ibrahima Fall"
-                restaurantName="Chez Kamiss"
+                courierName={couriers[0]?.name || "Livreur Radar"}
+                restaurantName={restaurants[0]?.name || "Restaurant Dakar"}
                 destinationAddress={userLiveLocation || 'Dakar'}
                 orderNumber="RADAR-LIVE"
-                isSimulatingLiveMove={true}
+                isSimulatingLiveMove={couriers.length > 0}
               />
             </div>
 
@@ -1037,143 +1038,78 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
                 Livreurs disponibles pour vos courses
               </span>
 
-              {[
-                {
-                  id: 'courier-1',
-                  name: 'Ibrahima Fall',
-                  phone: '+221 77 845 12 34',
-                  moto: 'Yamaha NMAX 155',
-                  plaque: 'DK-4921-AZ',
-                  distance: '350m',
-                  eta: '2 min',
-                  rating: 4.9,
-                  trips: 420,
-                  zone: 'Almadies',
-                  photo: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
-                  status: 'Disponible immédiatement',
-                },
-                {
-                  id: 'courier-2',
-                  name: 'Moussa Diop',
-                  phone: '+221 78 321 65 98',
-                  moto: 'Honda CG 125',
-                  plaque: 'DK-8104-BB',
-                  distance: '800m',
-                  eta: '4 min',
-                  rating: 4.8,
-                  trips: 310,
-                  zone: 'Ngor',
-                  photo: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80',
-                  status: 'En patrouille active',
-                },
-                {
-                  id: 'courier-3',
-                  name: 'Cheikh Ndiaye',
-                  phone: '+221 76 555 43 21',
-                  moto: 'Yamaha T-Max 530',
-                  plaque: 'DK-1290-CC',
-                  distance: '1.2 km',
-                  eta: '5 min',
-                  rating: 5.0,
-                  trips: 650,
-                  zone: 'Mermoz',
-                  photo: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80',
-                  status: 'Disponible express',
-                },
-                {
-                  id: 'courier-4',
-                  name: 'Modou Sow',
-                  phone: '+221 77 666 77 88',
-                  moto: 'Suzuki Address 110',
-                  plaque: 'DK-9843-DD',
-                  distance: '1.6 km',
-                  eta: '7 min',
-                  rating: 4.9,
-                  trips: 280,
-                  zone: 'Plateau',
-                  photo: 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?auto=format&fit=crop&w=200&q=80',
-                  status: 'Disponible',
-                },
-                {
-                  id: 'courier-5',
-                  name: 'Babacar Gueye',
-                  phone: '+221 78 999 00 11',
-                  moto: 'KTM Duke 200',
-                  plaque: 'DK-7722-EE',
-                  distance: '2.1 km',
-                  eta: '9 min',
-                  rating: 4.8,
-                  trips: 190,
-                  zone: 'Yoff',
-                  photo: 'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?auto=format&fit=crop&w=200&q=80',
-                  status: 'Disponible',
-                },
-              ]
-                .filter((c) => selectedNeighborhood === 'Tous les quartiers' || c.zone.toLowerCase() === selectedNeighborhood.toLowerCase())
-                .map((courier) => (
-                  <motion.div
-                    key={courier.id}
-                    whileHover={{ y: -3, scale: 1.01 }}
-                    className="glass-panel-light p-3.5 rounded-2xl flex items-center justify-between gap-3 shadow-[0_8px_24px_rgba(6,56,29,0.12)] border border-white/90 hover:border-white transition-all"
+              {couriers.length === 0 ? (
+                <div className="p-5 rounded-2xl bg-white/10 backdrop-blur-md border border-dashed border-white/20 text-center space-y-2">
+                  <div className="w-10 h-10 mx-auto rounded-xl bg-white/15 text-white flex items-center justify-center text-lg">
+                    🏍️
+                  </div>
+                  <div>
+                    <h5 className="text-xs font-black text-white">Aucun livreur connecté</h5>
+                    <p className="text-[10px] text-white/70 mt-0.5 max-w-[220px] mx-auto">
+                      Les livreurs partenaires apparaîtront automatiquement sur le radar dès leur prise de service.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setCurrentRole('courier')}
+                    className="px-3.5 py-1.5 bg-[#FF7824] hover:bg-[#FF7824]/90 text-white font-black text-[10px] rounded-xl shadow-md transition-all cursor-pointer"
                   >
-                    {/* Courier Avatar + Info */}
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="relative shrink-0">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={courier.photo}
-                          alt={courier.name}
-                          className="w-12 h-12 rounded-full object-cover ring-2 ring-[#0A6E3B]/40 shadow-xs"
-                        />
-                        <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-500 ring-2 ring-white animate-pulse" />
+                    Rejoindre la flotte ➔
+                  </button>
+                </div>
+              ) : (
+                couriers
+                  .filter((c) => selectedNeighborhood === 'Tous les quartiers' || c.currentNeighborhood.toLowerCase() === selectedNeighborhood.toLowerCase())
+                  .map((courier) => (
+                    <motion.div
+                      key={courier.id}
+                      whileHover={{ y: -3, scale: 1.01 }}
+                      className="glass-panel-light p-3.5 rounded-2xl flex items-center justify-between gap-3 shadow-[0_8px_24px_rgba(6,56,29,0.12)] border border-white/90 hover:border-white transition-all"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="relative shrink-0">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={courier.photo || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80'}
+                            alt={courier.name}
+                            className="w-12 h-12 rounded-full object-cover ring-2 ring-[#0A6E3B]/40 shadow-xs"
+                          />
+                          <span className={`absolute bottom-0 right-0 w-3 h-3 rounded-full ${courier.isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-gray-400'} ring-2 ring-white`} />
+                        </div>
+
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <h4 className="font-black text-xs text-[#081A10] truncate">
+                              {courier.name}
+                            </h4>
+                            <span className="text-[9px] bg-emerald-100/90 text-emerald-800 font-black px-2 py-0.5 rounded-full backdrop-blur-xs border border-emerald-300/50 shrink-0">
+                              ⚡ Certifié
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-gray-600 font-medium mt-0.5">
+                            🏍️ {courier.vehicleType || 'Moto'} • <span className="font-mono text-[9px] font-bold text-gray-500">{courier.plateNumber || 'Dakar'}</span>
+                          </p>
+                          <div className="flex items-center gap-1.5 text-[10px] font-bold mt-1 flex-wrap">
+                            <span className="text-[#0A6E3B]">📍 {courier.currentNeighborhood}</span>
+                            <span className="text-gray-300">•</span>
+                            <span className="text-gray-700">⭐ {courier.rating || 5.0} ({courier.completedDeliveries || 0} courses)</span>
+                          </div>
+                        </div>
                       </div>
 
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-1.5">
-                          <h4 className="font-black text-xs text-[#081A10] truncate">
-                            {courier.name}
-                          </h4>
-                          <span className="text-[9px] bg-emerald-100/90 text-emerald-800 font-black px-2 py-0.5 rounded-full backdrop-blur-xs border border-emerald-300/50 shrink-0">
-                            ⚡ Certifié
-                          </span>
-                        </div>
-                        <p className="text-[10px] text-gray-600 font-medium mt-0.5">
-                          🏍️ {courier.moto} • <span className="font-mono text-[9px] font-bold text-gray-500">{courier.plaque}</span>
-                        </p>
-                        <div className="flex items-center gap-1.5 text-[10px] font-bold mt-1 flex-wrap">
-                          <span className="text-[#0A6E3B]">📍 {courier.zone} ({courier.distance})</span>
-                          <span className="text-gray-300">•</span>
-                          <span className="text-[#FF7824] bg-orange-50 px-1.5 py-0.2 rounded-md">~{courier.eta}</span>
-                          <span className="text-gray-300">•</span>
-                          <span className="text-gray-700">⭐ {courier.rating} ({courier.trips})</span>
-                        </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <a
+                          href={`tel:${courier.phone}`}
+                          className="glass-btn w-10 h-10 rounded-xl flex items-center justify-center text-[#0A6E3B] hover:scale-105 transition-all text-sm"
+                          title="Appeler le livreur"
+                        >
+                          📞
+                        </a>
                       </div>
-                    </div>
-
-                    {/* Actions : Appel + Demande Liquid Glass */}
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <a
-                        href={`tel:${courier.phone}`}
-                        className="glass-btn w-10 h-10 rounded-xl flex items-center justify-center text-[#0A6E3B] hover:scale-105 transition-all text-sm"
-                        title="Appeler le livreur"
-                      >
-                        📞
-                      </a>
-                      <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() => {
-                          alert(`Demande de course envoyée à ${courier.name} (${courier.moto}) ! Il arrive dans environ ${courier.eta}.`);
-                        }}
-                        className="px-3.5 py-2.5 rounded-xl brand-gradient text-white text-[11px] font-black shadow-md hover:brightness-110 transition-all cursor-pointer"
-                      >
-                        Commander
-                      </motion.button>
-                    </div>
-                  </motion.div>
-
-                ))}
+                    </motion.div>
+                  ))
+              )}
             </div>
+
 
           </div>
         )}
@@ -3619,6 +3555,7 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
 function MobileRestaurantApp({ onLogout }: { onLogout?: () => void }) {
   const { 
     orders, 
+    couriers,
     updateOrderStatus, 
     reservations, 
     restaurants, 
@@ -4597,10 +4534,11 @@ function MobileRestaurantApp({ onLogout }: { onLogout?: () => void }) {
                 courierPos={{ lat: 14.752, lng: -17.512 }}
                 restaurantPos={{ lat: 14.755, lng: -17.514 }}
                 destinationPos={{ lat: 14.748, lng: -17.508 }}
-                courierName="Ibrahima Fall (Tiak-Tiak Express)"
+                courierName={couriers[0]?.name || "Livreur Tiak-Tiak Express"}
                 restaurantName={currentResto.name}
-                destinationAddress="Ngor Virage / Almadies"
+                destinationAddress="Dakar Métropole"
                 orderNumber="TK-2026-LIVE"
+                isSimulatingLiveMove={couriers.length > 0}
               />
             </div>
 
@@ -4609,20 +4547,27 @@ function MobileRestaurantApp({ onLogout }: { onLogout?: () => void }) {
               <div className="flex items-center justify-between">
                 <span className="text-xs font-black text-[#081A10]">Livreur Référent Partenaire</span>
                 <span className="text-[9px] font-bold text-[#FF7824] bg-orange-50 px-2 py-0.5 rounded-full">
-                  Arrivée dans ~7 min
+                  {couriers.length > 0 ? 'En service' : 'En attente d’assignation'}
                 </span>
               </div>
 
-              <div className="flex items-center gap-3 bg-[#F4F7F4] p-3 rounded-2xl border border-[#D8EADB]">
-                <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-[#064E2B] to-[#10B981] flex items-center justify-center text-white font-black text-base shadow-sm">
-                  🏍️
+              {couriers.length > 0 ? (
+                <div className="flex items-center gap-3 bg-[#F4F7F4] p-3 rounded-2xl border border-[#D8EADB]">
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-[#064E2B] to-[#10B981] flex items-center justify-center text-white font-black text-base shadow-sm">
+                    🏍️
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h5 className="font-black text-xs text-[#081A10]">{couriers[0].name}</h5>
+                    <p className="text-[10px] text-gray-500">{couriers[0].vehicleType || 'Moto'} • ⭐ {couriers[0].rating || 5.0} ({couriers[0].completedDeliveries || 0} livraisons)</p>
+                    <span className="text-[9px] font-bold text-[#0A6E3B] block">📍 {couriers[0].currentNeighborhood}</span>
+                  </div>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <h5 className="font-black text-xs text-[#081A10]">Ibrahima Fall</h5>
-                  <p className="text-[10px] text-gray-500">Moto Yamaha YBR • ⭐ 4.9 (420 livraisons)</p>
-                  <span className="text-[9px] font-bold text-[#0A6E3B] block">📍 Virage Ngor</span>
+              ) : (
+                <div className="p-3 bg-[#F4F7F4] rounded-2xl border border-dashed border-[#D8EADB] text-center">
+                  <p className="text-xs text-gray-500 font-medium">Aucun livreur actuellement assigné.</p>
                 </div>
-              </div>
+              )}
+
 
               <div className="grid grid-cols-2 gap-2 text-xs">
                 <a
@@ -4926,7 +4871,7 @@ function MobileRestaurantApp({ onLogout }: { onLogout?: () => void }) {
                     </span>
                     <span className="text-[9px] text-gray-400 font-bold">Il y a 5 min</span>
                   </div>
-                  <p className="text-[11px] text-[#081A10]"><strong>Ibrahima Fall</strong> arrive dans ~7 min pour le ramassage des plats.</p>
+                  <p className="text-[11px] text-[#081A10]">Un livreur partenaire prendra en charge la commande dès qu'elle sera prête.</p>
                   <span className="text-[9px] font-bold text-[#0A6E3B] block">Suivre sur le radar livreur ➔</span>
                 </div>
 
@@ -5660,7 +5605,7 @@ function MobileCourierApp({ onLogout }: { onLogout?: () => void }) {
           </div>
           <div>
             <div className="flex items-center gap-1.5">
-              <h4 className="font-extrabold text-xs text-[#081A10] leading-tight">{currentCourier?.name || 'Ibrahima Fall'}</h4>
+              <h4 className="font-extrabold text-xs text-[#081A10] leading-tight">{currentCourier?.name || 'Livreur Partenaire'}</h4>
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
             </div>
             <span className="text-[10px] text-gray-400">Tiak-Tiak Express • Dakar</span>
@@ -5711,13 +5656,13 @@ function MobileCourierApp({ onLogout }: { onLogout?: () => void }) {
             <div className="grid grid-cols-2 gap-2.5">
               <div className="bg-white p-3.5 rounded-3xl border border-[#D8EADB] shadow-xs space-y-1">
                 <span className="text-[9px] text-gray-400 uppercase font-bold block">Gains du Jour</span>
-                <span className="text-lg font-black text-[#0A6E3B]">{formatFCFA(currentCourier?.todayEarnings || 15000)}</span>
+                <span className="text-lg font-black text-[#0A6E3B]">{formatFCFA(currentCourier?.todayEarnings || 0)}</span>
                 <span className="text-[9px] font-bold text-emerald-600 block">Versements Wave / OM</span>
               </div>
               <div className="bg-white p-3.5 rounded-3xl border border-[#D8EADB] shadow-xs space-y-1">
                 <span className="text-[9px] text-gray-400 uppercase font-bold block">Courses Réussies</span>
-                <span className="text-lg font-black text-[#081A10]">{currentCourier?.completedDeliveries || 8} livraisons</span>
-                <span className="text-[9px] font-bold text-amber-500 block">⭐ 4.9 Satisfaction</span>
+                <span className="text-lg font-black text-[#081A10]">{currentCourier?.completedDeliveries || 0} livraisons</span>
+                <span className="text-[9px] font-bold text-amber-500 block">⭐ {currentCourier?.rating || 5.0} Satisfaction</span>
               </div>
             </div>
 
@@ -5754,9 +5699,9 @@ function MobileCourierApp({ onLogout }: { onLogout?: () => void }) {
                   courierPos={currentCourier?.coordinates || { lat: 14.708, lng: -17.472 }}
                   restaurantPos={{ lat: 14.755, lng: -17.514 }}
                   destinationPos={{ lat: 14.671, lng: -17.432 }}
-                  courierName={currentCourier?.name || 'Ibrahima Fall'}
-                  restaurantName="Ngor / Almadies / Mermoz"
-                  destinationAddress="Dakar Métropole"
+                  courierName={currentCourier?.name || 'Livreur Partenaire'}
+                  restaurantName="Dakar Métropole"
+                  destinationAddress="Dakar"
                   orderNumber="PATROUILLE"
                 />
               </div>
@@ -5782,7 +5727,9 @@ function MobileCourierApp({ onLogout }: { onLogout?: () => void }) {
                   </div>
                   <button
                     onClick={() => {
-                      acceptDeliveryMission(currentCourier.id, ord.id);
+                      if (currentCourier) {
+                        acceptDeliveryMission(currentCourier.id, ord.id);
+                      }
                       setCourierTab('client_view');
                     }}
                     className="px-3 py-1.5 rounded-xl brand-gradient text-white font-bold text-[10px] shadow-xs active:scale-95 cursor-pointer"
@@ -5822,9 +5769,9 @@ function MobileCourierApp({ onLogout }: { onLogout?: () => void }) {
                 courierPos={currentCourier?.coordinates || { lat: 14.708, lng: -17.472 }}
                 restaurantPos={{ lat: 14.755, lng: -17.514 }}
                 destinationPos={{ lat: 14.671, lng: -17.432 }}
-                courierName={currentCourier?.name || 'Ibrahima Fall'}
-                restaurantName={activeOrder?.restaurantName || 'Chez Kamiss'}
-                destinationAddress={activeOrder?.deliveryAddress.neighborhood || 'Virage Ngor'}
+                courierName={currentCourier?.name || 'Livreur Tiak-Tiak'}
+                restaurantName={activeOrder?.restaurantName || 'Restaurant Partenaire'}
+                destinationAddress={activeOrder?.deliveryAddress.neighborhood || 'Dakar'}
                 orderNumber={activeOrder?.orderNumber || 'TK-LIVE'}
               />
 
@@ -5861,7 +5808,11 @@ function MobileCourierApp({ onLogout }: { onLogout?: () => void }) {
                   </div>
 
                   <button
-                    onClick={() => completeDeliveryMission(currentCourier.id, activeOrder.id)}
+                    onClick={() => {
+                      if (currentCourier) {
+                        completeDeliveryMission(currentCourier.id, activeOrder.id);
+                      }
+                    }}
                     className="w-full py-3 rounded-2xl brand-gradient text-white text-xs font-black shadow-md mt-1 cursor-pointer active:scale-95"
                   >
                     Confirmer la Livraison Réussie ✓
@@ -5913,7 +5864,9 @@ function MobileCourierApp({ onLogout }: { onLogout?: () => void }) {
 
                     <button
                       onClick={() => {
-                        acceptDeliveryMission(currentCourier.id, ord.id);
+                        if (currentCourier) {
+                          acceptDeliveryMission(currentCourier.id, ord.id);
+                        }
                         setCourierTab('client_view');
                       }}
                       className="w-full py-2.5 rounded-xl brand-gradient text-white font-black text-xs shadow-xs active:scale-95"
@@ -5981,18 +5934,19 @@ function MobileCourierApp({ onLogout }: { onLogout?: () => void }) {
                 🏍️
               </div>
               <div>
-                <h4 className="font-black text-sm text-[#081A10]">{currentCourier?.name || 'Ibrahima Fall'}</h4>
+                <h4 className="font-black text-sm text-[#081A10]">{currentCourier?.name || 'Livreur Partenaire'}</h4>
                 <p className="text-xs text-gray-500">Livreur Certifié Thiob Dakar • Jakarta</p>
               </div>
               <div className="flex justify-center gap-2 pt-1">
                 <span className="px-2.5 py-0.5 rounded-full bg-[#E6F5EC] text-[#0A6E3B] text-[10px] font-bold">
-                  ⭐ 4.9 (420 courses)
+                  ⭐ {currentCourier?.rating || 5.0} ({currentCourier?.completedDeliveries || 0} courses)
                 </span>
                 <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
-                  98% Ponctualité
+                  100% Ponctualité
                 </span>
               </div>
             </div>
+
 
             {/* Courier Settings Menu */}
             <div className="bg-white rounded-3xl border border-[#D8EADB] divide-y divide-[#D8EADB] text-xs shadow-2xs overflow-hidden">
@@ -6712,7 +6666,7 @@ export default function MobileDeviceShowcase() {
                   courierPos={{ lat: 14.708, lng: -17.472 }}
                   restaurantPos={{ lat: 14.755, lng: -17.514 }}
                   destinationPos={{ lat: 14.671, lng: -17.432 }}
-                  courierName={selectedOrderForTracking.courierName || 'Ibrahima Fall (Moto Jakarta)'}
+                  courierName={selectedOrderForTracking.courierName || 'Livreur Tiak-Tiak'}
                   restaurantName={selectedOrderForTracking.restaurantName}
                   destinationAddress={`${selectedOrderForTracking.deliveryAddress.street}, ${selectedOrderForTracking.deliveryAddress.neighborhood}`}
                   orderNumber={selectedOrderForTracking.orderNumber}
@@ -6720,7 +6674,7 @@ export default function MobileDeviceShowcase() {
                 />
 
                 <div className="p-3 rounded-xl bg-[#F4F7F4] border border-[#D8EADB] space-y-1">
-                  <p className="font-bold text-[#081A10]">Livreur : {selectedOrderForTracking.courierName || 'Ibrahima Fall (Moto Jakarta)'}</p>
+                  <p className="font-bold text-[#081A10]">Livreur : {selectedOrderForTracking.courierName || 'Livreur Partenaire'}</p>
                   <p className="text-[11px] text-gray-500">Destination : {selectedOrderForTracking.deliveryAddress.street}, {selectedOrderForTracking.deliveryAddress.neighborhood}</p>
                 </div>
 

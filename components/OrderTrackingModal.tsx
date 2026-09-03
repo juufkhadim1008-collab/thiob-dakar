@@ -138,23 +138,23 @@ export default function OrderTrackingModal() {
               courierPos={courierPos}
               restaurantPos={restaurantPos}
               destinationPos={destinationPos}
-              courierName={activeTrackingOrder.courierName || matchedCourier?.name || 'Ibrahima Fall'}
+              courierName={activeTrackingOrder.courierName || matchedCourier?.name || 'Livreur Partenaire'}
               restaurantName={activeTrackingOrder.restaurantName}
               destinationAddress={`${activeTrackingOrder.deliveryAddress.street}, ${activeTrackingOrder.deliveryAddress.neighborhood}`}
               orderNumber={activeTrackingOrder.orderNumber}
-              isSimulatingLiveMove={activeTrackingOrder.status === 'in_transit'}
+              isSimulatingLiveMove={true}
             />
 
-            {/* Estimated Time Card */}
-            <div className="p-4 rounded-2xl bg-[#EBF7EE] border border-[#008235]/20 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-[#008235] text-white flex items-center justify-center shadow-md">
-                  <Clock className="w-6 h-6" />
+            {/* Courier Micro-Card in Modal */}
+            <div className="bg-[#F4F7F4] p-3 rounded-2xl border border-[#D8EADB] flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#064E2B] to-[#10B981] flex items-center justify-center text-white font-bold text-sm shadow-2xs">
+                  🏍️
                 </div>
                 <div>
-                  <p className="text-xs font-semibold text-[#576A5E] uppercase tracking-wider">
-                    Temps d'arrivée estimé
-                  </p>
+                  <h5 className="font-extrabold text-xs text-[#081A10]">
+                    {activeTrackingOrder.courierName || matchedCourier?.name || 'Livreur Tiak-Tiak'}
+                  </h5>
                   <h4 className="text-lg font-black text-[#07431E]">
                     {activeTrackingOrder.status === 'delivered' ? 'Commande Livrée' : `${activeTrackingOrder.estimatedDeliveryTime || '20-30 min'}`}
                   </h4>
@@ -217,7 +217,7 @@ export default function OrderTrackingModal() {
                     Votre Livreur Partenaire
                   </span>
                   <h5 className="font-bold text-sm text-[#07431E]">
-                    {activeTrackingOrder.courierName || matchedCourier?.name || 'Ibrahima Fall (Moto Dakar)'}
+                    {activeTrackingOrder.courierName || matchedCourier?.name || 'Livreur Partenaire (Moto Dakar)'}
                   </h5>
                   <p className="text-xs text-gray-500">
                     {activeTrackingOrder.courierPhone || matchedCourier?.phone || '+221 70 812 34 56'}

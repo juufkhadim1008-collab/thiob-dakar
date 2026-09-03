@@ -30,22 +30,22 @@ export default function CourierSpace() {
     completeDeliveryMission 
   } = useApp();
 
-  const currentCourier = couriers[0]; // Ibrahima Fall
-  const isOnline = currentCourier.isOnline;
-  const courierStatus = currentCourier.status || (isOnline ? 'AVAILABLE' : 'OFFLINE');
+  const currentCourier = couriers[0] || null;
+  const isOnline = currentCourier?.isOnline || false;
+  const courierStatus = currentCourier?.status || (isOnline ? 'AVAILABLE' : 'OFFLINE');
 
-  const activeOrder = orders.find((o) => o.id === currentCourier.activeOrderId);
+  const activeOrder = orders.find((o) => o.id === currentCourier?.activeOrderId);
 
   const availableOrders = orders.filter(
     (o) => (o.status === 'ready_for_pickup' || o.status === 'preparing') && !o.courierId
   );
 
   // Active courier coordinates
-  const courierCoords = currentCourier.coordinates || DAKAR_GEO_PRESETS[currentCourier.currentNeighborhood] || DAKAR_DEFAULT_COORDS;
+  const courierCoords = currentCourier?.coordinates || (currentCourier ? DAKAR_GEO_PRESETS[currentCourier.currentNeighborhood] : null) || DAKAR_DEFAULT_COORDS;
 
   // Background GPS updater when online (throttled)
   useEffect(() => {
-    if (!isOnline) return;
+    if (!isOnline || !currentCourier) return;
 
     // Emulate or track GPS position updates
     const intervalTime = activeOrder ? 6000 : 18000; // 6s in delivery, 18s if available
@@ -61,11 +61,11 @@ export default function CourierSpace() {
     }, intervalTime);
 
     return () => clearInterval(interval);
-  }, [isOnline, activeOrder, courierCoords.lat, courierCoords.lng, currentCourier.id]);
+  }, [isOnline, activeOrder, courierCoords.lat, courierCoords.lng, currentCourier?.id]);
 
   const handleZoneChange = (zoneKey: string) => {
     const preset = DAKAR_GEO_PRESETS[zoneKey];
-    if (preset) {
+    if (preset && currentCourier) {
       updateCourierLocation(currentCourier.id, { lat: preset.lat, lng: preset.lng }, courierStatus);
     }
   };
@@ -95,15 +95,15 @@ export default function CourierSpace() {
                 {courierStatus === 'BUSY' ? '🚨 En Livraison Active' : isOnline ? '🟢 En Ligne (Disponible)' : '⚫ Hors Service'}
               </span>
               <span className="text-xs font-bold text-gray-500">
-                Moto Jakarta ({currentCourier.plateNumber})
+                Moto ({currentCourier?.plateNumber || 'Flotte Dakar'})
               </span>
             </div>
             <h1 className="text-2xl font-black text-[#07431E] mt-1">
-              {currentCourier.name}
+              {currentCourier?.name || 'Espace Livreur Partenaire'}
             </h1>
             <p className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
               <MapPin className="w-3.5 h-3.5 text-[#FA8038]" />
-              <span>Zone GPS active : {currentCourier.currentNeighborhood} & Presqu'île de Dakar</span>
+              <span>Zone GPS active : {currentCourier?.currentNeighborhood || 'Dakar'} & Presqu'île de Dakar</span>
             </p>
           </div>
         </div>
@@ -113,7 +113,7 @@ export default function CourierSpace() {
           <motion.button
             whileHover={{ scale: 1.03 }}
             whileTap={{ scale: 0.95 }}
-            onClick={() => toggleCourierOnline(currentCourier.id)}
+            onClick={() => currentCourier && toggleCourierOnline(currentCourier.id)}
             className={`px-5 py-3 rounded-2xl font-extrabold text-xs flex items-center gap-2 shadow-md transition-all ${
               isOnline
                 ? 'bg-[#008235] text-white ring-4 ring-[#008235]/20'
@@ -147,7 +147,7 @@ export default function CourierSpace() {
               key={zone}
               onClick={() => handleZoneChange(zone)}
               className={`px-3 py-1 rounded-xl text-xs font-bold transition-all ${
-                currentCourier.currentNeighborhood === zone
+                currentCourier?.currentNeighborhood === zone
                   ? 'bg-[#008235] text-white shadow-xs'
                   : 'bg-[#F0F5F2] text-[#07431E] hover:bg-[#E2ECE5]'
               }`}
@@ -163,7 +163,7 @@ export default function CourierSpace() {
         <motion.div whileHover={{ y: -3 }} className="bg-white p-4 rounded-3xl border border-[#E2ECE5] shadow-xs text-center">
           <span className="text-[11px] font-bold uppercase text-gray-500">Gains du Jour</span>
           <h3 className="text-xl sm:text-2xl font-black text-[#008235] mt-1">
-            {formatFCFA(currentCourier.todayEarnings)}
+            {formatFCFA(currentCourier?.todayEarnings || 0)}
           </h3>
           <span className="text-[10px] text-gray-400">Paiement Wave direct</span>
         </motion.div>
@@ -171,7 +171,7 @@ export default function CourierSpace() {
         <motion.div whileHover={{ y: -3 }} className="bg-white p-4 rounded-3xl border border-[#E2ECE5] shadow-xs text-center">
           <span className="text-[11px] font-bold uppercase text-gray-500">Courses Réussies</span>
           <h3 className="text-xl sm:text-2xl font-black text-[#07431E] mt-1">
-            {currentCourier.completedDeliveries}
+            {currentCourier?.completedDeliveries || 0}
           </h3>
           <span className="text-[10px] text-gray-400">Total historique</span>
         </motion.div>
@@ -179,7 +179,7 @@ export default function CourierSpace() {
         <motion.div whileHover={{ y: -3 }} className="bg-white p-4 rounded-3xl border border-[#E2ECE5] shadow-xs text-center">
           <span className="text-[11px] font-bold uppercase text-gray-500">Note Qualité</span>
           <h3 className="text-xl sm:text-2xl font-black text-[#FA8038] mt-1">
-            ⭐ {currentCourier.rating}
+            ⭐ {currentCourier?.rating || 5.0}
           </h3>
           <span className="text-[10px] text-gray-400">Top Livreur Dakar</span>
         </motion.div>

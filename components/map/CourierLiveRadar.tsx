@@ -30,7 +30,7 @@ export default function CourierLiveRadar({
   courierPos = DAKAR_GEO_PRESETS['Mermoz'],
   restaurantPos = DAKAR_GEO_PRESETS['Ngor'],
   destinationPos = DAKAR_GEO_PRESETS['Plateau'],
-  courierName = 'Ibrahima Fall',
+  courierName = 'Livreur Radar',
   restaurantName = 'Chez Kamiss',
   destinationAddress = 'Dakar Plateau',
   orderNumber = 'DKR-8942',
