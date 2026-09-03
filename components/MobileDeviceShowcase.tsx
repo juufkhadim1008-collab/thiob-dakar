@@ -58,6 +58,10 @@ import confetti from 'canvas-confetti';
 import { calculateDistanceKm, formatDistanceString, DAKAR_DEFAULT_COORDS, DAKAR_GEO_PRESETS } from '@/lib/geolocation';
 import MiniLocationPicker from '@/components/map/MiniLocationPicker';
 import CourierLiveRadar from '@/components/map/CourierLiveRadar';
+import OnboardingFlow from './OnboardingFlow';
+import AdminAnalyticsModal from '@/components/admin/AdminAnalyticsModal';
+import DesktopAdminCommandCenter from '@/components/admin/DesktopAdminCommandCenter';
+import { supabase } from '@/lib/supabase';
 import PaymentCheckoutSheet from '@/components/payment/PaymentCheckoutSheet';
 import dynamic from 'next/dynamic';
 
@@ -115,6 +119,14 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
   const [selectedDish, setSelectedDish] = useState<MenuItem | null>(null);
   const [dishQuantity, setDishQuantity] = useState(1);
   const [dishNotes, setDishNotes] = useState('');
+  const [dishSpiceOption, setDishSpiceOption] = useState<'doux' | 'separe' | 'fort' | 'sans'>('separe');
+  const [dishRiceChoice, setDishRiceChoice] = useState<'rouge' | 'blanc' | 'frites'>('rouge');
+  const [selectedSupplements, setSelectedSupplements] = useState<string[]>([]);
+
+  // Filter and Sorting States
+  const [sortBy, setSortBy] = useState<'rating' | 'speed' | 'price_asc' | 'popular'>('popular');
+  const [maxPriceFilter, setMaxPriceFilter] = useState<number>(10000);
+
   const [isCartSheetOpen, setIsCartSheetOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [isNeighborhoodPickerOpen, setIsNeighborhoodPickerOpen] = useState(false);
@@ -253,16 +265,28 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
     );
   };
 
-  // Filtered dishes
-  const filteredDishes = menuItems.filter((dish) => {
-    const matchCat = selectedCat === 'all' || dish.category === selectedCat;
-    const matchSearch = cleanSearchQuery === '' || 
-      dish.name.toLowerCase().includes(cleanSearchQuery) || 
-      dish.description.toLowerCase().includes(cleanSearchQuery);
-    const matchNeighborhood = selectedNeighborhood === 'Tous les quartiers' || 
-      restaurants.find(r => r.id === dish.restaurantId)?.neighborhood.toLowerCase().includes(selectedNeighborhood.toLowerCase());
-    return matchCat && matchSearch && (selectedNeighborhood === 'Tous les quartiers' || matchNeighborhood);
-  });
+  // Filtered dishes with budget filter and sorting
+  const filteredDishes = menuItems
+    .filter((dish) => {
+      const matchCat = selectedCat === 'all' || dish.category === selectedCat;
+      const matchSearch = cleanSearchQuery === '' || 
+        dish.name.toLowerCase().includes(cleanSearchQuery) || 
+        dish.description.toLowerCase().includes(cleanSearchQuery);
+      const matchNeighborhood = selectedNeighborhood === 'Tous les quartiers' || 
+        restaurants.find(r => r.id === dish.restaurantId)?.neighborhood.toLowerCase().includes(selectedNeighborhood.toLowerCase());
+      const matchPrice = dish.price <= maxPriceFilter;
+      return matchCat && matchSearch && (selectedNeighborhood === 'Tous les quartiers' || matchNeighborhood) && matchPrice;
+    })
+    .sort((a, b) => {
+      if (sortBy === 'price_asc') return a.price - b.price;
+      if (sortBy === 'rating') {
+        const restoA = restaurants.find((r) => r.id === a.restaurantId)?.rating || 4.5;
+        const restoB = restaurants.find((r) => r.id === b.restaurantId)?.rating || 4.5;
+        return restoB - restoA;
+      }
+      if (sortBy === 'speed') return a.preparationTimeMinutes - b.preparationTimeMinutes;
+      return 0;
+    });
 
   const displayedDishes = showAllDishes ? filteredDishes : filteredDishes.slice(0, 6);
   const favoriteDishes = menuItems.filter((dish) => favoriteIds.includes(dish.id));
@@ -279,14 +303,42 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
     setTimeout(() => setQuickAddedId(null), 1200);
   };
 
+  const DAKAR_SUPPLEMENTS = [
+    { id: 'extra_sauce', label: '🧅 Extra Beugueudj / Sauce Oignon', price: 500 },
+    { id: 'extra_poisson', label: '🐟 Extra Morceau Poisson / Viande', price: 1500 },
+    { id: 'jus_bissap', label: '🍹 Jus de Bissap Artisanal 33cl', price: 1000 },
+    { id: 'jus_bouye', label: '🥛 Jus de Bouye (Pain de Singe)', price: 1000 },
+    { id: 'canette_gazouz', label: '🥤 Canette Gazouz Fraîche', price: 800 },
+  ];
+
+  const supplementTotal = selectedSupplements.reduce((sum, supId) => {
+    const found = DAKAR_SUPPLEMENTS.find((s) => s.id === supId);
+    return sum + (found ? found.price : 0);
+  }, 0);
+
+  const unitDishTotal = (selectedDish?.price || 0) + supplementTotal;
+
   const handleAddDishModal = () => {
     if (!selectedDish) return;
+    const spiceText = dishSpiceOption === 'separe' ? 'Piment à part 🌶️' : dishSpiceOption === 'doux' ? 'Peu pimenté 🌶️' : dishSpiceOption === 'fort' ? 'Très pimenté 🔥' : 'Sans piment 🟢';
+    const riceText = dishRiceChoice === 'rouge' ? 'Riz Rouge Thiéboudienne' : dishRiceChoice === 'blanc' ? 'Riz Blanc au Nokoss' : 'Accompagnement Frites';
+    const supplementNames = selectedSupplements.map((id) => DAKAR_SUPPLEMENTS.find((s) => s.id === id)?.label).filter(Boolean);
+    
+    const customizedItem: MenuItem = {
+      ...selectedDish,
+      id: `${selectedDish.id}-${Date.now()}`,
+      name: `${selectedDish.name} (${spiceText}, ${riceText}${supplementNames.length ? ' + ' + supplementNames.join(', ') : ''}${dishNotes ? ' - Note: ' + dishNotes : ''})`,
+      price: unitDishTotal,
+    };
+
     for (let i = 0; i < dishQuantity; i++) {
-      addToCart(selectedDish);
+      addToCart(customizedItem);
     }
     setQuickAddedId(selectedDish.id);
     setSelectedDish(null);
     setDishQuantity(1);
+    setDishNotes('');
+    setSelectedSupplements([]);
     try {
       confetti({
         particleCount: 50,
@@ -1833,20 +1885,115 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
                   <p className="text-xs text-gray-500 mt-1 leading-relaxed">{selectedDish.description}</p>
                 </div>
 
-                {/* Nutrition / Spice meters */}
-                <div className="grid grid-cols-3 gap-2 text-center text-[10px]">
-                  <div className="p-2 rounded-xl bg-[#F4F7F4] border border-[#D8EADB]">
-                    <span className="text-gray-400 block font-bold">Épices</span>
-                    <span className="font-extrabold text-[#FF7824]">🌶️ Doux / Piment</span>
+                {/* 1. Choix du Piment (Spécificité Sénégalaise) */}
+                <div className="space-y-1.5">
+                  <span className="text-[11px] font-black uppercase text-[#081A10] flex items-center justify-between">
+                    <span>Dosage du Piment</span>
+                    <span className="text-[9px] text-[#FF7824] font-bold">Obligatoire</span>
+                  </span>
+                  <div className="grid grid-cols-2 gap-1.5 text-xs">
+                    {[
+                      { id: 'separe', label: '🌶️ Piment à part', desc: 'Recommandé' },
+                      { id: 'doux', label: '🌶️ Peu pimenté', desc: 'Doux en bouche' },
+                      { id: 'fort', label: '🔥 Bien pimenté', desc: 'Piment fort pilé' },
+                      { id: 'sans', label: '🟢 Sans piment', desc: 'Aucun piment' },
+                    ].map((sp) => (
+                      <button
+                        key={sp.id}
+                        type="button"
+                        onClick={() => setDishSpiceOption(sp.id as any)}
+                        className={`p-2 rounded-xl border text-left transition-all ${
+                          dishSpiceOption === sp.id
+                            ? 'border-[#0A6E3B] bg-[#E6F5EC] text-[#0A6E3B] font-black shadow-2xs'
+                            : 'border-[#D8EADB] bg-[#F4F7F4] text-gray-600'
+                        }`}
+                      >
+                        <span className="block text-[11px] font-black">{sp.label}</span>
+                        <span className="text-[9px] text-gray-400 block">{sp.desc}</span>
+                      </button>
+                    ))}
                   </div>
-                  <div className="p-2 rounded-xl bg-[#F4F7F4] border border-[#D8EADB]">
-                    <span className="text-gray-400 block font-bold">Cuisson</span>
-                    <span className="font-extrabold text-[#0A6E3B]">🔥 Minute</span>
+                </div>
+
+                {/* 2. Choix du Riz / Accompagnement */}
+                <div className="space-y-1.5 pt-1">
+                  <span className="text-[11px] font-black uppercase text-[#081A10] block">
+                    Accompagnement au choix
+                  </span>
+                  <div className="grid grid-cols-3 gap-1.5 text-xs">
+                    {[
+                      { id: 'rouge', label: '🍚 Riz Rouge' },
+                      { id: 'blanc', label: '🍚 Riz Blanc' },
+                      { id: 'frites', label: '🍟 Frites' },
+                    ].map((rc) => (
+                      <button
+                        key={rc.id}
+                        type="button"
+                        onClick={() => setDishRiceChoice(rc.id as any)}
+                        className={`p-2 rounded-xl border text-center transition-all ${
+                          dishRiceChoice === rc.id
+                            ? 'border-[#0A6E3B] bg-[#E6F5EC] text-[#0A6E3B] font-black'
+                            : 'border-[#D8EADB] bg-[#F4F7F4] text-gray-600'
+                        }`}
+                      >
+                        <span className="text-[11px] font-black">{rc.label}</span>
+                      </button>
+                    ))}
                   </div>
-                  <div className="p-2 rounded-xl bg-[#F4F7F4] border border-[#D8EADB]">
-                    <span className="text-gray-400 block font-bold">Temps</span>
-                    <span className="font-extrabold text-[#081A10]">⏱️ 20 min</span>
+                </div>
+
+                {/* 3. Suppléments & Jus Dakarois */}
+                <div className="space-y-1.5 pt-1">
+                  <span className="text-[11px] font-black uppercase text-[#081A10] flex items-center justify-between">
+                    <span>Suppléments & Jus Locaux</span>
+                    <span className="text-[9px] text-gray-400 font-bold">Optionnel</span>
+                  </span>
+                  <div className="space-y-1.5">
+                    {DAKAR_SUPPLEMENTS.map((sup) => {
+                      const isSelected = selectedSupplements.includes(sup.id);
+                      return (
+                        <div
+                          key={sup.id}
+                          onClick={() => {
+                            if (isSelected) {
+                              setSelectedSupplements(selectedSupplements.filter((s) => s !== sup.id));
+                            } else {
+                              setSelectedSupplements([...selectedSupplements, sup.id]);
+                            }
+                          }}
+                          className={`p-2.5 rounded-2xl border flex items-center justify-between cursor-pointer transition-all ${
+                            isSelected
+                              ? 'border-[#0A6E3B] bg-[#E6F5EC]'
+                              : 'border-[#D8EADB] bg-white hover:bg-gray-50'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <div className={`w-4 h-4 rounded-md border flex items-center justify-center text-[10px] ${
+                              isSelected ? 'bg-[#0A6E3B] border-[#0A6E3B] text-white font-black' : 'border-gray-300 bg-white'
+                            }`}>
+                              {isSelected ? '✓' : ''}
+                            </div>
+                            <span className="text-xs font-bold text-[#081A10]">{sup.label}</span>
+                          </div>
+                          <span className="text-xs font-black text-[#0A6E3B]">+{formatFCFA(sup.price)}</span>
+                        </div>
+                      );
+                    })}
                   </div>
+                </div>
+
+                {/* 4. Instructions pour le Chef */}
+                <div className="space-y-1 pt-1">
+                  <span className="text-[10px] font-black uppercase text-gray-400 block">
+                    Instructions spéciales pour le cuisinier
+                  </span>
+                  <input
+                    type="text"
+                    placeholder="Ex: Pas trop gras, sauce oignon bien cuite..."
+                    value={dishNotes}
+                    onChange={(e) => setDishNotes(e.target.value)}
+                    className="w-full p-2.5 bg-[#F4F7F4] border border-[#D8EADB] rounded-2xl text-xs text-[#081A10] placeholder-gray-400 focus:bg-white"
+                  />
                 </div>
 
                 {/* Quantity selector & Add CTA */}
@@ -1854,14 +2001,14 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
                   <div className="flex items-center bg-[#F4F7F4] rounded-2xl border border-[#D8EADB] p-1 shrink-0">
                     <button
                       onClick={() => setDishQuantity((q) => Math.max(1, q - 1))}
-                      className="w-8 h-8 rounded-xl bg-white flex items-center justify-center text-xs font-black text-[#081A10] shadow-2xs"
+                      className="w-8 h-8 rounded-xl bg-white flex items-center justify-center text-xs font-black text-[#081A10] shadow-2xs cursor-pointer"
                     >
                       <Minus className="w-3.5 h-3.5" />
                     </button>
                     <span className="w-8 text-center text-xs font-black">{dishQuantity}</span>
                     <button
                       onClick={() => setDishQuantity((q) => q + 1)}
-                      className="w-8 h-8 rounded-xl bg-white flex items-center justify-center text-xs font-black text-[#081A10] shadow-2xs"
+                      className="w-8 h-8 rounded-xl bg-white flex items-center justify-center text-xs font-black text-[#081A10] shadow-2xs cursor-pointer"
                     >
                       <Plus className="w-3.5 h-3.5" />
                     </button>
@@ -1869,12 +2016,148 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
 
                   <button
                     onClick={handleAddDishModal}
-                    className="flex-1 py-3 rounded-2xl brand-gradient text-white text-xs font-black shadow-md flex items-center justify-between px-4 hover:opacity-95 transition-opacity"
+                    className="flex-1 py-3 rounded-2xl brand-gradient text-white text-xs font-black shadow-md flex items-center justify-between px-4 hover:opacity-95 transition-opacity cursor-pointer"
                   >
                     <span>Ajouter au panier</span>
-                    <span>{formatFCFA(selectedDish.price * dishQuantity)}</span>
+                    <span>{formatFCFA(unitDishTotal * dishQuantity)}</span>
                   </button>
                 </div>
+              </div>
+
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* =========================================================================
+          3.5 MODAL FILTRES AVANCÉS & TRI DE LA CARTE DAKAR
+         ========================================================================= */}
+      <AnimatePresence>
+        {isFilterOpen && (
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsFilterOpen(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-xs"
+            />
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              className="relative z-10 w-full max-w-sm bg-white rounded-t-[36px] sm:rounded-3xl p-5 space-y-4 shadow-2xl max-h-[85vh] flex flex-col"
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between border-b border-gray-100 pb-2.5">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-[#E6F5EC] text-[#0A6E3B] flex items-center justify-center font-bold">
+                    <SlidersHorizontal className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black text-[#081A10]">Filtres & Tri Avancés</h3>
+                    <p className="text-[10px] text-gray-400">Trouvez le meilleur Thiéb selon vos critères</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsFilterOpen(false)}
+                  className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-xs text-gray-500"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="space-y-4 overflow-y-auto flex-1 text-xs">
+                {/* 1. Tri */}
+                <div className="space-y-1.5">
+                  <span className="text-[11px] font-black uppercase text-[#081A10] block">Trier les restaurants par :</span>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { id: 'popular', label: '🔥 Plus populaires', desc: 'Recommandés Thiob' },
+                      { id: 'speed', label: '⚡ Livraison rapide', desc: '< 25 minutes' },
+                      { id: 'rating', label: '⭐ Mieux notés', desc: 'Notes > 4.7/5' },
+                      { id: 'price_asc', label: '💰 Prix accessibles', desc: 'À partir de 2 500 F' },
+                    ].map((st) => (
+                      <button
+                        key={st.id}
+                        type="button"
+                        onClick={() => setSortBy(st.id as any)}
+                        className={`p-2.5 rounded-2xl border text-left transition-all cursor-pointer ${
+                          sortBy === st.id
+                            ? 'border-[#0A6E3B] bg-[#E6F5EC] text-[#0A6E3B] font-black'
+                            : 'border-[#D8EADB] bg-[#F4F7F4] text-gray-600'
+                        }`}
+                      >
+                        <span className="block text-[11px] font-black">{st.label}</span>
+                        <span className="text-[9px] text-gray-400 block">{st.desc}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 2. Budget Maximum */}
+                <div className="space-y-1.5 bg-[#F4F7F4] p-3 rounded-2xl border border-[#D8EADB]">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-black uppercase text-[#081A10]">Budget Plat Max</span>
+                    <span className="text-xs font-black text-[#0A6E3B]">{formatFCFA(maxPriceFilter)}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="2500"
+                    max="15000"
+                    step="500"
+                    value={maxPriceFilter}
+                    onChange={(e) => setMaxPriceFilter(Number(e.target.value))}
+                    className="w-full accent-[#0A6E3B]"
+                  />
+                  <div className="flex justify-between text-[9px] text-gray-400 font-bold">
+                    <span>2 500 F</span>
+                    <span>7 500 F</span>
+                    <span>15 000 F</span>
+                  </div>
+                </div>
+
+                {/* 3. Sélecteurs Spéciaux */}
+                <div className="space-y-1.5">
+                  <span className="text-[11px] font-black uppercase text-[#081A10] block">Spécificités Dakaroises</span>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="p-2.5 rounded-2xl bg-white border border-[#D8EADB] flex items-center gap-2">
+                      <span className="text-base">🌊</span>
+                      <div>
+                        <h6 className="font-black text-[10px] text-[#081A10]">Vue Océan</h6>
+                        <span className="text-[9px] text-gray-400">Almadies / Ngor</span>
+                      </div>
+                    </div>
+                    <div className="p-2.5 rounded-2xl bg-white border border-[#D8EADB] flex items-center gap-2">
+                      <span className="text-base">🌙</span>
+                      <div>
+                        <h6 className="font-black text-[10px] text-[#081A10]">100% Halal</h6>
+                        <span className="text-[9px] text-gray-400">Viande certifiée</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Reset & Apply CTA */}
+              <div className="pt-2 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSortBy('popular');
+                    setMaxPriceFilter(10000);
+                  }}
+                  className="py-3 px-4 rounded-2xl bg-gray-100 hover:bg-gray-200 text-xs font-bold text-gray-600"
+                >
+                  Réinitialiser
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsFilterOpen(false)}
+                  className="flex-1 py-3 rounded-2xl brand-gradient text-white text-xs font-black shadow-md active:scale-95 transition-all cursor-pointer"
+                >
+                  Appliquer les filtres ➔
+                </button>
               </div>
 
             </motion.div>
@@ -2322,6 +2605,104 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
 
                 </div>
               )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* =========================================================================
+          4.1 MODAL: NOTIFICATIONS CLIENT EN DIRECT
+         ========================================================================= */}
+      <AnimatePresence>
+        {isNotificationsOpen && (
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsNotificationsOpen(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-xs"
+            />
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              className="relative z-10 w-full max-w-sm bg-white rounded-t-[36px] sm:rounded-3xl p-5 space-y-3.5 shadow-2xl max-h-[85vh] flex flex-col"
+            >
+              <div className="flex items-center justify-between border-b border-gray-100 pb-2.5">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-[#E6F5EC] text-[#0A6E3B] flex items-center justify-center font-bold">
+                    <Bell className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-black text-[#081A10]">Notifications Client</h3>
+                    <p className="text-[10px] text-gray-400">Suivi des commandes & offres spéciales</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsNotificationsOpen(false)}
+                  className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-xs text-gray-500"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="space-y-2.5 overflow-y-auto flex-1 text-xs">
+                {/* Notification 1: Delivery in progress */}
+                <div 
+                  onClick={() => {
+                    setIsNotificationsOpen(false);
+                    if (activeTrackingOrder) onOpenTracking(activeTrackingOrder);
+                  }}
+                  className="p-3 rounded-2xl bg-[#E6F5EC] border border-[#0A6E3B]/20 space-y-1 cursor-pointer hover:border-[#0A6E3B]"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black text-[#0A6E3B] flex items-center gap-1">
+                      <span>🛵</span>
+                      <span>Livreur Tiak-Tiak en route</span>
+                    </span>
+                    <span className="text-[9px] text-gray-400 font-bold">Il y a 3 min</span>
+                  </div>
+                  <p className="text-[11px] text-[#081A10] font-bold">Votre Thiéboudienne arrive dans ~10 min (Virage Ngor)</p>
+                  <span className="text-[9px] font-bold text-[#0A6E3B] block">Toucher pour voir le radar live ➔</span>
+                </div>
+
+                {/* Notification 2: Wave Payment */}
+                <div className="p-3 rounded-2xl bg-[#F4F7F4] border border-[#D8EADB] space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black text-sky-700 flex items-center gap-1">
+                      <span>🌊</span>
+                      <span>Paiement Wave Sénégal validé</span>
+                    </span>
+                    <span className="text-[9px] text-gray-400 font-bold">Il y a 15 min</span>
+                  </div>
+                  <p className="text-[11px] text-[#081A10]">Votre commande #TK-2026-08 de 7 500 FCFA a été réglée avec succès.</p>
+                </div>
+
+                {/* Notification 3: Promo / Special Offer */}
+                <div className="p-3 rounded-2xl bg-[#FFF8F0] border border-[#FF7824]/20 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black text-[#FF7824] flex items-center gap-1">
+                      <span>🎁</span>
+                      <span>Offre Spéciale Soirée</span>
+                    </span>
+                    <span className="text-[9px] text-gray-400 font-bold">Aujourd'hui</span>
+                  </div>
+                  <p className="text-[11px] text-[#081A10]">Profitez de -20% sur les dibis d'agneau chez <strong>Chez Kamiss</strong> jusqu'à 23h.</p>
+                </div>
+
+                {/* Notification 4: Table Reservation */}
+                <div className="p-3 rounded-2xl bg-[#F4F7F4] border border-[#D8EADB] space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black text-emerald-800 flex items-center gap-1">
+                      <span>🥂</span>
+                      <span>Table Confirmée</span>
+                    </span>
+                    <span className="text-[9px] text-gray-400 font-bold">Hier</span>
+                  </div>
+                  <p className="text-[11px] text-[#081A10]">Votre table pour 2 personnes chez <strong>Alkimia (Terrasse Vue Mer)</strong> est confirmée pour ce soir.</p>
+                </div>
+              </div>
             </motion.div>
           </div>
         )}
@@ -3253,8 +3634,8 @@ function MobileRestaurantApp({ onLogout }: { onLogout?: () => void }) {
     currentRestaurant,
   } = useApp();
 
-  const [mobileMode, setMobileMode] = useState<'vitrine' | 'dashboard'>('vitrine');
-  const [restoTab, setRestoTab] = useState<'showcase' | 'orders' | 'reservations' | 'menu' | 'stats'>('showcase');
+  const [mobileMode, setMobileMode] = useState<'vitrine' | 'dashboard'>('dashboard');
+  const [restoTab, setRestoTab] = useState<'showcase' | 'overview' | 'orders' | 'courier' | 'profile'>('overview');
   const [isServiceActive, setIsServiceActive] = useState(true);
   const [vitrineCategory, setVitrineCategory] = useState('all');
   
@@ -3289,6 +3670,7 @@ function MobileRestaurantApp({ onLogout }: { onLogout?: () => void }) {
 
   // Client Preview Modal for Restaurant Manager
   const [isPreviewClientModalOpen, setIsPreviewClientModalOpen] = useState(false);
+  const [isRestoNotificationsOpen, setIsRestoNotificationsOpen] = useState(false);
 
   // Vitrine Customization Modals & States
   const [isEditGeneralModalOpen, setIsEditGeneralModalOpen] = useState(false);
@@ -3643,10 +4025,10 @@ function MobileRestaurantApp({ onLogout }: { onLogout?: () => void }) {
         )}
       </AnimatePresence>
 
-      {/* 1. Ultra-Clean Minimalist Header: Just Logo & Name + Settings Button */}
+      {/* 1. Ultra-Clean Minimalist Mobile Restaurant Header */}
       <div className="pt-3 px-4 pb-3 bg-white border-b border-[#D8EADB] shrink-0 flex items-center justify-between shadow-2xs">
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#064E2B] to-[#10B981] p-0.5 shadow-sm shrink-0">
+          <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-[#064E2B] to-[#10B981] p-0.5 shadow-sm shrink-0">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={currentResto.logo}
@@ -3655,250 +4037,130 @@ function MobileRestaurantApp({ onLogout }: { onLogout?: () => void }) {
             />
           </div>
           <div className="min-w-0">
-            <h2 className="font-black text-sm text-[#081A10] truncate leading-tight">{currentResto.name}</h2>
+            <div className="flex items-center gap-1.5">
+              <h2 className="font-black text-sm text-[#081A10] truncate leading-tight">{currentResto.name}</h2>
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            </div>
             <p className="text-[10px] text-gray-400 truncate">📍 {currentResto.neighborhood} • Dakar</p>
           </div>
         </div>
 
-        {/* Paramètres Button */}
-        <button
-          onClick={openEditGeneralModal}
-          className="px-3 py-1.5 rounded-xl bg-[#E6F5EC] text-[#0A6E3B] font-black text-xs border border-[#0A6E3B]/20 flex items-center gap-1.5 shadow-2xs hover:bg-[#d8eedf] active:scale-95 transition-all"
-        >
-          <SlidersHorizontal className="w-3.5 h-3.5" />
-          <span>⚙️ Paramètres</span>
-        </button>
-      </div>
-
-      {/* 2. THE TWO CLEAN BUTTONS: Vitrine vs Dashboard */}
-      <div className="bg-[#F4F7F4] px-3 py-2 border-b border-[#D8EADB] shrink-0">
-        <div className="p-1 bg-white/90 backdrop-blur-md rounded-2xl border border-white/80 shadow-xs flex items-center gap-1.5">
+        {/* Live Service Switch, Notifications & Paramètres */}
+        <div className="flex items-center gap-1.5">
           <button
-            onClick={() => setMobileMode('vitrine')}
-            className={`flex-1 py-2 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${
-              mobileMode === 'vitrine'
-                ? 'brand-gradient text-white shadow-md'
-                : 'text-gray-500 hover:text-[#081A10]'
+            onClick={() => setIsServiceActive(!isServiceActive)}
+            className={`px-2.5 py-1.5 rounded-xl text-[10px] font-black transition-all flex items-center gap-1 ${
+              isServiceActive
+                ? 'bg-[#E6F5EC] text-[#0A6E3B] border border-[#0A6E3B]/20'
+                : 'bg-rose-50 text-rose-700 border border-rose-200'
             }`}
           >
-            <span>🏛️ Vitrine</span>
-            {mobileMode === 'vitrine' && <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />}
+            <span>{isServiceActive ? '● Ouvert' : '○ Fermé'}</span>
           </button>
-          <button
-            onClick={() => setMobileMode('dashboard')}
-            className={`flex-1 py-2 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${
-              mobileMode === 'dashboard'
-                ? 'bg-[#0B1E13] text-white shadow-md'
-                : 'text-gray-500 hover:text-[#081A10]'
-            }`}
+
+          {/* Notification Button Restaurant */}
+          <motion.button
+            whileHover={{ scale: 1.08, y: -2 }}
+            whileTap={{ scale: 0.92 }}
+            onClick={() => setIsRestoNotificationsOpen(true)}
+            className="relative w-8 h-8 rounded-xl bg-[#F4F7F4] text-[#0A6E3B] hover:text-[#064E2B] flex items-center justify-center border border-[#D8EADB] active:scale-95 transition-all cursor-pointer"
+            aria-label="Notifications restaurant"
           >
-            <span>📊 Dashboard</span>
-            {mobileMode === 'dashboard' && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />}
+            <Bell className="w-3.5 h-3.5" />
+            {(pendingOrders.length + preparingOrders.length) > 0 && (
+              <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#FF7824] text-white text-[8px] font-black rounded-full flex items-center justify-center ring-1 ring-white animate-pulse">
+                {pendingOrders.length + preparingOrders.length}
+              </span>
+            )}
+          </motion.button>
+
+          <button
+            onClick={openEditGeneralModal}
+            className="w-8 h-8 rounded-xl bg-[#F4F7F4] text-gray-600 hover:text-[#0A6E3B] flex items-center justify-center border border-[#D8EADB] active:scale-95 transition-all"
+            title="Modifier les infos"
+          >
+            <SlidersHorizontal className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
 
-      {/* 3. Dashboard KPI Strip & Sub-tabs (Only shown when Dashboard mode is active) */}
-      {mobileMode === 'dashboard' && (
-        <div className="bg-white border-b border-[#D8EADB] p-2 space-y-2 shrink-0">
-          
-          {/* Dashboard KPI Strip */}
-          <div className="grid grid-cols-4 gap-1.5 text-center">
-            <div className="bg-[#F4F7F4] rounded-xl p-1.5 border border-[#D8EADB]">
-              <span className="text-[8px] uppercase block text-gray-400 font-bold">Revenus</span>
-              <span className="text-[10px] font-black text-[#0A6E3B] truncate block">{formatFCFA(totalRevenue)}</span>
-            </div>
-            <div className="bg-[#F4F7F4] rounded-xl p-1.5 border border-[#D8EADB]">
-              <span className="text-[8px] uppercase block text-gray-400 font-bold">Commandes</span>
-              <span className="text-[11px] font-black text-[#081A10]">{myOrders.length}</span>
-            </div>
-            <div className="bg-[#F4F7F4] rounded-xl p-1.5 border border-[#D8EADB]">
-              <span className="text-[8px] uppercase block text-gray-400 font-bold">Tables</span>
-              <span className="text-[11px] font-black text-[#FF7824]">{myReservations.length}</span>
-            </div>
-            <div className="bg-[#F4F7F4] rounded-xl p-1.5 border border-[#D8EADB]">
-              <span className="text-[8px] uppercase block text-gray-400 font-bold">Note Avis</span>
-              <span className="text-[11px] font-black text-amber-500">⭐ {currentResto.rating}</span>
-            </div>
+      {/* 2. Restaurant Daily Revenue & Orders KPI Banner */}
+      <div className="px-3 pt-2.5 bg-[#F4F7F4] shrink-0">
+        <div className="p-3.5 rounded-3xl bg-gradient-to-br from-[#064E2B] via-[#0A6E3B] to-[#10B981] text-white shadow-md space-y-2 relative overflow-hidden">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-200">
+              Chiffre d'Affaires du Jour (Wave / OM)
+            </span>
+            <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-white/20 text-white backdrop-blur-2xs">
+              ⭐ {currentResto.rating} Note
+            </span>
           </div>
 
-          {/* Sub-tabs */}
-          <div className="flex overflow-x-auto no-scrollbar gap-1 pt-1">
-            {[
-              { id: 'showcase', label: '🏛️ Modifier Vitrine' },
-              { id: 'orders', label: `📦 KDS (${myOrders.length})` },
-              { id: 'reservations', label: `📅 Tables (${myReservations.length})` },
-              { id: 'menu', label: `🍽️ Carte (${myDishes.length})` },
-              { id: 'stats', label: '⭐ Chiffres' },
-            ].map((tab) => {
-              const isSel = restoTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setRestoTab(tab.id as any)}
-                  className={`px-2.5 py-1 rounded-xl text-[10px] font-black shrink-0 transition-all ${
-                    isSel
-                      ? 'bg-[#E6F5EC] text-[#0A6E3B] border border-[#0A6E3B]/20 shadow-2xs'
-                      : 'text-gray-500 hover:text-gray-800'
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              );
-            })}
+          <div className="flex items-end justify-between">
+            <div>
+              <h3 className="text-2xl font-black tracking-tight text-white">{formatFCFA(totalRevenue)}</h3>
+              <span className="text-[10px] text-emerald-200 font-bold">
+                {myOrders.length} commande{myOrders.length > 1 ? 's' : ''} • {myReservations.length} table{myReservations.length > 1 ? 's' : ''}
+              </span>
+            </div>
+
+            <button
+              onClick={() => {
+                setMobileMode('dashboard');
+                setRestoTab('orders');
+              }}
+              className="px-3 py-1.5 rounded-xl bg-white text-[#064E2B] font-black text-[10px] shadow-sm hover:bg-emerald-50 active:scale-95 transition-all"
+            >
+              KDS Cuisine 🔥
+            </button>
           </div>
         </div>
-      )}
+      </div>
 
       {/* 4. Tab Content Area */}
-      <div className="flex-1 overflow-y-auto no-scrollbar p-3.5 pb-24 space-y-3.5">
+      <div className="flex-1 overflow-y-auto no-scrollbar p-3.5 pb-28 space-y-3.5">
         
         {/* =====================================================================
-            MODE 1: VITRINE PUBLIQUE CLIENT (100% PROPRE, SANS BOUTON ADMIN)
+            TAB 1: VITRINE (SHOWCASE RESTAURANT)
            ===================================================================== */}
-        {mobileMode === 'vitrine' && (
-          <div className="space-y-3.5">
-            
-            {/* Live Client Hero Banner */}
-            <div className="relative h-44 rounded-3xl overflow-hidden bg-gray-900 shadow-md">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={currentResto.coverImage}
-                alt={currentResto.name}
-                className="w-full h-full object-cover opacity-90"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
-
-              <div className="absolute bottom-3 inset-x-3 flex items-end gap-3 text-white">
-                <div className="w-14 h-14 rounded-2xl overflow-hidden border-2 border-white shadow-md bg-white shrink-0">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={currentResto.logo} alt={currentResto.name} className="w-full h-full object-cover" />
-                </div>
-                <div className="min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <h3 className="font-black text-sm text-white truncate">{currentResto.name}</h3>
-                    <span className="px-1.5 py-0.5 rounded-md bg-amber-400 text-black font-black text-[9px]">
-                      ⭐ {currentResto.rating}
-                    </span>
-                  </div>
-                  <p className="text-[10px] text-gray-200 line-clamp-1 italic">
-                    "{currentResto.tagline || 'Excellence gastronomique dakaroise'}"
-                  </p>
-                  <p className="text-[9px] text-gray-300 font-semibold">
-                    📍 {currentResto.neighborhood} • 💰 {currentResto.priceRange || '2 500 - 6 500 FCFA'}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Quick action buttons for clients */}
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <button
-                onClick={() => alert(`Réservation de table chez ${currentResto.name} ouverte !`)}
-                className="py-2.5 rounded-2xl brand-gradient text-white font-black flex items-center justify-center gap-1.5 shadow-md active:scale-95"
-              >
-                <span>📅 Réserver Table</span>
-              </button>
-              <a
-                href={`https://wa.me/221770000000?text=Bonjour%20${encodeURIComponent(currentResto.name)}`}
-                target="_blank"
-                rel="noreferrer"
-                className="py-2.5 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center justify-center gap-1.5 shadow-md active:scale-95"
-              >
-                <span>💬 WhatsApp</span>
-              </a>
-            </div>
-
-            {/* Multi-view Gallery */}
-            <div className="bg-white p-3 rounded-2xl border border-[#D8EADB] space-y-2 shadow-2xs">
-              <span className="font-black text-xs text-[#081A10] block">📸 Cadre & Vues ({currentResto.gallery?.length || 0})</span>
-              <div className="grid grid-cols-3 gap-1.5">
-                {currentResto.gallery?.map((img, i) => (
-                  <div key={i} className="relative aspect-4/3 rounded-xl overflow-hidden bg-gray-100 border border-[#D8EADB]">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={img} alt="" className="w-full h-full object-cover" />
-                    <span className="absolute bottom-1 inset-x-1 bg-black/70 text-[8px] text-white text-center rounded-md font-bold py-0.5 truncate px-1">
-                      {i === 0 ? 'Façade' : i === 1 ? 'Terrasse' : i === 2 ? 'VIP' : 'Cuisine'}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Badges & Amenities */}
-            <div className="bg-white p-3 rounded-2xl border border-[#D8EADB] space-y-2 shadow-2xs text-xs">
-              <span className="font-black text-xs text-[#081A10] block">✨ Ambiance & Services</span>
-              <div className="flex flex-wrap gap-1">
-                {currentResto.ambianceTags?.map((tag, i) => (
-                  <span key={i} className="px-2 py-0.5 rounded-lg bg-[#E6F5EC] text-[#0A6E3B] text-[10px] font-bold border border-[#0A6E3B]/20">
-                    ✨ {tag}
-                  </span>
-                ))}
-              </div>
-              <div className="grid grid-cols-2 gap-1 text-[10px] pt-1">
-                {currentResto.amenities?.map((amenity, i) => (
-                  <div key={i} className="p-1.5 rounded-lg bg-[#F4F7F4] font-semibold text-gray-700 flex items-center gap-1">
-                    <span className="text-[#0A6E3B]">✓</span>
-                    <span className="truncate">{amenity}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Menu preview */}
-            <div className="bg-white p-3 rounded-2xl border border-[#D8EADB] space-y-2 shadow-2xs">
-              <span className="font-black text-xs text-[#081A10] block">🍽️ Carte des Plats ({myDishes.length})</span>
-              <div className="space-y-2">
-                {myDishes.slice(0, 4).map((d) => (
-                  <div key={d.id} className="p-2 rounded-xl bg-[#F4F7F4] flex items-center justify-between gap-2 border border-[#D8EADB]">
-                    <div className="flex items-center gap-2 min-w-0">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={d.image} alt={d.name} className="w-10 h-10 rounded-lg object-cover bg-white shrink-0" />
-                      <div className="min-w-0">
-                        <p className="font-black text-xs text-[#081A10] truncate">{d.name}</p>
-                        <span className="text-[10px] font-black text-[#0A6E3B]">{formatFCFA(d.price)}</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-          </div>
-        )}
-
-        {/* =====================================================================
-            MODE 2: DASHBOARD (STUDIO DE PERSONNALISATION, KDS, TABLES, STATS)
-           ===================================================================== */}
-        {mobileMode === 'dashboard' && restoTab === 'showcase' && (
-          <div className="space-y-3.5">
+        {restoTab === 'showcase' && (
+          <div className="space-y-4">
             
             {/* Top Toolbar: Live Status & Preview Button */}
-            <div className="bg-white p-3 rounded-2xl border border-[#D8EADB] flex items-center justify-between shadow-2xs">
-              <div className="flex items-center gap-1.5">
+            <div className="bg-white p-3.5 rounded-3xl border border-[#D8EADB] flex items-center justify-between shadow-2xs">
+              <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="font-black text-xs text-[#081A10]">Vitrine Publique Active</span>
+                <div>
+                  <span className="font-black text-xs text-[#081A10] block leading-tight">Vitrine Publique Active</span>
+                  <span className="text-[10px] text-gray-400">Visible par tous les clients à Dakar</span>
+                </div>
               </div>
 
               <button
                 onClick={() => setIsPreviewClientModalOpen(true)}
-                className="px-3 py-1.5 rounded-xl brand-gradient text-white text-[10px] font-black shadow-xs flex items-center gap-1.5 active:scale-95 transition-all"
+                className="px-3.5 py-2 rounded-2xl brand-gradient text-white text-[11px] font-black shadow-sm flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer"
               >
-                <span>👁️ Voir comme client</span>
+                <span>👁️ Voir Aperçu Client</span>
               </button>
             </div>
 
-            {/* CARD 1: PHOTO DE COUVERTURE & LOGO (HERO BANNER CUSTOMIZER) */}
-            <div className="bg-white rounded-3xl border border-[#D8EADB] overflow-hidden shadow-xs space-y-3 p-3.5">
+            {/* CARD 1: PHOTO DE COUVERTURE & LOGO */}
+            <div className="bg-white rounded-[28px] border border-[#D8EADB] overflow-hidden shadow-xs space-y-3 p-3.5">
               <div className="flex items-center justify-between">
                 <div>
                   <h4 className="font-black text-xs text-[#081A10]">1. Photo de Couverture & Logo</h4>
-                  <p className="text-[10px] text-gray-400">Première impression vue par les clients sur Dakar</p>
+                  <p className="text-[10px] text-gray-400">Première impression vue par les clients</p>
                 </div>
+                <button
+                  onClick={() => setIsEditCoverModalOpen(true)}
+                  className="px-2.5 py-1 rounded-xl bg-[#E6F5EC] text-[#0A6E3B] text-[10px] font-black border border-[#0A6E3B]/20"
+                >
+                  Modifier Photo
+                </button>
               </div>
 
               {/* Live interactive banner preview */}
-              <div className="relative h-36 rounded-2xl overflow-hidden bg-gray-900 group shadow-inner">
+              <div className="relative h-40 rounded-2xl overflow-hidden bg-gray-900 group shadow-inner">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={currentResto.coverImage}
@@ -3907,41 +4169,37 @@ function MobileRestaurantApp({ onLogout }: { onLogout?: () => void }) {
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
 
-                {/* Edit Cover Overlay Button */}
-                <button
-                  onClick={() => setIsEditCoverModalOpen(true)}
-                  className="absolute top-2.5 right-2.5 px-2.5 py-1 rounded-xl bg-black/60 hover:bg-black/80 text-white text-[10px] font-bold backdrop-blur-xs flex items-center gap-1 border border-white/20 shadow-md active:scale-95"
-                >
-                  <span>🖼️ Changer Couverture</span>
-                </button>
-
-                {/* Logo & Name preview with edit button */}
-                <div className="absolute bottom-2.5 inset-x-3 flex items-end justify-between">
+                {/* Logo & Name preview */}
+                <div className="absolute bottom-3 inset-x-3 flex items-end justify-between text-white">
                   <div className="flex items-end gap-2.5">
                     <div className="relative group/logo">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={currentResto.logo}
                         alt={currentResto.name}
-                        className="w-12 h-12 rounded-xl object-cover border-2 border-white shadow-md bg-white shrink-0"
+                        className="w-12 h-12 rounded-2xl object-cover border-2 border-white shadow-md bg-white shrink-0"
                       />
-                      <button
-                        onClick={() => setIsEditLogoModalOpen(true)}
-                        className="absolute inset-0 bg-black/60 rounded-xl text-[8px] text-white font-bold flex items-center justify-center opacity-0 group-hover/logo:opacity-100 transition-opacity"
-                      >
-                        Modifier
-                      </button>
                     </div>
 
-                    <div className="text-white min-w-0">
-                      <h5 className="font-black text-xs leading-tight truncate">{currentResto.name}</h5>
-                      <p className="text-[9px] text-gray-200 line-clamp-1">{currentResto.tagline || currentResto.address}</p>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <h5 className="font-black text-sm leading-tight truncate">{currentResto.name}</h5>
+                        <span className="px-1.5 py-0.2 rounded-md bg-amber-400 text-black font-black text-[9px]">
+                          ⭐ {currentResto.rating}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-gray-200 line-clamp-1 italic">
+                        "{currentResto.tagline || 'Excellence gastronomique dakaroise'}"
+                      </p>
+                      <p className="text-[9px] text-gray-300 font-semibold">
+                        📍 {currentResto.neighborhood} • 💰 {currentResto.priceRange || '2 500 - 6 500 FCFA'}
+                      </p>
                     </div>
                   </div>
 
                   <button
                     onClick={() => setIsEditLogoModalOpen(true)}
-                    className="px-2 py-0.5 rounded-lg bg-white/90 text-[#081A10] text-[9px] font-black shadow-xs shrink-0"
+                    className="px-2 py-1 rounded-xl bg-white/90 text-[#081A10] text-[9px] font-black shadow-xs shrink-0"
                   >
                     Changer Logo
                   </button>
@@ -3984,53 +4242,31 @@ function MobileRestaurantApp({ onLogout }: { onLogout?: () => void }) {
                   <span className="font-bold text-[10px] text-[#081A10]">{currentResto.neighborhood} • {currentResto.phone || '+221 77 000 00 00'}</span>
                 </div>
               </div>
-
-              {currentResto.tagline && (
-                <div className="p-2.5 rounded-xl bg-white border border-[#D8EADB]">
-                  <span className="text-[9px] text-gray-400 font-bold block">Slogan / Description d'ambiance</span>
-                  <p className="text-[11px] text-[#081A10] font-medium italic mt-0.5">"{currentResto.tagline}"</p>
-                </div>
-              )}
             </div>
 
-            {/* CARD 3: GALERIE PHOTOS D'AMBIANCE & DIFFÉRENTES VUES (HD PHOTO STUDIO) */}
-            <div className="bg-white p-3.5 rounded-3xl border border-[#D8EADB] space-y-3 shadow-xs text-xs">
+            {/* CARD 3: GALERIE PHOTOS DU CADRE */}
+            <div className="bg-white p-3.5 rounded-3xl border border-[#D8EADB] space-y-3 shadow-xs">
               <div className="flex items-center justify-between">
                 <div>
-                  <h4 className="font-black text-xs text-[#081A10]">
-                    3. Galerie Photos d'Ambiance ({currentResto.gallery?.length || 0})
-                  </h4>
-                  <p className="text-[10px] text-gray-400">Vues de la terrasse, façade, salle et cuisine</p>
+                  <h4 className="font-black text-xs text-[#081A10]">3. Photos du Cadre & Ambiance ({currentResto.gallery?.length || 0})</h4>
+                  <p className="text-[10px] text-gray-400">Salle, terrasse avec vue et plats</p>
                 </div>
                 <button
                   onClick={() => setIsAddGalleryPhotoModalOpen(true)}
-                  className="px-2.5 py-1 rounded-xl brand-gradient text-white text-[10px] font-black shadow-xs flex items-center gap-1 active:scale-95"
+                  className="px-2.5 py-1 rounded-xl brand-gradient text-white text-[10px] font-black shadow-xs flex items-center gap-1 active:scale-95 transition-all"
                 >
-                  <Plus className="w-3 h-3" />
-                  <span>Ajouter Vue</span>
+                  <span>+ Ajouter Photo</span>
                 </button>
               </div>
 
-              {/* Photo grid with delete buttons */}
               <div className="grid grid-cols-3 gap-2">
-                {currentResto.gallery?.map((imgUrl, i) => (
-                  <div
-                    key={i}
-                    className="relative aspect-4/3 rounded-2xl overflow-hidden bg-gray-100 border border-[#D8EADB] group shadow-2xs"
-                  >
+                {currentResto.gallery?.map((img, i) => (
+                  <div key={i} className="relative aspect-4/3 rounded-2xl overflow-hidden bg-gray-100 border border-[#D8EADB] group shadow-2xs">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={imgUrl} alt={`Vue ${i + 1}`} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
-                    
-                    {/* View tag label */}
-                    <span className="absolute bottom-1 inset-x-1 bg-black/70 text-[8px] text-white text-center rounded-md font-bold py-0.5 backdrop-blur-2xs truncate px-1">
-                      {i === 0 ? 'Façade' : i === 1 ? 'Terrasse Mer' : i === 2 ? 'Salle VIP' : i === 3 ? 'Cuisine' : `Vue ${i + 1}`}
-                    </span>
-
-                    {/* Delete action */}
+                    <img src={img} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
                     <button
                       onClick={() => handleDeleteGalleryPhoto(i)}
-                      className="absolute top-1 right-1 w-6 h-6 rounded-full bg-rose-600 text-white flex items-center justify-center text-[10px] shadow-md opacity-90 hover:opacity-100 active:scale-90"
-                      title="Supprimer cette photo"
+                      className="absolute top-1 right-1 w-5 h-5 rounded-full bg-rose-600 text-white text-[10px] font-bold flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity shadow-xs"
                     >
                       ✕
                     </button>
@@ -4039,69 +4275,27 @@ function MobileRestaurantApp({ onLogout }: { onLogout?: () => void }) {
               </div>
             </div>
 
-            {/* CARD 4: BADGES D'AMBIANCE PERSONNALISABLES */}
+            {/* CARD 4: BADGES D'AMBIANCE & SERVICES */}
             <div className="bg-white p-3.5 rounded-3xl border border-[#D8EADB] space-y-2.5 shadow-xs text-xs">
               <div className="flex items-center justify-between">
                 <div>
-                  <h4 className="font-black text-xs text-[#081A10]">4. Badges d'Ambiance Visibles</h4>
-                  <p className="text-[10px] text-gray-400">Aident les clients à choisir selon l'occasion</p>
+                  <h4 className="font-black text-xs text-[#081A10]">4. Badges d'Ambiance & Atouts</h4>
+                  <p className="text-[10px] text-gray-400">Ce qui rend votre lieu unique à Dakar</p>
                 </div>
                 <button
                   onClick={() => setIsManageTagsModalOpen(true)}
-                  className="px-2.5 py-1 rounded-xl bg-[#E6F5EC] text-[#0A6E3B] text-[10px] font-black border border-[#0A6E3B]/20"
+                  className="px-2.5 py-1 rounded-xl bg-[#E6F5EC] text-[#0A6E3B] text-[10px] font-black border border-[#0A6E3B]/20 hover:bg-[#d5eedf] transition-all"
                 >
-                  + Gérer Badges
+                  Gérer les Badges
                 </button>
               </div>
 
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex flex-wrap gap-1.5 pt-1">
                 {currentResto.ambianceTags?.map((tag, i) => (
-                  <span
-                    key={i}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-[#E6F5EC] border border-[#0A6E3B]/20 text-[#0A6E3B] text-[10px] font-bold shadow-2xs"
-                  >
-                    <span>✨ {tag}</span>
-                    <button
-                      onClick={() => handleRemoveTag(tag)}
-                      className="text-rose-500 font-extrabold hover:text-rose-700 ml-0.5"
-                    >
-                      ✕
-                    </button>
+                  <span key={i} className="px-2.5 py-1 rounded-xl bg-[#E6F5EC] text-[#0A6E3B] text-[10px] font-black border border-[#0A6E3B]/20">
+                    ✨ {tag}
                   </span>
                 ))}
-              </div>
-            </div>
-
-            {/* CARD 5: COMMODITÉS ET SERVICES CERTIFIÉS */}
-            <div className="bg-white p-3.5 rounded-3xl border border-[#D8EADB] space-y-2.5 shadow-xs text-xs">
-              <div>
-                <h4 className="font-black text-xs text-[#081A10]">5. Commodités & Services Certifiés</h4>
-                <p className="text-[10px] text-gray-400">Cochez pour afficher sur la vitrine client</p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-1.5">
-                {allAvailableAmenities.map((amenity) => {
-                  const isChecked = currentResto.amenities?.includes(amenity.id);
-                  return (
-                    <button
-                      key={amenity.id}
-                      onClick={() => handleToggleAmenity(amenity.id)}
-                      className={`p-2 rounded-xl border text-left flex items-center justify-between transition-all ${
-                        isChecked
-                          ? 'bg-[#E6F5EC] border-[#0A6E3B]/30 text-[#081A10] font-bold'
-                          : 'bg-[#F4F7F4] border-[#D8EADB] text-gray-400'
-                      }`}
-                    >
-                      <span className="flex items-center gap-1.5 text-[10px] truncate">
-                        <span>{amenity.icon}</span>
-                        <span className="truncate">{amenity.id}</span>
-                      </span>
-                      <span className={`text-xs font-black ${isChecked ? 'text-[#0A6E3B]' : 'text-gray-300'}`}>
-                        {isChecked ? '✓' : '+'}
-                      </span>
-                    </button>
-                  );
-                })}
               </div>
             </div>
 
@@ -4109,133 +4303,219 @@ function MobileRestaurantApp({ onLogout }: { onLogout?: () => void }) {
         )}
 
         {/* =====================================================================
-            TAB 1: KDS CUISINE & FILE D'ATTENTE DES COMMANDES (ORDER QUEUES)
+            TAB 2: DASHBOARD (SYNTHÈSE 360°, CHIFFRES & COMPTES MARCHANDS)
+           ===================================================================== */}
+        {restoTab === 'overview' && (
+          <div className="space-y-4">
+            
+            {/* 4-Grid Metrics Cards */}
+            <div className="grid grid-cols-2 gap-2.5">
+              
+              {/* Card 1: Chiffre d'Affaires du Jour */}
+              <div className="p-3.5 rounded-3xl bg-white border border-[#D8EADB] shadow-xs space-y-1">
+                <div className="flex items-center justify-between text-gray-400">
+                  <span className="text-[9px] uppercase font-bold text-gray-500">Ventes du Jour</span>
+                  <span className="text-xs">💰</span>
+                </div>
+                <h4 className="text-lg font-black text-[#0A6E3B]">{formatFCFA(totalRevenue)}</h4>
+                <span className="text-[9px] font-bold text-emerald-600 block">↑ 14% vs hier</span>
+              </div>
+
+              {/* Card 2: Commandes en cours */}
+              <div 
+                onClick={() => setRestoTab('orders')}
+                className="p-3.5 rounded-3xl bg-white border border-[#D8EADB] shadow-xs space-y-1 cursor-pointer hover:border-[#FF7824]"
+              >
+                <div className="flex items-center justify-between text-gray-400">
+                  <span className="text-[9px] uppercase font-bold text-gray-500">En Cuisine</span>
+                  <span className="text-xs">🔥</span>
+                </div>
+                <h4 className="text-lg font-black text-[#081A10]">
+                  {pendingOrders.length + preparingOrders.length} commandes
+                </h4>
+                <span className="text-[9px] font-bold text-[#FF7824] block">KDS Direct ➔</span>
+              </div>
+
+              {/* Card 3: Tables Réservées */}
+              <div 
+                onClick={() => setRestoTab('orders')}
+                className="p-3.5 rounded-3xl bg-white border border-[#D8EADB] shadow-xs space-y-1 cursor-pointer hover:border-[#0A6E3B]"
+              >
+                <div className="flex items-center justify-between text-gray-400">
+                  <span className="text-[9px] uppercase font-bold text-gray-500">Tables Résas</span>
+                  <span className="text-xs">🥂</span>
+                </div>
+                <h4 className="text-lg font-black text-[#081A10]">
+                  {myReservations.length} tables
+                </h4>
+                <span className="text-[9px] font-bold text-sky-600 block">Gérer ➔</span>
+              </div>
+
+              {/* Card 4: Note Client */}
+              <div className="p-3.5 rounded-3xl bg-white border border-[#D8EADB] shadow-xs space-y-1">
+                <div className="flex items-center justify-between text-gray-400">
+                  <span className="text-[9px] uppercase font-bold text-gray-500">Satisfaction</span>
+                  <span className="text-xs">⭐</span>
+                </div>
+                <h4 className="text-lg font-black text-amber-500">
+                  ⭐ {currentResto.rating} / 5
+                </h4>
+                <span className="text-[9px] font-bold text-gray-400 block">{currentResto.reviews?.length || 18} avis vérifiés</span>
+              </div>
+
+            </div>
+
+            {/* Passerelles de Paiement Wave & OM du Resto */}
+            <div className="p-3.5 rounded-3xl bg-white border border-[#D8EADB] shadow-xs space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black text-[#081A10]">Comptes Marchands Restaurant</span>
+                <span className="text-[9px] font-bold text-[#0A6E3B] bg-[#E6F5EC] px-2 py-0.5 rounded-full">
+                  Direct Wave / OM
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="p-2.5 rounded-2xl bg-[#F4F7F4] border border-[#D8EADB] space-y-0.5">
+                  <div className="flex items-center gap-1 text-[10px] font-bold text-gray-600">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src="/images/wave_civ_logo.jpeg" alt="Wave" className="w-3.5 h-3.5 rounded object-contain" />
+                    <span>Wave Sénégal</span>
+                  </div>
+                  <span className="font-mono font-black text-xs text-[#081A10] block">{formatFCFA(Math.round(totalRevenue * 0.68))}</span>
+                  <span className="text-[9px] text-gray-400 block">Compte : {currentResto.phone || '+221 77 000 00 00'}</span>
+                </div>
+
+                <div className="p-2.5 rounded-2xl bg-[#F4F7F4] border border-[#D8EADB] space-y-0.5">
+                  <div className="flex items-center gap-1 text-[10px] font-bold text-gray-600">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src="/images/orange_ci.png" alt="OM" className="w-3.5 h-3.5 rounded object-contain" />
+                    <span>Orange Money</span>
+                  </div>
+                  <span className="font-mono font-black text-xs text-[#081A10] block">{formatFCFA(Math.round(totalRevenue * 0.22))}</span>
+                  <span className="text-[9px] text-gray-400 block">USSD #144#</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Top Best-Selling Dishes */}
+            <div className="p-3.5 rounded-3xl bg-white border border-[#D8EADB] shadow-xs space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-black text-[#081A10]">Plats Vedettes & Stocks</span>
+                <button
+                  onClick={() => setRestoTab('orders')}
+                  className="text-[10px] font-bold text-[#0A6E3B] hover:underline"
+                >
+                  Gérer la Carte ➔
+                </button>
+              </div>
+
+              <div className="space-y-2">
+                {myDishes.slice(0, 3).map((dish) => (
+                  <div key={dish.id} className="p-2 rounded-2xl bg-[#F4F7F4] border border-[#D8EADB] flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={dish.image} alt={dish.name} className="w-9 h-9 rounded-xl object-cover bg-white shrink-0" />
+                      <div className="min-w-0">
+                        <span className="font-black text-xs text-[#081A10] truncate block">{dish.name}</span>
+                        <span className="font-mono text-[10px] font-bold text-[#0A6E3B]">{formatFCFA(dish.price)}</span>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => toggleMenuItemAvailability(dish.id)}
+                      className={`px-2 py-1 rounded-lg text-[9px] font-black ${
+                        dish.isAvailable ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+                      }`}
+                    >
+                      {dish.isAvailable ? 'En stock 🟢' : 'Épuisé 🔴'}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+          </div>
+        )}
+
+        {/* =====================================================================
+            TAB 3: COMMANDES (KDS CUISINE, TABLES & GESTION DE LA CARTE)
            ===================================================================== */}
         {restoTab === 'orders' && (
           <div className="space-y-4">
             
-            {/* Header: Order Queues */}
+            {/* Header: Kitchen Orders */}
             <div className="flex items-center justify-between">
               <div>
-                <h4 className="text-sm font-black text-[#081A10] tracking-tight flex items-center gap-1.5">
-                  <span>Order Queues</span>
-                  <span className="text-[10px] font-black bg-[#FF7824] text-white px-2 py-0.5 rounded-full">
-                    {pendingOrders.length + preparingOrders.length} actives
-                  </span>
-                </h4>
-                <p className="text-[10px] text-gray-400">File d'attente des commandes en cuisine en direct</p>
+                <h4 className="text-sm font-black text-[#081A10] tracking-tight">KDS Cuisine en Direct</h4>
+                <p className="text-[10px] text-gray-400">Préparez et envoyez les commandes aux livreurs</p>
               </div>
-
-              <div className="flex items-center gap-1 bg-[#F4F7F4] p-1 rounded-xl border border-[#D8EADB] text-[10px] font-bold">
-                <span className="px-2 py-0.5 rounded-lg bg-white text-[#0A6E3B] shadow-2xs font-black">
-                  En Direct 🟢
-                </span>
-              </div>
+              <button
+                onClick={() => setIsAddDishModalOpen(true)}
+                className="px-3 py-1.5 rounded-xl brand-gradient text-white text-[10px] font-black shadow-xs flex items-center gap-1 active:scale-95"
+              >
+                <Plus className="w-3 h-3" />
+                <span>+ Ajouter Plat</span>
+              </button>
             </div>
 
+            {/* List of Orders */}
             {myOrders.length === 0 ? (
               <div className="p-8 text-center bg-white rounded-3xl border border-[#D8EADB] text-xs text-gray-400 space-y-2 shadow-2xs">
-                <span className="text-3xl block">👨‍🍳</span>
-                <p className="font-bold text-gray-700">Aucune commande en cuisine pour le moment.</p>
-                <p className="text-[10px]">Dès qu'un client passe commande sur Thiob Express, elle apparaîtra ici avec son minuteur.</p>
+                <span className="text-3xl block">🍲</span>
+                <p className="font-bold text-gray-700">Aucune commande pour le moment.</p>
+                <p className="text-[10px]">Les commandes des clients à Dakar apparaîtront ici avec alerte sonore.</p>
               </div>
             ) : (
               <div className="space-y-3">
                 {myOrders.map((ord) => {
-                  const isPending = ord.status === 'pending' || ord.status === 'accepted';
+                  const isPending = ord.status === 'pending';
                   const isPreparing = ord.status === 'preparing';
-                  const isReady = ord.status === 'ready_for_pickup' || ord.status === 'in_transit';
-                  const isDelivered = ord.status === 'delivered';
+                  const isReady = ord.status === 'ready_for_pickup';
 
                   return (
                     <motion.div
                       key={ord.id}
                       layout
-                      className={`bg-white p-4 rounded-[26px] border transition-all space-y-3 shadow-sm ${
-                        isPreparing 
-                          ? 'border-[#FF7824] ring-2 ring-[#FF7824]/20' 
-                          : isReady 
-                          ? 'border-[#0A6E3B] bg-[#F8FAF8]' 
-                          : 'border-[#D8EADB]'
-                      }`}
+                      className="bg-white p-3.5 rounded-3xl border border-[#D8EADB] space-y-3 shadow-xs hover:border-[#0A6E3B]/40 transition-all"
                     >
-                      {/* Top Row: Order ID + Table/Neighborhood Pill + Time */}
-                      <div className="flex items-start justify-between">
+                      <div className="flex justify-between items-start">
                         <div>
                           <div className="flex items-center gap-2">
                             <span className="font-mono font-black text-xs text-[#081A10]">{ord.orderNumber}</span>
-                            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-[#F4F7F4] text-gray-700 border border-[#D8EADB]">
-                              📍 {ord.deliveryAddress.neighborhood || 'Dakar'}
+                            <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider ${
+                              isPending ? 'bg-amber-100 text-amber-800 animate-pulse' :
+                              isPreparing ? 'bg-orange-100 text-orange-800' :
+                              isReady ? 'bg-sky-100 text-sky-800' :
+                              'bg-emerald-100 text-emerald-800'
+                            }`}>
+                              {isPending ? '● À Cuire' : isPreparing ? '🔥 En Préparation' : isReady ? '🛵 Prêt pour Livreur' : '✓ Livrée'}
                             </span>
                           </div>
-                          <h5 className="font-black text-sm text-[#081A10] mt-1">{ord.clientName}</h5>
-                          <span className="text-[10px] text-gray-400 font-medium">Aujourd'hui • 11:10 PM</span>
-                        </div>
-
-                        {/* Status Progress Pill / Ring Badge */}
-                        <div className="text-right flex flex-col items-end">
-                          <span className="text-sm font-black text-[#0A6E3B]">{formatFCFA(ord.total)}</span>
-                          <span className="text-[9px] font-bold px-2 py-0.5 rounded-md mt-1 uppercase tracking-wider bg-[#E6F5EC] text-[#0A6E3B]">
-                            {ord.paymentMethod === 'wave' && '🌊 Wave Payé'}
-                            {ord.paymentMethod === 'orange_money' && '🍊 OM Payé'}
-                            {ord.paymentMethod === 'card' && '💳 CB Payé'}
-                            {ord.paymentMethod === 'cash' && '💵 Espèces'}
+                          <span className="text-[10px] text-gray-500 font-bold block pt-0.5">
+                            Client : {ord.clientName} (📍 {ord.deliveryAddress.neighborhood})
                           </span>
                         </div>
+                        <span className="font-mono font-black text-xs text-[#0A6E3B]">{formatFCFA(ord.total)}</span>
                       </div>
 
-                      {/* Cooking Progress Bar */}
-                      <div className="p-2.5 rounded-2xl bg-[#F4F7F4] border border-[#D8EADB] flex items-center justify-between text-xs">
-                        <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-full bg-white border border-[#D8EADB] flex items-center justify-center font-black text-[10px] text-[#FF7824] shadow-2xs">
-                            {isDelivered ? '✓' : isReady ? '100%' : isPreparing ? '64%' : '10%'}
-                          </div>
-                          <div>
-                            <span className="font-black text-xs text-[#081A10] block">
-                              {isDelivered ? 'Commande Livrée' : isReady ? 'Prête en salle' : isPreparing ? 'En Cuisson 🔥' : 'En Attente de Cuisine'}
+                      {/* Items */}
+                      <div className="bg-[#F4F7F4] p-2.5 rounded-2xl border border-[#D8EADB] space-y-1 text-xs">
+                        {ord.items.map((it, idx) => (
+                          <div key={idx} className="flex justify-between items-center text-[11px]">
+                            <span className="font-bold text-[#081A10]">
+                              {it.quantity}x {it.name}
                             </span>
-                            <span className="text-[9px] text-gray-400 font-medium">
-                              {isPreparing ? '12 min restantes estimées' : `${ord.items.length} articles commandés`}
-                            </span>
-                          </div>
-                        </div>
-
-                        <span className="text-[11px] font-black text-[#0A6E3B]">
-                          {ord.items.reduce((acc, it) => acc + it.quantity, 0)} plats ↗
-                        </span>
-                      </div>
-
-                      {/* Items List Breakdown */}
-                      <div className="space-y-1 pt-1 divide-y divide-gray-100">
-                        {ord.items.map((it, i) => (
-                          <div key={i} className="pt-1.5 first:pt-0 flex justify-between items-center text-xs">
-                            <span className="font-bold text-[#081A10] flex items-center gap-1.5">
-                              <span className="w-5 h-5 rounded-md bg-[#E6F5EC] text-[#0A6E3B] font-black flex items-center justify-center text-[10px]">
-                                {it.quantity}x
-                              </span>
-                              <span>{it.name}</span>
-                            </span>
-                            <span className="text-[11px] font-mono font-bold text-gray-600">{formatFCFA(it.price * it.quantity)}</span>
+                            <span className="text-gray-400 font-mono">{formatFCFA(it.price * it.quantity)}</span>
                           </div>
                         ))}
                       </div>
 
-                      {/* Tiak-Tiak Courier Assigned Notice */}
-                      {ord.courierName && (
-                        <div className="text-[10px] text-gray-600 flex items-center justify-between bg-sky-50 p-2 rounded-xl border border-sky-100">
-                          <span className="flex items-center gap-1 font-bold text-sky-900">
-                            🛵 Livreur Tiak-Tiak : {ord.courierName}
-                          </span>
-                          <span className="font-mono text-sky-700 font-bold">{ord.courierPhone}</span>
-                        </div>
-                      )}
-
-                      {/* KDS Kitchen Action Buttons */}
+                      {/* Action buttons */}
                       <div className="flex gap-2 pt-1">
                         {isPending && (
                           <button
                             onClick={() => updateOrderStatus(ord.id, 'preparing')}
-                            className="flex-1 py-2.5 rounded-2xl brand-gradient text-white text-xs font-black shadow-md hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-1.5"
+                            className="flex-1 py-2.5 rounded-2xl brand-gradient text-white text-xs font-black shadow-md active:scale-95 transition-all flex items-center justify-center gap-1.5"
                           >
                             <span>🔥 Lancer la Cuisson</span>
                           </button>
@@ -4245,7 +4525,7 @@ function MobileRestaurantApp({ onLogout }: { onLogout?: () => void }) {
                             onClick={() => updateOrderStatus(ord.id, 'ready_for_pickup')}
                             className="flex-1 py-2.5 rounded-2xl bg-[#FF7824] hover:bg-[#E86315] text-white text-xs font-black shadow-md active:scale-95 transition-all flex items-center justify-center gap-1.5"
                           >
-                            <span>🛵 Commande Prête ! Appeler Tiak-Tiak</span>
+                            <span>🛵 Prêt ! Appeler Tiak-Tiak</span>
                           </button>
                         )}
                         {isReady && (
@@ -4253,13 +4533,13 @@ function MobileRestaurantApp({ onLogout }: { onLogout?: () => void }) {
                             onClick={() => updateOrderStatus(ord.id, 'delivered')}
                             className="flex-1 py-2.5 rounded-2xl bg-[#064E2B] hover:bg-[#0A6E3B] text-white text-xs font-black shadow-md active:scale-95 transition-all flex items-center justify-center gap-1.5"
                           >
-                            <span>✓ Valider la Remise au Client</span>
+                            <span>✓ Valider la Remise</span>
                           </button>
                         )}
 
                         <button
                           onClick={() => alert(`Appel client : ${ord.clientPhone || '+221 77 000 00 00'}`)}
-                          className="px-3.5 py-2 rounded-2xl bg-[#F4F7F4] hover:bg-gray-200 text-gray-700 text-xs font-bold border border-[#D8EADB] active:scale-95 transition-all"
+                          className="px-3.5 py-2 rounded-2xl bg-[#F4F7F4] hover:bg-gray-200 text-gray-700 text-xs font-bold border border-[#D8EADB] active:scale-95"
                           title="Appeler le client"
                         >
                           📞
@@ -4271,265 +4551,424 @@ function MobileRestaurantApp({ onLogout }: { onLogout?: () => void }) {
                 })}
               </div>
             )}
-          </div>
-        )}
 
-        {/* =====================================================================
-            TAB 2: RÉSERVATIONS DE TABLES REÇUES (MODULE SORTIES DAKAR)
-           ===================================================================== */}
-        {restoTab === 'reservations' && (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <div>
-                <h4 className="text-xs font-black text-[#081A10] uppercase tracking-wider">
-                  Tables Réservées ({myReservations.length})
-                </h4>
-                <p className="text-[10px] text-gray-400">Reçues depuis le module de découverte client</p>
-              </div>
+            {/* Tables Réservées */}
+            <div className="pt-2 space-y-2">
+              <h5 className="font-black text-xs text-[#081A10]">Tables Réservées ({myReservations.length})</h5>
+              {myReservations.length === 0 ? (
+                <div className="p-4 text-center bg-white rounded-2xl border border-[#D8EADB] text-xs text-gray-400">
+                  <span>Aucune table réservée pour aujourd'hui</span>
+                </div>
+              ) : (
+                myReservations.map((res) => (
+                  <div key={res.id} className="p-3 rounded-2xl bg-white border border-[#D8EADB] text-xs space-y-1 shadow-2xs">
+                    <div className="flex justify-between items-center">
+                      <span className="font-bold text-[#081A10]">{res.clientName} ({res.guestsCount} pers.)</span>
+                      <span className="text-[10px] font-black text-[#0A6E3B] bg-[#E6F5EC] px-2 py-0.5 rounded-full">{res.time}</span>
+                    </div>
+                    <p className="text-[10px] text-gray-500">{res.date} • Occasion : {res.occasion}</p>
+                  </div>
+                ))
+              )}
             </div>
 
-            {myReservations.length === 0 ? (
-              <div className="p-8 text-center bg-white rounded-3xl border border-[#D8EADB] text-xs text-gray-400 space-y-2 shadow-2xs">
-                <span className="text-3xl block">🥂</span>
-                <p className="font-bold text-gray-700">Aucune réservation de table reçue pour l'instant.</p>
-                <p className="text-[10px]">Vos tables réservées par les clients (en couple, anniversaire, etc.) apparaîtront ici.</p>
-              </div>
-            ) : (
-              myReservations.map((res) => {
-                const assigned = assignedTables[res.id];
-
-                return (
-                  <div
-                    key={res.id}
-                    className="bg-white p-3.5 rounded-2xl border border-[#D8EADB] space-y-2.5 shadow-xs"
-                  >
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          <h5 className="font-black text-xs text-[#081A10]">{res.clientName}</h5>
-                          <span className="text-[9px] font-black bg-emerald-100 text-emerald-800 px-2 py-0.2 rounded-full">
-                            Confirmée
-                          </span>
-                        </div>
-                        <span className="text-[10px] font-mono text-gray-400 block">Code : {res.reservationNumber} • {res.clientPhone}</span>
-                      </div>
-                      <span className="text-[10px] font-bold text-[#FF7824] bg-[#FF7824]/10 px-2.5 py-0.5 rounded-full shrink-0">
-                        {res.occasion}
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2 text-[11px] bg-[#F4F7F4] p-2.5 rounded-xl border border-[#D8EADB]">
-                      <div>
-                        <span className="text-gray-400 block text-[9px] font-bold">Date & Heure</span>
-                        <span className="font-black text-[#081A10]">{res.date} • {res.time}</span>
-                      </div>
-                      <div>
-                        <span className="text-gray-400 block text-[9px] font-bold">Nombre de convives</span>
-                        <span className="font-black text-[#081A10]">{res.guestsCount} personnes</span>
-                      </div>
-                    </div>
-
-                    {res.notes && (
-                      <p className="text-[10px] text-amber-900 bg-amber-50 p-2 rounded-xl border border-amber-200/50">
-                        📝 <strong>Souhait client :</strong> {res.notes}
-                      </p>
-                    )}
-
-                    {/* Table Assignment Indicator */}
-                    <div className="flex items-center justify-between pt-1 border-t border-gray-100">
-                      <div className="text-[10px]">
-                        <span className="text-gray-400 font-bold">Emplacement : </span>
-                        <span className="font-black text-[#0A6E3B]">
-                          {assigned || 'Table non assignée'}
-                        </span>
-                      </div>
-
-                      <select
-                        value={assigned || ''}
-                        onChange={(e) => handleAssignTable(res.id, e.target.value)}
-                        className="text-[10px] font-bold bg-[#E6F5EC] text-[#0A6E3B] border border-[#0A6E3B]/30 rounded-lg px-2 py-1 focus:outline-hidden"
-                      >
-                        <option value="">-- Assigner Table --</option>
-                        <option value="Table 1 (Terrasse Océan)">Table 1 (Terrasse Océan)</option>
-                        <option value="Table 4 (Terrasse Vue Mer)">Table 4 (Terrasse Vue Mer)</option>
-                        <option value="Table 8 (Coin Romantique Couple)">Table 8 (Coin Romantique Couple)</option>
-                        <option value="Table 12 (Salon VIP Climatisation)">Table 12 (Salon VIP Climatisation)</option>
-                      </select>
-                    </div>
-
-                  </div>
-                );
-              })
-            )}
           </div>
         )}
 
         {/* =====================================================================
-            TAB 4: GESTION DE LA CARTE & PRODUCT LISTS (INSPIRÉ DE L'IMAGE 1)
+            TAB 4: LIVREUR (RADAR GPS & SUIVI DES TIAK-TIAK EN DIRECT)
            ===================================================================== */}
-        {restoTab === 'menu' && (
+        {restoTab === 'courier' && (
           <div className="space-y-4">
             
-            {/* Header: Product Lists */}
+            {/* Header */}
             <div className="flex items-center justify-between">
               <div>
-                <h4 className="text-sm font-black text-[#081A10] tracking-tight">Product Lists</h4>
-                <p className="text-[10px] text-gray-400">Gérez vos plats, stocks et tarifs en temps réel</p>
+                <h4 className="text-sm font-black text-[#081A10] tracking-tight">Flotte Livreurs Tiak-Tiak</h4>
+                <p className="text-[10px] text-gray-400">Position GPS & assignation des courses</p>
               </div>
-              <button
-                onClick={() => setIsAddDishModalOpen(true)}
-                className="px-3.5 py-2 rounded-2xl brand-gradient text-white text-xs font-black shadow-md flex items-center gap-1.5 active:scale-95 transition-all"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>+ Nouveau plat</span>
-              </button>
+              <span className="text-[10px] font-black text-[#0A6E3B] bg-[#E6F5EC] px-2.5 py-1 rounded-full border border-[#0A6E3B]/20">
+                ● 6 Livreurs en patrouille
+              </span>
             </div>
 
-            {/* Category Pills Filter */}
-            <div className="flex overflow-x-auto no-scrollbar gap-1.5 pb-1">
-              {[
-                { id: 'all', label: `Tous les plats (${myDishes.length})` },
-                { id: 'cat-thieb', label: '🍲 Thiéboudienne' },
-                { id: 'cat-dibi', label: '🍖 Dibi & Grillades' },
-                { id: 'cat-yassa', label: '🍗 Yassa Poulet' },
-                { id: 'cat-jus', label: '🍹 Jus Locaux' },
-              ].map((cat) => {
-                const isSel = vitrineCategory === cat.id;
-                return (
-                  <button
-                    key={cat.id}
-                    onClick={() => setVitrineCategory(cat.id)}
-                    className={`px-3 py-1.5 rounded-xl text-[11px] font-black shrink-0 transition-all ${
-                      isSel
-                        ? 'bg-[#064E2B] text-white shadow-xs'
-                        : 'bg-white text-gray-600 border border-[#D8EADB] hover:border-gray-300'
-                    }`}
-                  >
-                    {cat.label}
-                  </button>
-                );
-              })}
+            {/* Radar GPS Carte Interactive */}
+            <div className="bg-white rounded-3xl border border-[#D8EADB] p-3 shadow-xs space-y-2.5">
+              <span className="text-xs font-black text-[#081A10] block">📍 Radar des Livreurs autour de {currentResto.name}</span>
+              <CourierLiveRadar
+                courierPos={{ lat: 14.752, lng: -17.512 }}
+                restaurantPos={{ lat: 14.755, lng: -17.514 }}
+                destinationPos={{ lat: 14.748, lng: -17.508 }}
+                courierName="Ibrahima Fall (Tiak-Tiak Express)"
+                restaurantName={currentResto.name}
+                destinationAddress="Ngor Virage / Almadies"
+                orderNumber="TK-2026-LIVE"
+              />
             </div>
 
-            {/* Grid of Dish Product Cards (2 columns on mobile) */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {myDishes
-                .filter(d => vitrineCategory === 'all' || d.category === vitrineCategory)
-                .map((dish) => (
-                  <div
-                    key={dish.id}
-                    className="bg-white rounded-[26px] border border-[#D8EADB] overflow-hidden shadow-xs flex flex-col justify-between space-y-3 p-3.5 hover:border-[#0A6E3B]/40 transition-all"
-                  >
-                    {/* Dish Image + Discount Tag */}
-                    <div className="relative aspect-4/3 rounded-2xl overflow-hidden bg-gray-100">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={dish.image} alt={dish.name} className="w-full h-full object-cover" />
-                      
-                      {dish.isPopular && (
-                        <span className="absolute top-2 left-2 px-2 py-0.5 rounded-lg bg-[#FF7824] text-white text-[9px] font-black shadow-sm">
-                          ⭐ Star
-                        </span>
-                      )}
-
-                      <span className="absolute bottom-2 left-2 px-2.5 py-1 rounded-xl bg-black/75 text-white font-mono font-black text-xs backdrop-blur-xs shadow-md">
-                        {formatFCFA(dish.price)}
-                      </span>
-                    </div>
-
-                    {/* Dish Info */}
-                    <div>
-                      <h5 className="font-black text-xs text-[#081A10] leading-tight">{dish.name}</h5>
-                      <p className="text-[10px] text-gray-400 line-clamp-2 mt-0.5">{dish.description}</p>
-                      
-                      {/* Ingredient / Flavor tags */}
-                      <div className="flex flex-wrap gap-1 mt-2">
-                        <span className="px-2 py-0.5 rounded-md bg-[#F4F7F4] text-gray-600 text-[9px] font-bold">
-                          Authentique
-                        </span>
-                        <span className="px-2 py-0.5 rounded-md bg-[#E6F5EC] text-[#0A6E3B] text-[9px] font-bold">
-                          Fait Maison
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Availability Stock Switch Button */}
-                    <div className="pt-2 border-t border-gray-100 flex items-center justify-between">
-                      <span className="text-[10px] font-bold text-gray-500">Disponibilité :</span>
-                      <button
-                        onClick={() => toggleMenuItemAvailability(dish.id)}
-                        className={`px-3 py-1.5 rounded-xl text-[10px] font-black transition-all cursor-pointer ${
-                          dish.isAvailable
-                            ? 'bg-[#E6F5EC] text-[#0A6E3B] border border-[#0A6E3B]/30'
-                            : 'bg-rose-50 text-rose-700 border border-rose-200'
-                        }`}
-                      >
-                        {dish.isAvailable ? '🟢 En Stock' : '🔴 Épuisé'}
-                      </button>
-                    </div>
-
-                  </div>
-                ))}
-            </div>
-
-          </div>
-        )}
-
-        {/* =====================================================================
-            TAB 5: STATISTIQUES & AVIS CLIENTS (ANALYTICS & REVIEWS)
-           ===================================================================== */}
-        {restoTab === 'stats' && (
-          <div className="space-y-3.5">
-            
-            {/* Revenue breakdown */}
-            <div className="bg-white p-3.5 rounded-2xl border border-[#D8EADB] space-y-2.5 shadow-xs">
-              <h4 className="font-black text-xs text-[#081A10]">Performances Financières du Jour</h4>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div className="bg-[#F4F7F4] p-2.5 rounded-xl border border-[#D8EADB]">
-                  <span className="text-[9px] text-gray-400 block font-bold">Total Ventes</span>
-                  <span className="font-black text-sm text-[#0A6E3B]">{formatFCFA(totalRevenue)}</span>
-                </div>
-                <div className="bg-[#F4F7F4] p-2.5 rounded-xl border border-[#D8EADB]">
-                  <span className="text-[9px] text-gray-400 block font-bold">Panier Moyen</span>
-                  <span className="font-black text-sm text-[#081A10]">{formatFCFA(myOrders.length ? totalRevenue / myOrders.length : 0)}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Verified Customer Reviews list with Chef reply */}
-            <div className="space-y-2">
+            {/* Coursier Assigné */}
+            <div className="bg-white p-3.5 rounded-3xl border border-[#D8EADB] space-y-3 shadow-xs">
               <div className="flex items-center justify-between">
-                <h4 className="font-black text-xs text-[#081A10] uppercase tracking-wider">
-                  Avis Clients Dakarois ({currentResto.reviews?.length || 0})
-                </h4>
-                <span className="text-[10px] font-black text-[#0A6E3B] bg-[#E6F5EC] px-2 py-0.5 rounded-full">
-                  ⭐ {currentResto.rating} / 5
+                <span className="text-xs font-black text-[#081A10]">Livreur Référent Partenaire</span>
+                <span className="text-[9px] font-bold text-[#FF7824] bg-orange-50 px-2 py-0.5 rounded-full">
+                  Arrivée dans ~7 min
                 </span>
               </div>
 
-              {currentResto.reviews?.map((rev) => (
-                <div key={rev.id} className="bg-white p-3 rounded-2xl border border-[#D8EADB] space-y-1.5 shadow-2xs text-xs">
-                  <div className="flex justify-between items-center">
-                    <span className="font-black text-[#081A10]">{rev.author}</span>
-                    <span className="text-[9px] text-gray-400">{rev.date}</span>
-                  </div>
-                  <p className="text-[11px] text-gray-600 leading-relaxed italic">"{rev.comment}"</p>
-                  <div className="pt-1 flex items-center justify-between text-[10px]">
-                    <span className="text-emerald-700 font-bold">Note : ⭐⭐⭐⭐⭐</span>
-                    <button
-                      onClick={() => alert(`Répondre à ${rev.author}`)}
-                      className="text-[#0A6E3B] font-bold hover:underline"
-                    >
-                      Répondre ➔
-                    </button>
-                  </div>
+              <div className="flex items-center gap-3 bg-[#F4F7F4] p-3 rounded-2xl border border-[#D8EADB]">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-[#064E2B] to-[#10B981] flex items-center justify-center text-white font-black text-base shadow-sm">
+                  🏍️
                 </div>
-              ))}
+                <div className="flex-1 min-w-0">
+                  <h5 className="font-black text-xs text-[#081A10]">Ibrahima Fall</h5>
+                  <p className="text-[10px] text-gray-500">Moto Yamaha YBR • ⭐ 4.9 (420 livraisons)</p>
+                  <span className="text-[9px] font-bold text-[#0A6E3B] block">📍 Virage Ngor</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <a
+                  href="tel:+221770000000"
+                  className="py-2.5 rounded-2xl bg-[#E6F5EC] text-[#0A6E3B] font-black flex items-center justify-center gap-1.5 border border-[#0A6E3B]/20"
+                >
+                  <Phone className="w-3.5 h-3.5" />
+                  <span>Appeler Livreur</span>
+                </a>
+                <a
+                  href="https://wa.me/221770000000"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="py-2.5 rounded-2xl bg-[#25D366] text-white font-bold flex items-center justify-center gap-1.5 shadow-xs"
+                >
+                  <MessageCircle className="w-3.5 h-3.5" />
+                  <span>WhatsApp</span>
+                </a>
+              </div>
+            </div>
+
+          </div>
+        )}
+
+        {/* =====================================================================
+            TAB 5: PROFIL (COORDONNÉES, COMPTES & PARAMÈTRES ÉTABLISSEMENT)
+           ===================================================================== */}
+        {restoTab === 'profile' && (
+          <div className="space-y-4">
+            
+            {/* Resto Identity Header */}
+            <div className="bg-white p-4 rounded-3xl border border-[#D8EADB] text-center space-y-2 shadow-2xs">
+              <div className="w-16 h-16 rounded-2xl overflow-hidden mx-auto border-2 border-[#0A6E3B] shadow-sm p-0.5 bg-white">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={currentResto.logo} alt={currentResto.name} className="w-full h-full object-cover rounded-xl" />
+              </div>
+              <div>
+                <h4 className="font-black text-sm text-[#081A10]">{currentResto.name}</h4>
+                <p className="text-xs text-gray-500">📍 {currentResto.neighborhood}, Dakar</p>
+              </div>
+              <div className="flex justify-center gap-2 pt-1">
+                <span className="px-2.5 py-0.5 rounded-full bg-[#E6F5EC] text-[#0A6E3B] text-[10px] font-bold">
+                  Compte Restaurant Certifié Thiob
+                </span>
+              </div>
+            </div>
+
+            {/* Menu List & Settings */}
+            <div className="bg-white rounded-3xl border border-[#D8EADB] divide-y divide-[#D8EADB] text-xs shadow-2xs overflow-hidden">
+              <div 
+                onClick={openEditGeneralModal}
+                className="p-3.5 flex justify-between items-center cursor-pointer hover:bg-gray-50"
+              >
+                <div className="flex items-center gap-2">
+                  <span>🏢</span>
+                  <span className="font-bold text-gray-700">Coordonnées & Horaires du restaurant</span>
+                </div>
+                <ArrowRight className="w-3.5 h-3.5 text-gray-400" />
+              </div>
+
+              <div className="p-3.5 flex justify-between items-center cursor-pointer hover:bg-gray-50">
+                <div className="flex items-center gap-2">
+                  <span>🌊</span>
+                  <span className="font-bold text-gray-700">Compte Wave & Orange Money Marchand</span>
+                </div>
+                <span className="text-[10px] font-bold text-[#0A6E3B]">Actif</span>
+              </div>
+
+              <div className="p-3.5 flex justify-between items-center cursor-pointer hover:bg-gray-50">
+                <div className="flex items-center gap-2">
+                  <span>🔔</span>
+                  <span className="font-bold text-gray-700">Alertes sonores de commande</span>
+                </div>
+                <span className="text-[10px] font-bold text-[#0A6E3B]">Activé (Chime)</span>
+              </div>
+
+              {onLogout && (
+                <div 
+                  onClick={onLogout}
+                  className="p-3.5 flex justify-between items-center cursor-pointer hover:bg-rose-50 text-rose-700"
+                >
+                  <div className="flex items-center gap-2">
+                    <span>🚪</span>
+                    <span className="font-bold">Déconnexion / Changer d'établissement</span>
+                  </div>
+                  <ArrowRight className="w-3.5 h-3.5 text-rose-400" />
+                </div>
+              )}
             </div>
 
           </div>
         )}
 
       </div>
+
+      {/* =========================================================================
+          FLOATING ORGANIC BOTTOM DOCK NAVIGATION (AVEC LES 5 BOUTONS SIGNATURE)
+         ========================================================================= */}
+      <div className="absolute bottom-0 inset-x-0 z-30 pt-2 pb-2">
+        
+        {/* Wave Background SVG Shape */}
+        <div className="absolute inset-0 top-1 pointer-events-none">
+          <svg 
+            viewBox="0 0 1000 240" 
+            preserveAspectRatio="none" 
+            className="w-full h-full drop-shadow-[0_-3px_10px_rgba(0,0,0,0.05)]"
+          >
+            <path 
+              d="M0,95 C140,90 220,70 300,70 C420,70 520,115 640,115 C760,115 880,45 1000,20 L1000,240 L0,240 Z" 
+              fill="#FFFFFF" 
+            />
+          </svg>
+        </div>
+
+        <div className="relative flex items-end justify-around px-2 z-10">
+
+          {/* 1. Vitrine */}
+          <motion.button
+            whileHover={{ scale: 1.08, y: -3 }}
+            whileTap={{ scale: 0.9 }}
+            onClick={() => setRestoTab('showcase')}
+            className="flex flex-col items-center justify-center gap-1 cursor-pointer"
+          >
+            <div className="relative w-14" style={{ aspectRatio: '113.57 / 100.25' }}>
+              <svg viewBox="0 0 113.57 100.25" className="absolute inset-0 w-full h-full" style={{ filter: 'drop-shadow(0 2px 5px rgba(0,0,0,0.18))' }}>
+                <path d="M105.56,78.89c-2.32,1.87-5.72,3.82-8.46,5-16.51,7.12-39.56,9.67-56.82,16-11.63,1.93-22.17-3.95-26.76-14.9-4.03-9.62-7.73-31.38-10.1-42.53-2.32-10.9-6.62-21.78.52-31.81C9.09,3.41,15.22.62,23.91.18c16.3-.84,47.43,1.48,64.05,3.49,23.41,2.83,23.34,17.43,24.66,36.58.83,12.13,3.62,30.05-7.06,38.64Z" fill={restoTab === 'showcase' ? '#0A6E3B' : '#F6F5F1'} />
+              </svg>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <svg width="19" height="19" viewBox="0 0 24 24" fill={restoTab === 'showcase' ? '#FFFFFF' : '#FF7824'} xmlns="http://www.w3.org/2000/svg">
+                  <path d="M10 20V14H14V20H19V12H22L12 3L2 12H5V20H10Z"/>
+                </svg>
+              </div>
+            </div>
+            <span className={`text-[9px] font-black ${restoTab === 'showcase' ? 'text-[#0A6E3B]' : 'text-[#081A10]/70'}`}>
+              Vitrine
+            </span>
+          </motion.button>
+
+          {/* 2. Dashboard */}
+          <motion.button
+            whileHover={{ scale: 1.08, y: -3 }}
+            whileTap={{ scale: 0.9 }}
+            onClick={() => setRestoTab('overview')}
+            className="flex flex-col items-center justify-center gap-1 cursor-pointer"
+          >
+            <div className="relative w-14" style={{ aspectRatio: '113.57 / 100.25' }}>
+              <svg viewBox="0 0 113.57 100.25" className="absolute inset-0 w-full h-full" style={{ filter: 'drop-shadow(0 2px 5px rgba(0,0,0,0.18))' }}>
+                <path d="M105.56,78.89c-2.32,1.87-5.72,3.82-8.46,5-16.51,7.12-39.56,9.67-56.82,16-11.63,1.93-22.17-3.95-26.76-14.9-4.03-9.62-7.73-31.38-10.1-42.53-2.32-10.9-6.62-21.78.52-31.81C9.09,3.41,15.22.62,23.91.18c16.3-.84,47.43,1.48,64.05,3.49,23.41,2.83,23.34,17.43,24.66,36.58.83,12.13,3.62,30.05-7.06,38.64Z" fill={restoTab === 'overview' ? '#0A6E3B' : '#F6F5F1'} />
+              </svg>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Activity className={`w-4.5 h-4.5 ${restoTab === 'overview' ? 'text-white' : 'text-[#081A10]/60'}`} />
+              </div>
+            </div>
+            <span className={`text-[9px] font-black ${restoTab === 'overview' ? 'text-[#0A6E3B]' : 'text-[#081A10]/70'}`}>
+              Dashboard
+            </span>
+          </motion.button>
+
+          {/* 3. Commandes */}
+          <motion.button
+            whileHover={{ scale: 1.08, y: -3 }}
+            whileTap={{ scale: 0.9 }}
+            onClick={() => setRestoTab('orders')}
+            className="flex flex-col items-center justify-center gap-1 cursor-pointer"
+          >
+            <div className="relative w-14" style={{ aspectRatio: '113.57 / 100.25' }}>
+              <svg viewBox="0 0 113.57 100.25" className="absolute inset-0 w-full h-full" style={{ filter: 'drop-shadow(0 2px 5px rgba(0,0,0,0.18))' }}>
+                <path d="M105.56,78.89c-2.32,1.87-5.72,3.82-8.46,5-16.51,7.12-39.56,9.67-56.82,16-11.63,1.93-22.17-3.95-26.76-14.9-4.03-9.62-7.73-31.38-10.1-42.53-2.32-10.9-6.62-21.78.52-31.81C9.09,3.41,15.22.62,23.91.18c16.3-.84,47.43,1.48,64.05,3.49,23.41,2.83,23.34,17.43,24.66,36.58.83,12.13,3.62,30.05-7.06,38.64Z" fill={restoTab === 'orders' ? '#0A6E3B' : '#F6F5F1'} />
+              </svg>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <ShoppingBag className={`w-4.5 h-4.5 ${restoTab === 'orders' ? 'text-white' : 'text-[#081A10]/60'}`} />
+                {(pendingOrders.length + preparingOrders.length) > 0 && (
+                  <span className="absolute top-1.5 right-2 w-4 h-4 bg-[#FF7824] text-white text-[9px] font-black rounded-full ring-2 ring-white flex items-center justify-center animate-pulse">
+                    {pendingOrders.length + preparingOrders.length}
+                  </span>
+                )}
+              </div>
+            </div>
+            <span className={`text-[9px] font-black ${restoTab === 'orders' ? 'text-[#0A6E3B]' : 'text-[#081A10]/70'}`}>
+              Commandes
+            </span>
+          </motion.button>
+
+          {/* 4. Livreur */}
+          <motion.button
+            whileHover={{ scale: 1.08, y: -3 }}
+            whileTap={{ scale: 0.9 }}
+            onClick={() => setRestoTab('courier')}
+            className="flex flex-col items-center justify-center gap-1 cursor-pointer"
+          >
+            <div className="relative w-14" style={{ aspectRatio: '113.57 / 100.25' }}>
+              <svg viewBox="0 0 113.57 100.25" className="absolute inset-0 w-full h-full" style={{ filter: 'drop-shadow(0 2px 5px rgba(0,0,0,0.18))' }}>
+                <path d="M105.56,78.89c-2.32,1.87-5.72,3.82-8.46,5-16.51,7.12-39.56,9.67-56.82,16-11.63,1.93-22.17-3.95-26.76-14.9-4.03-9.62-7.73-31.38-10.1-42.53-2.32-10.9-6.62-21.78.52-31.81C9.09,3.41,15.22.62,23.91.18c16.3-.84,47.43,1.48,64.05,3.49,23.41,2.83,23.34,17.43,24.66,36.58.83,12.13,3.62,30.05-7.06,38.64Z" fill={restoTab === 'courier' ? '#0A6E3B' : '#F6F5F1'} />
+              </svg>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Bike className={`w-4.5 h-4.5 ${restoTab === 'courier' ? 'text-white' : 'text-[#081A10]/60'}`} />
+              </div>
+            </div>
+            <span className={`text-[9px] font-black ${restoTab === 'courier' ? 'text-[#0A6E3B]' : 'text-[#081A10]/70'}`}>
+              Livreur
+            </span>
+          </motion.button>
+
+          {/* 5. Profil */}
+          <motion.button
+            whileHover={{ scale: 1.08, y: -3 }}
+            whileTap={{ scale: 0.9 }}
+            onClick={() => setRestoTab('profile')}
+            className="flex flex-col items-center justify-center gap-1 cursor-pointer"
+          >
+            <div className="relative w-14" style={{ aspectRatio: '113.57 / 100.25' }}>
+              <svg viewBox="0 0 113.57 100.25" className="absolute inset-0 w-full h-full" style={{ filter: 'drop-shadow(0 2px 5px rgba(0,0,0,0.18))' }}>
+                <path d="M105.56,78.89c-2.32,1.87-5.72,3.82-8.46,5-16.51,7.12-39.56,9.67-56.82,16-11.63,1.93-22.17-3.95-26.76-14.9-4.03-9.62-7.73-31.38-10.1-42.53-2.32-10.9-6.62-21.78.52-31.81C9.09,3.41,15.22.62,23.91.18c16.3-.84,47.43,1.48,64.05,3.49,23.41,2.83,23.34,17.43,24.66,36.58.83,12.13,3.62,30.05-7.06,38.64Z" fill={restoTab === 'profile' ? '#0A6E3B' : '#F6F5F1'} />
+              </svg>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <User className={`w-4.5 h-4.5 ${restoTab === 'profile' ? 'text-white' : 'text-[#081A10]/60'}`} />
+              </div>
+            </div>
+            <span className={`text-[9px] font-black ${restoTab === 'profile' ? 'text-[#0A6E3B]' : 'text-[#081A10]/70'}`}>
+              Profil
+            </span>
+          </motion.button>
+
+        </div>
+      </div>
+
+      {/* =========================================================================
+          MODAL 0: NOTIFICATIONS RESTAURANT EN DIRECT
+         ========================================================================= */}
+      <AnimatePresence>
+        {isRestoNotificationsOpen && (
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsRestoNotificationsOpen(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-xs"
+            />
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              className="relative z-10 w-full max-w-sm bg-white rounded-t-[36px] sm:rounded-3xl p-5 space-y-3.5 shadow-2xl max-h-[85vh] flex flex-col"
+            >
+              <div className="flex items-center justify-between border-b border-gray-100 pb-2.5">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-[#E6F5EC] text-[#0A6E3B] flex items-center justify-center font-bold">
+                    <Bell className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-black text-[#081A10]">Notifications Restaurant</h3>
+                    <p className="text-[10px] text-gray-400">Commandes, livreurs & réservations</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsRestoNotificationsOpen(false)}
+                  className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-xs text-gray-500"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="space-y-2.5 overflow-y-auto flex-1 text-xs">
+                {/* 1. New Orders */}
+                {myOrders.slice(0, 2).map((ord) => (
+                  <div 
+                    key={ord.id}
+                    onClick={() => {
+                      setIsRestoNotificationsOpen(false);
+                      setRestoTab('orders');
+                    }}
+                    className="p-3 rounded-2xl bg-[#FFF8F0] border border-[#FF7824]/30 space-y-1 cursor-pointer hover:border-[#FF7824]"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-black text-[#FF7824] flex items-center gap-1">
+                        <span>📦</span>
+                        <span>Nouvelle commande {ord.orderNumber}</span>
+                      </span>
+                      <span className="text-[9px] text-gray-400 font-bold">En direct</span>
+                    </div>
+                    <p className="text-[11px] text-[#081A10] font-bold">
+                      Client : {ord.clientName} ({formatFCFA(ord.total)}) • {ord.items.length} plats
+                    </p>
+                    <span className="text-[9px] font-bold text-[#FF7824] block">Lancer la cuisson en cuisine ➔</span>
+                  </div>
+                ))}
+
+                {/* 2. Tiak-Tiak Courier Assigned */}
+                <div 
+                  onClick={() => {
+                    setIsRestoNotificationsOpen(false);
+                    setRestoTab('courier');
+                  }}
+                  className="p-3 rounded-2xl bg-[#E6F5EC] border border-[#0A6E3B]/20 space-y-1 cursor-pointer hover:border-[#0A6E3B]"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black text-[#0A6E3B] flex items-center gap-1">
+                      <span>🛵</span>
+                      <span>Livreur Tiak-Tiak assigné</span>
+                    </span>
+                    <span className="text-[9px] text-gray-400 font-bold">Il y a 5 min</span>
+                  </div>
+                  <p className="text-[11px] text-[#081A10]"><strong>Ibrahima Fall</strong> arrive dans ~7 min pour le ramassage des plats.</p>
+                  <span className="text-[9px] font-bold text-[#0A6E3B] block">Suivre sur le radar livreur ➔</span>
+                </div>
+
+                {/* 3. Table Reservation received */}
+                {myReservations.slice(0, 1).map((res) => (
+                  <div 
+                    key={res.id}
+                    onClick={() => {
+                      setIsRestoNotificationsOpen(false);
+                      setRestoTab('orders');
+                    }}
+                    className="p-3 rounded-2xl bg-[#F4F7F4] border border-[#D8EADB] space-y-1 cursor-pointer"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-black text-emerald-800 flex items-center gap-1">
+                        <span>🥂</span>
+                        <span>Table Réservée ({res.guestsCount} pers.)</span>
+                      </span>
+                      <span className="text-[9px] text-gray-400 font-bold">{res.time}</span>
+                    </div>
+                    <p className="text-[11px] text-[#081A10]">{res.clientName} a réservé pour "{res.occasion}".</p>
+                  </div>
+                ))}
+
+                {/* 4. Payment received */}
+                <div className="p-3 rounded-2xl bg-[#F4F7F4] border border-[#D8EADB] space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black text-sky-700 flex items-center gap-1">
+                      <span>🌊</span>
+                      <span>Paiement Wave Marchand</span>
+                    </span>
+                    <span className="text-[9px] text-gray-400 font-bold">Aujourd'hui</span>
+                  </div>
+                  <p className="text-[11px] text-[#081A10]">Chiffre d'affaires du jour en cours : <strong>{formatFCFA(totalRevenue)}</strong> transféré sur votre compte.</p>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* =========================================================================
           MODAL 1: CHANGER LA PHOTO DE COUVERTURE
@@ -5203,97 +5642,632 @@ function MobileRestaurantApp({ onLogout }: { onLogout?: () => void }) {
 // 3. MOBILE APP COURIER VIEW (Radar Livreur Dakar)
 // =========================================================================
 function MobileCourierApp({ onLogout }: { onLogout?: () => void }) {
-  const { couriers, orders, toggleCourierOnline, acceptDeliveryMission, completeDeliveryMission } = useApp();
+  const { couriers, orders, restaurants, toggleCourierOnline, acceptDeliveryMission, completeDeliveryMission } = useApp();
   const currentCourier = couriers[0];
   const isOnline = currentCourier?.isOnline;
 
+  const [courierTab, setCourierTab] = useState<'home' | 'client_view' | 'missions' | 'restaurants' | 'profile'>('home');
+  const [isCourierNotificationsOpen, setIsCourierNotificationsOpen] = useState(false);
   const activeOrder = orders.find((o) => o.id === currentCourier?.activeOrderId);
   const availableOrders = orders.filter((o) => (o.status === 'ready_for_pickup' || o.status === 'preparing') && !o.courierId);
 
   return (
     <div className="h-full flex flex-col bg-[#F4F7F4] relative overflow-hidden font-sans">
-      <div className="pt-3 px-4 pb-3 bg-[#064E2B] text-white flex items-center justify-between shrink-0 shadow-md">
-        <div>
-          <h4 className="font-extrabold text-xs leading-tight">{currentCourier?.name || 'Ibrahima Fall'}</h4>
-          <span className="text-[10px] text-emerald-300">Moto Jakarta Dakar</span>
+      
+      {/* Top Header */}
+      <div className="pt-3 px-4 pb-3 bg-white border-b border-[#D8EADB] flex items-center justify-between shrink-0 shadow-2xs">
+        <div className="flex items-center gap-2.5">
+          <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#064E2B] to-[#10B981] flex items-center justify-center text-white font-black text-sm shadow-sm">
+            🏍️
+          </div>
+          <div>
+            <div className="flex items-center gap-1.5">
+              <h4 className="font-extrabold text-xs text-[#081A10] leading-tight">{currentCourier?.name || 'Ibrahima Fall'}</h4>
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            </div>
+            <span className="text-[10px] text-gray-400">Tiak-Tiak Express • Dakar</span>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
+
+        {/* Availability Toggle & Notification Icon */}
+        <div className="flex items-center gap-1.5">
           <button
             onClick={() => toggleCourierOnline(currentCourier?.id || '')}
-            className="px-3 py-1 rounded-full text-[10px] font-black bg-[#10B981] text-white"
+            className={`px-2.5 py-1.5 rounded-xl text-[10px] font-black transition-all flex items-center gap-1 ${
+              isOnline
+                ? 'bg-[#E6F5EC] text-[#0A6E3B] border border-[#0A6E3B]/20'
+                : 'bg-rose-50 text-rose-700 border border-rose-200'
+            }`}
           >
-            {isOnline ? 'EN SERVICE' : 'HORS LIGNE'}
+            <span>{isOnline ? '● En Service' : '○ Hors Ligne'}</span>
           </button>
-          {onLogout && (
-            <button
-              onClick={onLogout}
-              className="p-1 text-white/80 hover:text-white"
-              title="Déconnexion"
-            >
-              🚪
-            </button>
-          )}
+
+          {/* Notification Button Livreur */}
+          <motion.button
+            whileHover={{ scale: 1.08, y: -2 }}
+            whileTap={{ scale: 0.92 }}
+            onClick={() => setIsCourierNotificationsOpen(true)}
+            className="relative w-8 h-8 rounded-xl bg-[#F4F7F4] text-[#0A6E3B] hover:text-[#064E2B] flex items-center justify-center border border-[#D8EADB] active:scale-95 transition-all cursor-pointer"
+            aria-label="Notifications livreur"
+          >
+            <Bell className="w-3.5 h-3.5" />
+            {availableOrders.length > 0 && (
+              <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#FF7824] text-white text-[8px] font-black rounded-full flex items-center justify-center ring-1 ring-white animate-pulse">
+                {availableOrders.length}
+              </span>
+            )}
+          </motion.button>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto no-scrollbar p-4 pb-20 space-y-3">
-        <div className="grid grid-cols-2 gap-2 text-center text-xs">
-          <div className="bg-white p-3 rounded-2xl border border-[#D8EADB] shadow-2xs">
-            <span className="text-[9px] text-gray-400 uppercase font-bold block">Gains du jour</span>
-            <span className="text-base font-black text-[#0A6E3B]">{formatFCFA(currentCourier?.todayEarnings || 15000)}</span>
-          </div>
-          <div className="bg-white p-3 rounded-2xl border border-[#D8EADB] shadow-2xs">
-            <span className="text-[9px] text-gray-400 uppercase font-bold block">Courses Réussies</span>
-            <span className="text-base font-black text-[#081A10]">{currentCourier?.completedDeliveries || 8}</span>
-          </div>
-        </div>
-
-        {activeOrder && (
-          <div className="bg-white p-4 rounded-3xl border-2 border-[#0A6E3B] space-y-3 shadow-md">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-black text-[#0A6E3B]">🚨 Mission en cours {activeOrder.orderNumber}</span>
-              <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-md">GPS Actif</span>
-            </div>
-            <p className="text-xs font-bold text-[#081A10]">{activeOrder.restaurantName} ➔ {activeOrder.deliveryAddress.neighborhood}</p>
+      {/* Main Tab Content Area */}
+      <div className="flex-1 overflow-y-auto no-scrollbar p-3.5 pb-28 space-y-3.5">
+        
+        {/* =====================================================================
+            TAB 1: HOME (SYNTHÈSE DU JOUR, REVENUS & RADAR DE PATROUILLE)
+           ===================================================================== */}
+        {courierTab === 'home' && (
+          <div className="space-y-3.5">
             
-            <CourierLiveRadar
-              courierPos={currentCourier?.coordinates || { lat: 14.708, lng: -17.472 }}
-              restaurantPos={{ lat: 14.755, lng: -17.514 }}
-              destinationPos={{ lat: 14.671, lng: -17.432 }}
-              courierName={currentCourier?.name || 'Ibrahima Fall'}
-              restaurantName={activeOrder.restaurantName}
-              destinationAddress={activeOrder.deliveryAddress.neighborhood}
-              orderNumber={activeOrder.orderNumber}
-            />
+            {/* Daily KPI Metrics */}
+            <div className="grid grid-cols-2 gap-2.5">
+              <div className="bg-white p-3.5 rounded-3xl border border-[#D8EADB] shadow-xs space-y-1">
+                <span className="text-[9px] text-gray-400 uppercase font-bold block">Gains du Jour</span>
+                <span className="text-lg font-black text-[#0A6E3B]">{formatFCFA(currentCourier?.todayEarnings || 15000)}</span>
+                <span className="text-[9px] font-bold text-emerald-600 block">Versements Wave / OM</span>
+              </div>
+              <div className="bg-white p-3.5 rounded-3xl border border-[#D8EADB] shadow-xs space-y-1">
+                <span className="text-[9px] text-gray-400 uppercase font-bold block">Courses Réussies</span>
+                <span className="text-lg font-black text-[#081A10]">{currentCourier?.completedDeliveries || 8} livraisons</span>
+                <span className="text-[9px] font-bold text-amber-500 block">⭐ 4.9 Satisfaction</span>
+              </div>
+            </div>
 
-            <button
-              onClick={() => completeDeliveryMission(currentCourier.id, activeOrder.id)}
-              className="w-full py-2.5 rounded-xl brand-gradient text-white text-xs font-black shadow-sm"
-            >
-              Confirmer la Livraison Réussie ✓
-            </button>
+            {/* Live Active Mission Banner if any */}
+            {activeOrder ? (
+              <div 
+                onClick={() => setCourierTab('client_view')}
+                className="bg-white p-4 rounded-3xl border-2 border-[#0A6E3B] space-y-2.5 shadow-md cursor-pointer hover:scale-[1.01] transition-all"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black text-[#0A6E3B] flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                    Mission en cours : {activeOrder.orderNumber}
+                  </span>
+                  <span className="text-[9px] font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded-full border border-sky-200">
+                    Vu Client ➔
+                  </span>
+                </div>
+                <p className="text-xs font-bold text-[#081A10]">{activeOrder.restaurantName} ➔ {activeOrder.deliveryAddress.neighborhood}</p>
+                <div className="flex items-center justify-between text-[10px] text-gray-500 pt-1 border-t border-gray-100">
+                  <span>Frais de course : <strong>{formatFCFA(activeOrder.deliveryFee || 1500)}</strong></span>
+                  <span className="text-[#0A6E3B] font-bold">En route 🏍️</span>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-white rounded-3xl border border-[#D8EADB] p-3 shadow-xs space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black text-[#081A10]">Secteur de Patrouille en Direct</span>
+                  <span className="text-[9px] font-bold text-[#0A6E3B] bg-[#E6F5EC] px-2 py-0.5 rounded-full">
+                    GPS Fixe 🛰️
+                  </span>
+                </div>
+                <CourierLiveRadar
+                  courierPos={currentCourier?.coordinates || { lat: 14.708, lng: -17.472 }}
+                  restaurantPos={{ lat: 14.755, lng: -17.514 }}
+                  destinationPos={{ lat: 14.671, lng: -17.432 }}
+                  courierName={currentCourier?.name || 'Ibrahima Fall'}
+                  restaurantName="Ngor / Almadies / Mermoz"
+                  destinationAddress="Dakar Métropole"
+                  orderNumber="PATROUILLE"
+                />
+              </div>
+            )}
+
+            {/* Quick Available Missions */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <h5 className="text-xs font-black text-[#081A10]">Courses Disponibles à Dakar ({availableOrders.length})</h5>
+                <button 
+                  onClick={() => setCourierTab('missions')}
+                  className="text-[10px] font-bold text-[#0A6E3B] hover:underline"
+                >
+                  Voir tout ➔
+                </button>
+              </div>
+
+              {availableOrders.slice(0, 3).map((ord) => (
+                <div key={ord.id} className="bg-white p-3 rounded-2xl border border-[#D8EADB] flex items-center justify-between text-xs shadow-2xs">
+                  <div>
+                    <p className="font-bold text-[#081A10]">{ord.restaurantName}</p>
+                    <p className="text-[10px] text-gray-400">Vers {ord.deliveryAddress.neighborhood} • {formatFCFA(ord.deliveryFee)}</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      acceptDeliveryMission(currentCourier.id, ord.id);
+                      setCourierTab('client_view');
+                    }}
+                    className="px-3 py-1.5 rounded-xl brand-gradient text-white font-bold text-[10px] shadow-xs active:scale-95 cursor-pointer"
+                  >
+                    Prendre la course
+                  </button>
+                </div>
+              ))}
+            </div>
+
           </div>
         )}
 
-
-        <div className="space-y-2 pt-2">
-          <h5 className="text-xs font-black text-[#081A10]">Missions disponibles ({availableOrders.length})</h5>
-          {availableOrders.map((ord) => (
-            <div key={ord.id} className="bg-white p-3 rounded-2xl border border-[#D8EADB] flex items-center justify-between text-xs shadow-2xs">
-              <div>
-                <p className="font-bold text-[#081A10]">{ord.restaurantName}</p>
-                <p className="text-[10px] text-gray-400">Vers {ord.deliveryAddress.neighborhood} • {formatFCFA(ord.deliveryFee)}</p>
+        {/* =====================================================================
+            TAB 2: VU CLIENT (TRACKING LIVE TEL QUE VU PAR LE CLIENT DAKAROIS)
+           ===================================================================== */}
+        {courierTab === 'client_view' && (
+          <div className="space-y-3.5">
+            
+            <div className="bg-white p-3.5 rounded-3xl border border-[#D8EADB] space-y-3 shadow-xs">
+              <div className="flex items-center justify-between border-b border-gray-100 pb-2">
+                <div>
+                  <span className="text-[9px] uppercase font-bold text-[#0A6E3B] bg-[#E6F5EC] px-2 py-0.5 rounded-full block w-fit">
+                    Aperçu Écran Client
+                  </span>
+                  <h4 className="font-black text-xs text-[#081A10] mt-1">
+                    {activeOrder ? `Suivi Commande ${activeOrder.orderNumber}` : 'Aucune course active'}
+                  </h4>
+                </div>
+                <span className="text-[10px] font-bold text-gray-500">
+                  ETA : ~10 min
+                </span>
               </div>
-              <button
-                onClick={() => acceptDeliveryMission(currentCourier.id, ord.id)}
-                className="px-3 py-1.5 rounded-xl brand-gradient text-white font-bold text-[10px]"
-              >
-                Prendre la course
-              </button>
+
+              {/* Live Radar View for Client */}
+              <CourierLiveRadar
+                courierPos={currentCourier?.coordinates || { lat: 14.708, lng: -17.472 }}
+                restaurantPos={{ lat: 14.755, lng: -17.514 }}
+                destinationPos={{ lat: 14.671, lng: -17.432 }}
+                courierName={currentCourier?.name || 'Ibrahima Fall'}
+                restaurantName={activeOrder?.restaurantName || 'Chez Kamiss'}
+                destinationAddress={activeOrder?.deliveryAddress.neighborhood || 'Virage Ngor'}
+                orderNumber={activeOrder?.orderNumber || 'TK-LIVE'}
+              />
+
+              {/* Client Contact & Actions */}
+              {activeOrder && (
+                <div className="space-y-2 pt-1">
+                  <div className="p-2.5 rounded-2xl bg-[#F4F7F4] border border-[#D8EADB] flex items-center justify-between text-xs">
+                    <div>
+                      <span className="font-black text-[#081A10] block">{activeOrder.clientName}</span>
+                      <span className="text-[10px] text-gray-500">📍 {activeOrder.deliveryAddress.neighborhood}</span>
+                    </div>
+                    <span className="text-[10px] font-mono font-bold text-[#0A6E3B]">
+                      {activeOrder.paymentMethod === 'wave' ? '🌊 Wave Payé' : activeOrder.paymentMethod === 'orange_money' ? '🍊 OM Payé' : '💵 À Encaisser'}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <a
+                      href={`tel:${activeOrder.clientPhone || '+221770000000'}`}
+                      className="py-2.5 rounded-2xl bg-[#E6F5EC] text-[#0A6E3B] font-black flex items-center justify-center gap-1.5 border border-[#0A6E3B]/20"
+                    >
+                      <Phone className="w-3.5 h-3.5" />
+                      <span>Appeler Client</span>
+                    </a>
+                    <a
+                      href={`https://wa.me/221770000000?text=Bonjour%20${encodeURIComponent(activeOrder.clientName)},%20je%20suis%20votre%20livreur%20Thiob%20en%20route`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="py-2.5 rounded-2xl bg-[#25D366] text-white font-bold flex items-center justify-center gap-1.5 shadow-xs"
+                    >
+                      <MessageCircle className="w-3.5 h-3.5" />
+                      <span>WhatsApp</span>
+                    </a>
+                  </div>
+
+                  <button
+                    onClick={() => completeDeliveryMission(currentCourier.id, activeOrder.id)}
+                    className="w-full py-3 rounded-2xl brand-gradient text-white text-xs font-black shadow-md mt-1 cursor-pointer active:scale-95"
+                  >
+                    Confirmer la Livraison Réussie ✓
+                  </button>
+                </div>
+              )}
             </div>
-          ))}
+
+          </div>
+        )}
+
+        {/* =====================================================================
+            TAB 3: COURSE (GESTION DES MISSIONS ACTIVES & DISPONIBLES)
+           ===================================================================== */}
+        {courierTab === 'missions' && (
+          <div className="space-y-3.5">
+            
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="text-sm font-black text-[#081A10] tracking-tight">Courses & Missions</h4>
+                <p className="text-[10px] text-gray-400">Prenez en charge les commandes prêtes</p>
+              </div>
+              <span className="text-[10px] font-black text-[#0A6E3B] bg-[#E6F5EC] px-2 py-0.5 rounded-full">
+                {availableOrders.length} disponibles
+              </span>
+            </div>
+
+            {availableOrders.length === 0 ? (
+              <div className="p-8 text-center bg-white rounded-3xl border border-[#D8EADB] text-xs text-gray-400 space-y-2 shadow-2xs">
+                <span className="text-3xl block">🛵</span>
+                <p className="font-bold text-gray-700">Toutes les courses sont prises en charge.</p>
+                <p className="text-[10px]">Restez connecté pour recevoir les alertes des prochains départs cuisine.</p>
+              </div>
+            ) : (
+              <div className="space-y-2.5">
+                {availableOrders.map((ord) => (
+                  <div key={ord.id} className="bg-white p-3.5 rounded-2xl border border-[#D8EADB] space-y-2 shadow-xs">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <span className="font-mono font-black text-xs text-[#081A10]">{ord.orderNumber}</span>
+                        <h5 className="font-bold text-xs text-[#081A10]">{ord.restaurantName}</h5>
+                        <p className="text-[10px] text-gray-500">Vers 📍 {ord.deliveryAddress.neighborhood}</p>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-xs font-black text-[#0A6E3B] block">+{formatFCFA(ord.deliveryFee)}</span>
+                        <span className="text-[9px] text-gray-400">Rémunération</span>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        acceptDeliveryMission(currentCourier.id, ord.id);
+                        setCourierTab('client_view');
+                      }}
+                      className="w-full py-2.5 rounded-xl brand-gradient text-white font-black text-xs shadow-xs active:scale-95"
+                    >
+                      Accepter & Prendre la course ➔
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+          </div>
+        )}
+
+        {/* =====================================================================
+            TAB 4: RESTAURANT (LISTE DES RESTOS PARTENAIRES À PROXIMITÉ)
+           ===================================================================== */}
+        {courierTab === 'restaurants' && (
+          <div className="space-y-3.5">
+            
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="text-sm font-black text-[#081A10] tracking-tight">Restaurants Partenaires</h4>
+                <p className="text-[10px] text-gray-400">Points de ramassage à Dakar</p>
+              </div>
+              <span className="text-[10px] font-bold text-gray-500">
+                {restaurants.length} établissements
+              </span>
+            </div>
+
+            <div className="space-y-2.5">
+              {restaurants.map((resto) => (
+                <div key={resto.id} className="bg-white p-3 rounded-2xl border border-[#D8EADB] flex items-center justify-between gap-2.5 shadow-2xs">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={resto.logo} alt={resto.name} className="w-10 h-10 rounded-xl object-cover border border-gray-100 bg-white shrink-0" />
+                    <div className="min-w-0">
+                      <h5 className="font-bold text-xs text-[#081A10] truncate">{resto.name}</h5>
+                      <p className="text-[10px] text-gray-500 truncate">📍 {resto.neighborhood} • {resto.phone || '+221 77 000 00 00'}</p>
+                    </div>
+                  </div>
+
+                  <a
+                    href={`tel:${resto.phone || '+221770000000'}`}
+                    className="px-2.5 py-1.5 rounded-xl bg-[#E6F5EC] text-[#0A6E3B] text-[10px] font-black border border-[#0A6E3B]/20 shrink-0"
+                  >
+                    📞 Chef
+                  </a>
+                </div>
+              ))}
+            </div>
+
+          </div>
+        )}
+
+        {/* =====================================================================
+            TAB 5: PROFIL (FICHE DU COURSIER, COMPTE WAVE & PARAMÈTRES)
+           ===================================================================== */}
+        {courierTab === 'profile' && (
+          <div className="space-y-4">
+            
+            {/* Courier Profile Card */}
+            <div className="bg-white p-4 rounded-3xl border border-[#D8EADB] text-center space-y-2 shadow-2xs">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-[#064E2B] to-[#10B981] flex items-center justify-center text-white font-black text-2xl mx-auto shadow-sm">
+                🏍️
+              </div>
+              <div>
+                <h4 className="font-black text-sm text-[#081A10]">{currentCourier?.name || 'Ibrahima Fall'}</h4>
+                <p className="text-xs text-gray-500">Livreur Certifié Thiob Dakar • Jakarta</p>
+              </div>
+              <div className="flex justify-center gap-2 pt-1">
+                <span className="px-2.5 py-0.5 rounded-full bg-[#E6F5EC] text-[#0A6E3B] text-[10px] font-bold">
+                  ⭐ 4.9 (420 courses)
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
+                  98% Ponctualité
+                </span>
+              </div>
+            </div>
+
+            {/* Courier Settings Menu */}
+            <div className="bg-white rounded-3xl border border-[#D8EADB] divide-y divide-[#D8EADB] text-xs shadow-2xs overflow-hidden">
+              <div className="p-3.5 flex justify-between items-center cursor-pointer hover:bg-gray-50">
+                <div className="flex items-center gap-2">
+                  <span>🌊</span>
+                  <span className="font-bold text-gray-700">Versements quotidiens Wave / OM</span>
+                </div>
+                <span className="text-[10px] font-bold text-[#0A6E3B]">Actif</span>
+              </div>
+
+              <div className="p-3.5 flex justify-between items-center cursor-pointer hover:bg-gray-50">
+                <div className="flex items-center gap-2">
+                  <span>🛵</span>
+                  <span className="font-bold text-gray-700">Véhicule Yamaha YBR Dakar</span>
+                </div>
+                <span className="text-[10px] text-gray-400">Vérifié ✓</span>
+              </div>
+
+              <div className="p-3.5 flex justify-between items-center cursor-pointer hover:bg-gray-50">
+                <div className="flex items-center gap-2">
+                  <span>🔔</span>
+                  <span className="font-bold text-gray-700">Alertes sonores de nouvelle mission</span>
+                </div>
+                <span className="text-[10px] font-bold text-[#0A6E3B]">Activé</span>
+              </div>
+
+              {onLogout && (
+                <div 
+                  onClick={onLogout}
+                  className="p-3.5 flex justify-between items-center cursor-pointer hover:bg-rose-50 text-rose-700"
+                >
+                  <div className="flex items-center gap-2">
+                    <span>🚪</span>
+                    <span className="font-bold">Déconnexion / Changer de compte</span>
+                  </div>
+                  <ArrowRight className="w-3.5 h-3.5 text-rose-400" />
+                </div>
+              )}
+            </div>
+
+          </div>
+        )}
+
+      </div>
+
+      {/* =========================================================================
+          FLOATING ORGANIC BOTTOM DOCK NAVIGATION (AVEC LES 5 BOUTONS SIGNATURE)
+         ========================================================================= */}
+      <div className="absolute bottom-0 inset-x-0 z-30 pt-2 pb-2">
+        
+        {/* Wave Background SVG Shape */}
+        <div className="absolute inset-0 top-1 pointer-events-none">
+          <svg 
+            viewBox="0 0 1000 240" 
+            preserveAspectRatio="none" 
+            className="w-full h-full drop-shadow-[0_-3px_10px_rgba(0,0,0,0.05)]"
+          >
+            <path 
+              d="M0,95 C140,90 220,70 300,70 C420,70 520,115 640,115 C760,115 880,45 1000,20 L1000,240 L0,240 Z" 
+              fill="#FFFFFF" 
+            />
+          </svg>
+        </div>
+
+        <div className="relative flex items-end justify-around px-2 z-10">
+
+          {/* 1. Home */}
+          <motion.button
+            whileHover={{ scale: 1.08, y: -3 }}
+            whileTap={{ scale: 0.9 }}
+            onClick={() => setCourierTab('home')}
+            className="flex flex-col items-center justify-center gap-1 cursor-pointer"
+          >
+            <div className="relative w-14" style={{ aspectRatio: '113.57 / 100.25' }}>
+              <svg viewBox="0 0 113.57 100.25" className="absolute inset-0 w-full h-full" style={{ filter: 'drop-shadow(0 2px 5px rgba(0,0,0,0.18))' }}>
+                <path d="M105.56,78.89c-2.32,1.87-5.72,3.82-8.46,5-16.51,7.12-39.56,9.67-56.82,16-11.63,1.93-22.17-3.95-26.76-14.9-4.03-9.62-7.73-31.38-10.1-42.53-2.32-10.9-6.62-21.78.52-31.81C9.09,3.41,15.22.62,23.91.18c16.3-.84,47.43,1.48,64.05,3.49,23.41,2.83,23.34,17.43,24.66,36.58.83,12.13,3.62,30.05-7.06,38.64Z" fill={courierTab === 'home' ? '#0A6E3B' : '#F6F5F1'} />
+              </svg>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <svg width="19" height="19" viewBox="0 0 24 24" fill={courierTab === 'home' ? '#FFFFFF' : '#FF7824'} xmlns="http://www.w3.org/2000/svg">
+                  <path d="M10 20V14H14V20H19V12H22L12 3L2 12H5V20H10Z"/>
+                </svg>
+              </div>
+            </div>
+            <span className={`text-[9px] font-black ${courierTab === 'home' ? 'text-[#0A6E3B]' : 'text-[#081A10]/70'}`}>
+              Home
+            </span>
+          </motion.button>
+
+          {/* 2. Vu Client */}
+          <motion.button
+            whileHover={{ scale: 1.08, y: -3 }}
+            whileTap={{ scale: 0.9 }}
+            onClick={() => setCourierTab('client_view')}
+            className="flex flex-col items-center justify-center gap-1 cursor-pointer"
+          >
+            <div className="relative w-14" style={{ aspectRatio: '113.57 / 100.25' }}>
+              <svg viewBox="0 0 113.57 100.25" className="absolute inset-0 w-full h-full" style={{ filter: 'drop-shadow(0 2px 5px rgba(0,0,0,0.18))' }}>
+                <path d="M105.56,78.89c-2.32,1.87-5.72,3.82-8.46,5-16.51,7.12-39.56,9.67-56.82,16-11.63,1.93-22.17-3.95-26.76-14.9-4.03-9.62-7.73-31.38-10.1-42.53-2.32-10.9-6.62-21.78.52-31.81C9.09,3.41,15.22.62,23.91.18c16.3-.84,47.43,1.48,64.05,3.49,23.41,2.83,23.34,17.43,24.66,36.58.83,12.13,3.62,30.05-7.06,38.64Z" fill={courierTab === 'client_view' ? '#0A6E3B' : '#F6F5F1'} />
+              </svg>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Navigation className={`w-4.5 h-4.5 ${courierTab === 'client_view' ? 'text-white' : 'text-[#081A10]/60'}`} />
+              </div>
+            </div>
+            <span className={`text-[9px] font-black ${courierTab === 'client_view' ? 'text-[#0A6E3B]' : 'text-[#081A10]/70'}`}>
+              Vu client
+            </span>
+          </motion.button>
+
+          {/* 3. Course */}
+          <motion.button
+            whileHover={{ scale: 1.08, y: -3 }}
+            whileTap={{ scale: 0.9 }}
+            onClick={() => setCourierTab('missions')}
+            className="flex flex-col items-center justify-center gap-1 cursor-pointer"
+          >
+            <div className="relative w-14" style={{ aspectRatio: '113.57 / 100.25' }}>
+              <svg viewBox="0 0 113.57 100.25" className="absolute inset-0 w-full h-full" style={{ filter: 'drop-shadow(0 2px 5px rgba(0,0,0,0.18))' }}>
+                <path d="M105.56,78.89c-2.32,1.87-5.72,3.82-8.46,5-16.51,7.12-39.56,9.67-56.82,16-11.63,1.93-22.17-3.95-26.76-14.9-4.03-9.62-7.73-31.38-10.1-42.53-2.32-10.9-6.62-21.78.52-31.81C9.09,3.41,15.22.62,23.91.18c16.3-.84,47.43,1.48,64.05,3.49,23.41,2.83,23.34,17.43,24.66,36.58.83,12.13,3.62,30.05-7.06,38.64Z" fill={courierTab === 'missions' ? '#0A6E3B' : '#F6F5F1'} />
+              </svg>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Bike className={`w-4.5 h-4.5 ${courierTab === 'missions' ? 'text-white' : 'text-[#081A10]/60'}`} />
+                {availableOrders.length > 0 && (
+                  <span className="absolute top-1.5 right-2 w-4 h-4 bg-[#FF7824] text-white text-[9px] font-black rounded-full ring-2 ring-white flex items-center justify-center animate-pulse">
+                    {availableOrders.length}
+                  </span>
+                )}
+              </div>
+            </div>
+            <span className={`text-[9px] font-black ${courierTab === 'missions' ? 'text-[#0A6E3B]' : 'text-[#081A10]/70'}`}>
+              Course
+            </span>
+          </motion.button>
+
+          {/* 4. Restaurant */}
+          <motion.button
+            whileHover={{ scale: 1.08, y: -3 }}
+            whileTap={{ scale: 0.9 }}
+            onClick={() => setCourierTab('restaurants')}
+            className="flex flex-col items-center justify-center gap-1 cursor-pointer"
+          >
+            <div className="relative w-14" style={{ aspectRatio: '113.57 / 100.25' }}>
+              <svg viewBox="0 0 113.57 100.25" className="absolute inset-0 w-full h-full" style={{ filter: 'drop-shadow(0 2px 5px rgba(0,0,0,0.18))' }}>
+                <path d="M105.56,78.89c-2.32,1.87-5.72,3.82-8.46,5-16.51,7.12-39.56,9.67-56.82,16-11.63,1.93-22.17-3.95-26.76-14.9-4.03-9.62-7.73-31.38-10.1-42.53-2.32-10.9-6.62-21.78.52-31.81C9.09,3.41,15.22.62,23.91.18c16.3-.84,47.43,1.48,64.05,3.49,23.41,2.83,23.34,17.43,24.66,36.58.83,12.13,3.62,30.05-7.06,38.64Z" fill={courierTab === 'restaurants' ? '#0A6E3B' : '#F6F5F1'} />
+              </svg>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <ChefHat className={`w-4.5 h-4.5 ${courierTab === 'restaurants' ? 'text-white' : 'text-[#081A10]/60'}`} />
+              </div>
+            </div>
+            <span className={`text-[9px] font-black ${courierTab === 'restaurants' ? 'text-[#0A6E3B]' : 'text-[#081A10]/70'}`}>
+              Restaurant
+            </span>
+          </motion.button>
+
+          {/* 5. Profil */}
+          <motion.button
+            whileHover={{ scale: 1.08, y: -3 }}
+            whileTap={{ scale: 0.9 }}
+            onClick={() => setCourierTab('profile')}
+            className="flex flex-col items-center justify-center gap-1 cursor-pointer"
+          >
+            <div className="relative w-14" style={{ aspectRatio: '113.57 / 100.25' }}>
+              <svg viewBox="0 0 113.57 100.25" className="absolute inset-0 w-full h-full" style={{ filter: 'drop-shadow(0 2px 5px rgba(0,0,0,0.18))' }}>
+                <path d="M105.56,78.89c-2.32,1.87-5.72,3.82-8.46,5-16.51,7.12-39.56,9.67-56.82,16-11.63,1.93-22.17-3.95-26.76-14.9-4.03-9.62-7.73-31.38-10.1-42.53-2.32-10.9-6.62-21.78.52-31.81C9.09,3.41,15.22.62,23.91.18c16.3-.84,47.43,1.48,64.05,3.49,23.41,2.83,23.34,17.43,24.66,36.58.83,12.13,3.62,30.05-7.06,38.64Z" fill={courierTab === 'profile' ? '#0A6E3B' : '#F6F5F1'} />
+              </svg>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <User className={`w-4.5 h-4.5 ${courierTab === 'profile' ? 'text-white' : 'text-[#081A10]/60'}`} />
+              </div>
+            </div>
+            <span className={`text-[9px] font-black ${courierTab === 'profile' ? 'text-[#0A6E3B]' : 'text-[#081A10]/70'}`}>
+              Profil
+            </span>
+          </motion.button>
+
         </div>
       </div>
+
+      {/* =========================================================================
+          MODAL: NOTIFICATIONS LIVREUR EN DIRECT
+         ========================================================================= */}
+      <AnimatePresence>
+        {isCourierNotificationsOpen && (
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsCourierNotificationsOpen(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-xs"
+            />
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              className="relative z-10 w-full max-w-sm bg-white rounded-t-[36px] sm:rounded-3xl p-5 space-y-3.5 shadow-2xl max-h-[85vh] flex flex-col"
+            >
+              <div className="flex items-center justify-between border-b border-gray-100 pb-2.5">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-[#E6F5EC] text-[#0A6E3B] flex items-center justify-center font-bold">
+                    <Bell className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-xs font-black text-[#081A10]">Notifications Livreur</h3>
+                    <p className="text-[10px] text-gray-400">Courses en direct & versements</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsCourierNotificationsOpen(false)}
+                  className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-xs text-gray-500"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="space-y-2.5 overflow-y-auto flex-1 text-xs">
+                {/* 1. New Available Delivery Mission */}
+                {availableOrders.slice(0, 2).map((ord) => (
+                  <div 
+                    key={ord.id}
+                    onClick={() => {
+                      setIsCourierNotificationsOpen(false);
+                      setCourierTab('missions');
+                    }}
+                    className="p-3 rounded-2xl bg-[#FFF8F0] border border-[#FF7824]/30 space-y-1 cursor-pointer hover:border-[#FF7824]"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-black text-[#FF7824] flex items-center gap-1">
+                        <span>🚨</span>
+                        <span>Nouvelle Course Disponible (+{formatFCFA(ord.deliveryFee)})</span>
+                      </span>
+                      <span className="text-[9px] text-gray-400 font-bold">En direct</span>
+                    </div>
+                    <p className="text-[11px] text-[#081A10] font-bold">
+                      {ord.restaurantName} ➔ {ord.deliveryAddress.neighborhood}
+                    </p>
+                    <span className="text-[9px] font-bold text-[#FF7824] block">Toucher pour accepter la mission ➔</span>
+                  </div>
+                ))}
+
+                {/* 2. Cooking ready notification */}
+                <div 
+                  onClick={() => {
+                    setIsCourierNotificationsOpen(false);
+                    setCourierTab('client_view');
+                  }}
+                  className="p-3 rounded-2xl bg-[#E6F5EC] border border-[#0A6E3B]/20 space-y-1 cursor-pointer"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black text-[#0A6E3B] flex items-center gap-1">
+                      <span>🍲</span>
+                      <span>Commande prête au restaurant</span>
+                    </span>
+                    <span className="text-[9px] text-gray-400 font-bold">Il y a 2 min</span>
+                  </div>
+                  <p className="text-[11px] text-[#081A10]">La commande #TK-2026-08 est prête chez <strong>Chez Kamiss</strong>. Vous pouvez récupérer le sac isotherme.</p>
+                </div>
+
+                {/* 3. Daily Earnings Wave Transfer */}
+                <div className="p-3 rounded-2xl bg-[#F4F7F4] border border-[#D8EADB] space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black text-sky-700 flex items-center gap-1">
+                      <span>🌊</span>
+                      <span>Versement Wave Livreur</span>
+                    </span>
+                    <span className="text-[9px] text-gray-400 font-bold">Aujourd'hui</span>
+                  </div>
+                  <p className="text-[11px] text-[#081A10]">Solde journalier cumulé de <strong>{formatFCFA(currentCourier?.todayEarnings || 15000)}</strong> prêt pour versement instantané.</p>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
@@ -5301,10 +6275,6 @@ function MobileCourierApp({ onLogout }: { onLogout?: () => void }) {
 // =========================================================================
 // 4. MAIN SMARTPHONE SHELL & SHOWCASE CONTAINER
 // =========================================================================
-import OnboardingFlow from './OnboardingFlow';
-import AdminAnalyticsModal from '@/components/admin/AdminAnalyticsModal';
-import DesktopAdminCommandCenter from '@/components/admin/DesktopAdminCommandCenter';
-import { supabase } from '@/lib/supabase';
 
 export default function MobileDeviceShowcase() {
   const { currentRole, setCurrentRole, currentRestaurantId, setCurrentRestaurantId, setClientProfile } = useApp();

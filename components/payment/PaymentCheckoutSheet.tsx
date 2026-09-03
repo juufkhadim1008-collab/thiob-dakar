@@ -48,6 +48,40 @@ interface PaymentCheckoutSheetProps {
 
 type PaymentStep = 'method_select' | 'details' | 'waiting_wave_app' | 'processing' | 'receipt';
 
+// Web Audio API realistic chime generator
+const playPaymentSuccessChime = () => {
+  try {
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContextClass) return;
+    const audioCtx = new AudioContextClass();
+    const now = audioCtx.currentTime;
+
+    // Dual-tone chime (Wave & cash register style)
+    const osc1 = audioCtx.createOscillator();
+    const gain1 = audioCtx.createGain();
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(587.33, now); // D5
+    osc1.frequency.exponentialRampToValueAtTime(880, now + 0.15); // A5
+    gain1.gain.setValueAtTime(0.3, now);
+    gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+    osc1.connect(gain1);
+    gain1.connect(audioCtx.destination);
+    osc1.start(now);
+    osc1.stop(now + 0.5);
+
+    const osc2 = audioCtx.createOscillator();
+    const gain2 = audioCtx.createGain();
+    osc2.type = 'triangle';
+    osc2.frequency.setValueAtTime(1174.66, now + 0.12); // D6
+    gain2.gain.setValueAtTime(0.35, now + 0.12);
+    gain2.gain.exponentialRampToValueAtTime(0.01, now + 0.7);
+    osc2.connect(gain2);
+    gain2.connect(audioCtx.destination);
+    osc2.start(now + 0.12);
+    osc2.stop(now + 0.7);
+  } catch {}
+};
+
 export default function PaymentCheckoutSheet({
   isOpen,
   onClose,
@@ -65,7 +99,32 @@ export default function PaymentCheckoutSheet({
   onPaymentSuccess,
   onOpenTracking,
 }: PaymentCheckoutSheetProps) {
-  const totalAmount = subtotal + deliveryFee + platformFee;
+  // Promo Code State
+  const [promoCodeInput, setPromoCodeInput] = useState('');
+  const [appliedPromo, setAppliedPromo] = useState<{ code: string; discountAmount: number; label: string } | null>(null);
+  const [promoError, setPromoError] = useState<string | null>(null);
+
+  const handleApplyPromo = () => {
+    setPromoError(null);
+    const cleanCode = promoCodeInput.trim().toUpperCase();
+    if (!cleanCode) return;
+
+    if (cleanCode === 'DAKAR2026') {
+      setAppliedPromo({ code: 'DAKAR2026', discountAmount: 2000, label: 'Code Bienvenue Dakar (-2 000 FCFA)' });
+    } else if (cleanCode === 'THIOB10') {
+      const discount = Math.round(subtotal * 0.10);
+      setAppliedPromo({ code: 'THIOB10', discountAmount: discount, label: 'Réduction -10% Thiébou Dieune' });
+    } else if (cleanCode === 'TERANGA') {
+      setAppliedPromo({ code: 'TERANGA', discountAmount: 1500, label: 'Remise Teranga (-1 500 FCFA)' });
+    } else if (cleanCode === 'LIVRAISON0') {
+      setAppliedPromo({ code: 'LIVRAISON0', discountAmount: deliveryFee, label: 'Livraison Tiak-Tiak Offerte' });
+    } else {
+      setPromoError('Code promo non reconnu. Essayez "DAKAR2026" ou "THIOB10".');
+    }
+  };
+
+  const discountAmount = appliedPromo ? Math.min(appliedPromo.discountAmount, subtotal + deliveryFee) : 0;
+  const totalAmount = Math.max(0, subtotal + deliveryFee + platformFee - discountAmount);
 
   const [step, setStep] = useState<PaymentStep>('method_select');
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod>('wave');
@@ -198,6 +257,7 @@ export default function PaymentCheckoutSheet({
         const order = onPaymentSuccess(transaction);
         if (order) setCreatedOrder(order);
 
+        playPaymentSuccessChime();
         triggerSuccessConfetti();
         setStep('receipt');
       }, 900);
@@ -427,11 +487,66 @@ export default function PaymentCheckoutSheet({
                 </div>
               </div>
 
+              {/* Promo Code Input Card */}
+              <div className="p-3 bg-white rounded-2xl border border-[#D8EADB] space-y-2 shadow-2xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-black uppercase text-[#0A6E3B] flex items-center gap-1">
+                    <span>🎁</span>
+                    <span>Code Promo Dakar</span>
+                  </span>
+                  <span className="text-[9px] text-gray-400 font-bold">Ex: DAKAR2026, THIOB10</span>
+                </div>
+
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Entrez votre code promo"
+                    value={promoCodeInput}
+                    onChange={(e) => setPromoCodeInput(e.target.value)}
+                    className="flex-1 p-2 bg-[#F4F7F4] border border-[#D8EADB] rounded-xl text-xs font-bold uppercase text-[#081A10]"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleApplyPromo}
+                    className="px-3.5 py-2 rounded-xl brand-gradient text-white text-xs font-black shadow-xs active:scale-95 transition-all cursor-pointer"
+                  >
+                    Appliquer
+                  </button>
+                </div>
+
+                {appliedPromo && (
+                  <div className="p-2 rounded-xl bg-[#E6F5EC] border border-[#0A6E3B]/30 flex items-center justify-between text-xs">
+                    <span className="text-[10px] font-bold text-[#0A6E3B]">✓ {appliedPromo.label}</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAppliedPromo(null);
+                        setPromoCodeInput('');
+                      }}
+                      className="text-[10px] font-black text-rose-500 hover:text-rose-700"
+                    >
+                      Retirer
+                    </button>
+                  </div>
+                )}
+
+                {promoError && (
+                  <p className="text-[10px] text-rose-600 font-bold">{promoError}</p>
+                )}
+              </div>
+
               {/* Recup total price bar */}
               <div className="p-3 bg-[#F4F7F4] rounded-2xl border border-[#D8EADB] flex items-center justify-between text-xs">
                 <div>
                   <span className="text-[10px] text-gray-400 font-bold block">Montant total à régler</span>
-                  <span className="font-black text-sm text-[#0A6E3B]">{formatFCFA(totalAmount)}</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-black text-sm text-[#0A6E3B]">{formatFCFA(totalAmount)}</span>
+                    {discountAmount > 0 && (
+                      <span className="text-[10px] text-gray-400 line-through">
+                        {formatFCFA(subtotal + deliveryFee + platformFee)}
+                      </span>
+                    )}
+                  </div>
                 </div>
                 <button
                   type="button"
@@ -862,14 +977,25 @@ export default function PaymentCheckoutSheet({
 
               {/* Action Buttons: WhatsApp Share, Tracking & Close */}
               <div className="space-y-2 pt-1">
-                <button
-                  type="button"
-                  onClick={handleShareWhatsApp}
-                  className="w-full py-2.5 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold text-xs flex items-center justify-center gap-2 shadow-sm active:scale-95 transition-all cursor-pointer"
-                >
-                  <Share2 className="w-4 h-4" />
-                  <span>Envoyer la confirmation sur WhatsApp</span>
-                </button>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={handleShareWhatsApp}
+                    className="py-2.5 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm active:scale-95 transition-all cursor-pointer"
+                  >
+                    <Share2 className="w-3.5 h-3.5" />
+                    <span>WhatsApp</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => window.print()}
+                    className="py-2.5 rounded-xl bg-white border border-[#D8EADB] hover:bg-gray-50 text-[#081A10] font-bold text-xs flex items-center justify-center gap-1.5 shadow-2xs active:scale-95 transition-all cursor-pointer"
+                  >
+                    <Download className="w-3.5 h-3.5 text-[#0A6E3B]" />
+                    <span>Télécharger Reçu</span>
+                  </button>
+                </div>
 
                 {onOpenTracking && createdOrder && (
                   <button
