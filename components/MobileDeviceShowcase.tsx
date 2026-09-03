@@ -1651,6 +1651,36 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
                 </div>
                 <span className="text-[10px] text-gray-400">+221 33 800 00 00</span>
               </div>
+
+              {/* Accès direct aux Espaces Métiers */}
+              <div 
+                onClick={() => setCurrentRole('restaurant')}
+                className="p-3.5 flex justify-between items-center cursor-pointer hover:bg-emerald-50 bg-emerald-50/40 text-[#0A6E3B]"
+              >
+                <div className="flex items-center gap-2.5">
+                  <span className="text-base">🍽️</span>
+                  <div>
+                    <span className="font-black text-xs block text-[#081A10]">Accéder à l'Espace Restaurant</span>
+                    <span className="text-[10px] text-gray-500">Gérer mon restaurant, mes plats & commandes</span>
+                  </div>
+                </div>
+                <ArrowRight className="w-4 h-4 text-[#0A6E3B]" />
+              </div>
+
+              <div 
+                onClick={() => setCurrentRole('courier')}
+                className="p-3.5 flex justify-between items-center cursor-pointer hover:bg-orange-50 bg-orange-50/30 text-[#FF7824]"
+              >
+                <div className="flex items-center gap-2.5">
+                  <span className="text-base">🛵</span>
+                  <div>
+                    <span className="font-black text-xs block text-[#081A10]">Accéder à l'Espace Livreur</span>
+                    <span className="text-[10px] text-gray-500">Courses Tiak-Tiak et livraisons Dakar</span>
+                  </div>
+                </div>
+                <ArrowRight className="w-4 h-4 text-[#FF7824]" />
+              </div>
+
               {onLogout && (
                 <div 
                   onClick={onLogout}
