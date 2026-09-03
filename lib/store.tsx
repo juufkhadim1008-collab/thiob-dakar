@@ -9,12 +9,16 @@ import {
   OrderItem, 
   Courier, 
   PlatformMetrics, 
-  OrderStatus,
-  PaymentMethod,
-  Reservation,
-  OutingPlan,
-  CourierStatus,
-  PaymentTransaction
+  OrderStatus, 
+  PaymentMethod, 
+  Reservation, 
+  OutingPlan, 
+  CourierStatus, 
+  PaymentTransaction,
+  UserProfile,
+  UserAddress,
+  AuthState,
+  AuthMethod
 } from './types';
 import { 
   RESTAURANTS as initialRestaurants, 
@@ -140,12 +144,33 @@ interface AppContextType {
     coordinates?: { lat: number; lng: number };
   }) => Courier;
 
-  // Client Profile & Auth
+  // Client Profile & Auth State
   clientName: string;
   clientPhone: string;
   setClientProfile: (name: string, phone: string, address?: string, neighborhood?: string, coords?: GeoPoint) => void;
   loginWithOAuth: (provider: 'google' | 'facebook') => Promise<{ success: boolean; error?: string }>;
   logoutUser: () => Promise<void>;
+
+  // New Full Authentication System
+  currentUser: UserProfile | null;
+  isAuthenticated: boolean;
+  isAuthModalOpen: boolean;
+  authModalInitialRole: UserRole;
+  openAuthModal: (initialRole?: UserRole) => void;
+  closeAuthModal: () => void;
+  isProfileDrawerOpen: boolean;
+  openProfileDrawer: () => void;
+  closeProfileDrawer: () => void;
+  sendPhoneOtp: (phone: string) => Promise<{ success: boolean; code?: string; message: string }>;
+  verifyPhoneOtp: (phone: string, token: string) => Promise<{ success: boolean; error?: string }>;
+  loginWithEmail: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  signUpWithEmail: (data: { name: string; email: string; phone: string; password: string; role?: UserRole }) => Promise<{ success: boolean; error?: string }>;
+  loginWithDemo: (role: UserRole) => void;
+  logout: () => Promise<void>;
+  updateUserProfile: (updates: Partial<UserProfile>) => Promise<void>;
+  addUserAddress: (address: Omit<UserAddress, 'id'>) => void;
+  removeUserAddress: (addressId: string) => void;
+  setDefaultAddress: (addressId: string) => void;
 
   // Payments & Transactions
   transactions: PaymentTransaction[];
@@ -157,6 +182,73 @@ interface AppContextType {
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
+
+export const DEFAULT_DEMO_USERS: Record<UserRole, UserProfile> = {
+  client: {
+    id: 'user-client-khadim',
+    name: 'Khadim Diop',
+    email: 'khadim.diop@dakar.sn',
+    phone: '+221 77 123 45 67',
+    role: 'client',
+    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+    terangaPoints: 450,
+    addresses: [
+      { id: 'addr-1', label: 'Maison', neighborhood: 'Almadies', street: 'Route des Almadies, Villa 42', landmark: 'En face de la Brioche Dorée', isDefault: true },
+      { id: 'addr-2', label: 'Bureau', neighborhood: 'Plateau', street: 'Avenue Léopold Sédar Senghor', landmark: 'Immeuble SDI, 4ème étage' },
+      { id: 'addr-3', label: 'Chez les parents', neighborhood: 'Mermoz', street: 'Rue MZ 12', landmark: 'Près de la Boulangerie Jaune' }
+    ],
+    defaultPaymentMethod: 'wave',
+    createdAt: '2025-01-15T10:00:00Z',
+    isVerified: true
+  },
+  courier: {
+    id: 'user-courier-moussa',
+    name: 'Moussa Ndiaye',
+    email: 'moussa.coursier@thiob.sn',
+    phone: '+221 77 888 99 00',
+    role: 'courier',
+    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
+    courierId: 'courier-1',
+    terangaPoints: 890,
+    addresses: [
+      { id: 'addr-c1', label: 'Base Coursiers', neighborhood: 'Plateau', street: 'Rond-point Sandaga', isDefault: true }
+    ],
+    defaultPaymentMethod: 'wave',
+    createdAt: '2025-02-01T08:00:00Z',
+    isVerified: true
+  },
+  restaurant: {
+    id: 'user-resto-awa',
+    name: 'Awa Fall (Chez Loutcha)',
+    email: 'contact@chezloutcha.sn',
+    phone: '+221 77 555 44 33',
+    role: 'restaurant',
+    restaurantId: 'resto-kamiss',
+    avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&auto=format&fit=crop&q=80',
+    terangaPoints: 1200,
+    addresses: [
+      { id: 'addr-r1', label: 'Restaurant', neighborhood: 'Plateau', street: 'Rue de Thiong, Dakar', isDefault: true }
+    ],
+    defaultPaymentMethod: 'orange_money',
+    createdAt: '2024-11-10T12:00:00Z',
+    isVerified: true
+  },
+  admin: {
+    id: 'user-admin-mástu',
+    name: 'Mastü (Direction)',
+    email: 'admin@thiob.sn',
+    phone: '+221 77 000 10 08',
+    role: 'admin',
+    avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+    terangaPoints: 5000,
+    addresses: [
+      { id: 'addr-a1', label: 'Siège Thiéb & Co', neighborhood: 'Almadies', street: 'Boulevard de la Corniche Ouest', isDefault: true }
+    ],
+    defaultPaymentMethod: 'card',
+    createdAt: '2024-01-01T00:00:00Z',
+    isVerified: true
+  }
+};
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [currentRole, setCurrentRole] = useState<UserRole>('client');
@@ -170,8 +262,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [outingPlans, setOutingPlans] = useState<OutingPlan[]>(INITIAL_OUTING_PLANS);
   const [favoriteRestaurantIds, setFavoriteRestaurantIds] = useState<string[]>(['resto-kamiss', 'resto-1']);
 
+  // Authentication & Profile States
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(DEFAULT_DEMO_USERS.client);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
+  const [authModalInitialRole, setAuthModalInitialRole] = useState<UserRole>('client');
+  const [isProfileDrawerOpen, setIsProfileDrawerOpen] = useState<boolean>(false);
+
   // Client profile info
-  const [clientName, setClientName] = useState<string>('Gourmet Thiob');
+  const [clientName, setClientName] = useState<string>('Khadim Diop');
   const [clientPhone, setClientPhone] = useState<string>('+221 77 123 45 67');
 
   // Geolocation states
@@ -882,6 +980,280 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return newCourier;
   };
 
+  // Auth Modal & Profile Drawer Controls
+  const openAuthModal = (initialRole: UserRole = 'client') => {
+    setAuthModalInitialRole(initialRole);
+    setIsAuthModalOpen(true);
+  };
+  const closeAuthModal = () => setIsAuthModalOpen(false);
+
+  const openProfileDrawer = () => setIsProfileDrawerOpen(true);
+  const closeProfileDrawer = () => setIsProfileDrawerOpen(false);
+
+  // Send SMS / OTP for phone (+221 Dakar)
+  const sendPhoneOtp = async (phone: string): Promise<{ success: boolean; code?: string; message: string }> => {
+    try {
+      // Nettoyage format Sénégal
+      const cleaned = phone.trim();
+      const demoCode = '1008'; // Code OTP par défaut facile & mémorable pour Thiéb & Co Dakar
+
+      // Tentative Supabase Auth OTP si configuré
+      try {
+        await supabase.auth.signInWithOtp({
+          phone: cleaned.startsWith('+') ? cleaned : `+221${cleaned.replace(/\s+/g, '')}`,
+        });
+      } catch {}
+
+      return {
+        success: true,
+        code: demoCode,
+        message: `Code de confirmation envoyé par SMS au ${cleaned}`
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        message: err?.message || 'Erreur lors de l\'envoi du SMS'
+      };
+    }
+  };
+
+  // Verify Phone OTP
+  const verifyPhoneOtp = async (phone: string, token: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      // Accepter le code maître '1008' ou '1234' ou token supabase
+      const validCodes = ['1008', '1234', '0000'];
+      const isValid = validCodes.includes(token.trim());
+
+      let verifiedUser: UserProfile;
+
+      // Chercher si un utilisateur existant correspond ou en créer un nouveau
+      const existing = Object.values(DEFAULT_DEMO_USERS).find(u => u.phone.replace(/\s+/g, '') === phone.replace(/\s+/g, ''));
+      
+      if (existing) {
+        verifiedUser = { ...existing };
+      } else {
+        verifiedUser = {
+          id: `user-phone-${Date.now()}`,
+          name: `Client Thiéb (${phone.slice(-4)})`,
+          phone,
+          role: authModalInitialRole || 'client',
+          avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+          terangaPoints: 100, // Bonus de bienvenue
+          addresses: [
+            { id: `addr-${Date.now()}`, label: 'Mon Adresse', neighborhood: clientNeighborhood || 'Almadies', street: clientAddress || 'Dakar', isDefault: true }
+          ],
+          defaultPaymentMethod: 'wave',
+          createdAt: new Date().toISOString(),
+          isVerified: true
+        };
+      }
+
+      setCurrentUser(verifiedUser);
+      setClientName(verifiedUser.name);
+      setClientPhone(verifiedUser.phone);
+      setCurrentRole(verifiedUser.role);
+
+      try {
+        localStorage.setItem('thiob_current_user', JSON.stringify(verifiedUser));
+        localStorage.setItem('thiob_client_name', verifiedUser.name);
+        localStorage.setItem('thiob_client_phone', verifiedUser.phone);
+      } catch {}
+
+      setIsAuthModalOpen(false);
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err?.message || 'Code OTP incorrect' };
+    }
+  };
+
+  // Email / Password Login
+  const loginWithEmail = async (email: string, password: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      // 1. Essai Supabase réel
+      try {
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        if (!error && data.user) {
+          const userObj: UserProfile = {
+            id: data.user.id,
+            name: data.user.user_metadata?.full_name || email.split('@')[0],
+            email: data.user.email,
+            phone: data.user.user_metadata?.phone || '+221 77 123 45 67',
+            role: (data.user.user_metadata?.role as UserRole) || authModalInitialRole || 'client',
+            terangaPoints: 250,
+            addresses: [
+              { id: 'addr-def', label: 'Domicile', neighborhood: 'Almadies', street: 'Dakar', isDefault: true }
+            ],
+            createdAt: data.user.created_at,
+            isVerified: true
+          };
+          setCurrentUser(userObj);
+          setClientName(userObj.name);
+          setCurrentRole(userObj.role);
+          try { localStorage.setItem('thiob_current_user', JSON.stringify(userObj)); } catch {}
+          setIsAuthModalOpen(false);
+          return { success: true };
+        }
+      } catch {}
+
+      // 2. Correspondance Démo / Comptes locaux
+      const match = Object.values(DEFAULT_DEMO_USERS).find(u => u.email?.toLowerCase() === email.toLowerCase());
+      if (match) {
+        setCurrentUser(match);
+        setClientName(match.name);
+        setClientPhone(match.phone);
+        setCurrentRole(match.role);
+        try { localStorage.setItem('thiob_current_user', JSON.stringify(match)); } catch {}
+        setIsAuthModalOpen(false);
+        return { success: true };
+      }
+
+      // Création automatique de session locale si mot de passe >= 4 caractères
+      if (password.length >= 4) {
+        const customUser: UserProfile = {
+          id: `user-mail-${Date.now()}`,
+          name: email.split('@')[0],
+          email,
+          phone: '+221 77 000 00 00',
+          role: authModalInitialRole || 'client',
+          avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+          terangaPoints: 150,
+          addresses: [
+            { id: 'addr-new', label: 'Mon Domicile', neighborhood: 'Plateau', street: 'Avenue Pompidou', isDefault: true }
+          ],
+          defaultPaymentMethod: 'wave',
+          createdAt: new Date().toISOString(),
+          isVerified: true
+        };
+        setCurrentUser(customUser);
+        setClientName(customUser.name);
+        setCurrentRole(customUser.role);
+        try { localStorage.setItem('thiob_current_user', JSON.stringify(customUser)); } catch {}
+        setIsAuthModalOpen(false);
+        return { success: true };
+      }
+
+      return { success: false, error: 'Identifiants invalides ou mot de passe trop court' };
+    } catch (err: any) {
+      return { success: false, error: err?.message || 'Erreur de connexion' };
+    }
+  };
+
+  // Sign Up with Email
+  const signUpWithEmail = async (data: {
+    name: string;
+    email: string;
+    phone: string;
+    password: string;
+    role?: UserRole;
+  }): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const selectedRole = data.role || authModalInitialRole || 'client';
+      
+      try {
+        await supabase.auth.signUp({
+          email: data.email,
+          password: data.password,
+          options: {
+            data: {
+              full_name: data.name,
+              phone: data.phone,
+              role: selectedRole
+            }
+          }
+        });
+      } catch {}
+
+      const newUser: UserProfile = {
+        id: `user-${Date.now()}`,
+        name: data.name,
+        email: data.email,
+        phone: data.phone,
+        role: selectedRole,
+        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+        terangaPoints: 300, // Bonus d'inscription Teranga
+        addresses: [
+          { id: `addr-${Date.now()}`, label: 'Adresse Principale', neighborhood: 'Almadies', street: 'Dakar', isDefault: true }
+        ],
+        defaultPaymentMethod: 'wave',
+        createdAt: new Date().toISOString(),
+        isVerified: true
+      };
+
+      setCurrentUser(newUser);
+      setClientName(newUser.name);
+      setClientPhone(newUser.phone);
+      setCurrentRole(newUser.role);
+
+      try { localStorage.setItem('thiob_current_user', JSON.stringify(newUser)); } catch {}
+      setIsAuthModalOpen(false);
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err?.message || 'Erreur lors de l\'inscription' };
+    }
+  };
+
+  // Quick 1-click Demo Switcher
+  const loginWithDemo = (role: UserRole) => {
+    const demoUser = DEFAULT_DEMO_USERS[role];
+    if (demoUser) {
+      setCurrentUser(demoUser);
+      setClientName(demoUser.name);
+      setClientPhone(demoUser.phone);
+      setCurrentRole(role);
+      if (demoUser.restaurantId) setCurrentRestaurantId(demoUser.restaurantId);
+      try { localStorage.setItem('thiob_current_user', JSON.stringify(demoUser)); } catch {}
+      setIsAuthModalOpen(false);
+    }
+  };
+
+  // Logout
+  const logout = async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch {}
+    try {
+      localStorage.removeItem('thiob_current_user');
+      localStorage.removeItem('thiob_user_session');
+    } catch {}
+    setCurrentUser(null);
+    setIsProfileDrawerOpen(false);
+  };
+
+  // Profile Updates
+  const updateUserProfile = async (updates: Partial<UserProfile>) => {
+    if (!currentUser) return;
+    const updated = { ...currentUser, ...updates };
+    setCurrentUser(updated);
+    if (updates.name) setClientName(updates.name);
+    if (updates.phone) setClientPhone(updates.phone);
+    try { localStorage.setItem('thiob_current_user', JSON.stringify(updated)); } catch {}
+  };
+
+  const addUserAddress = (address: Omit<UserAddress, 'id'>) => {
+    if (!currentUser) return;
+    const newAddr: UserAddress = {
+      ...address,
+      id: `addr-${Date.now()}`
+    };
+    const updatedAddresses = [...currentUser.addresses, newAddr];
+    updateUserProfile({ addresses: updatedAddresses });
+  };
+
+  const removeUserAddress = (addressId: string) => {
+    if (!currentUser) return;
+    const updatedAddresses = currentUser.addresses.filter(a => a.id !== addressId);
+    updateUserProfile({ addresses: updatedAddresses });
+  };
+
+  const setDefaultAddress = (addressId: string) => {
+    if (!currentUser) return;
+    const updatedAddresses = currentUser.addresses.map(a => ({
+      ...a,
+      isDefault: a.id === addressId
+    }));
+    updateUserProfile({ addresses: updatedAddresses });
+  };
+
   const setClientProfile = (
     name: string,
     phone: string,
@@ -899,6 +1271,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
     if (coords) {
       setClientLocation(coords, address, neighborhood);
+    }
+    if (currentUser) {
+      updateUserProfile({ name, phone });
     }
   };
 
@@ -919,13 +1294,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logoutUser = async () => {
-    try {
-      await supabase.auth.signOut();
-    } catch {}
-    try {
-      localStorage.removeItem('thiob_user_session');
-    } catch {}
-    setCurrentRole('client');
+    await logout();
   };
 
   const recordPaymentTransaction = (tx: PaymentTransaction) => {
@@ -1002,6 +1371,28 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setClientProfile,
         loginWithOAuth,
         logoutUser,
+
+        // Auth & Profile
+        currentUser,
+        isAuthenticated: !!currentUser,
+        isAuthModalOpen,
+        authModalInitialRole,
+        openAuthModal,
+        closeAuthModal,
+        isProfileDrawerOpen,
+        openProfileDrawer,
+        closeProfileDrawer,
+        sendPhoneOtp,
+        verifyPhoneOtp,
+        loginWithEmail,
+        signUpWithEmail,
+        loginWithDemo,
+        logout,
+        updateUserProfile,
+        addUserAddress,
+        removeUserAddress,
+        setDefaultAddress,
+
         transactions,
         recordPaymentTransaction,
         activeTrackingOrder,

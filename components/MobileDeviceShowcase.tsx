@@ -63,6 +63,8 @@ import AdminAnalyticsModal from '@/components/admin/AdminAnalyticsModal';
 import DesktopAdminCommandCenter from '@/components/admin/DesktopAdminCommandCenter';
 import { supabase } from '@/lib/supabase';
 import PaymentCheckoutSheet from '@/components/payment/PaymentCheckoutSheet';
+import AuthModal from '@/components/auth/AuthModal';
+import UserProfileDrawer from '@/components/auth/UserProfileDrawer';
 import dynamic from 'next/dynamic';
 
 const ThiobMap = dynamic(() => import('@/components/map/ThiobMap'), { 
@@ -109,6 +111,11 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
     clientName: storeClientName,
     clientPhone: storeClientPhone,
     recordPaymentTransaction,
+    currentUser,
+    isAuthenticated,
+    openAuthModal,
+    openProfileDrawer,
+    logout,
   } = useApp();
 
 
@@ -469,8 +476,37 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
             <img src="/shapes/logo-thiob.svg" alt="Thiob Express" className="h-10 w-auto" />
           </motion.div>
 
-          {/* Notifications & Panier avec Glassmorphism */}
-          <div className="flex items-center gap-2 shrink-0">
+          {/* Notifications, Profil & Panier avec Glassmorphism */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            {/* Bouton Profil / Authentification */}
+            <motion.button
+              whileHover={{ scale: 1.08, y: -2 }}
+              whileTap={{ scale: 0.92 }}
+              onClick={() => {
+                if (isAuthenticated) {
+                  openProfileDrawer();
+                } else {
+                  openAuthModal('client');
+                }
+              }}
+              className="glass-btn relative w-10 h-10 rounded-2xl flex items-center justify-center text-[#0A6E3B]"
+              title={isAuthenticated ? `Mon Compte (${currentUser?.name})` : "Se connecter"}
+            >
+              {isAuthenticated && currentUser?.avatar ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={currentUser.avatar}
+                  alt={currentUser.name}
+                  className="w-7 h-7 rounded-xl object-cover border border-emerald-600/30"
+                />
+              ) : (
+                <User className="w-4.5 h-4.5" />
+              )}
+              {isAuthenticated && (
+                <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full ring-2 ring-white" />
+              )}
+            </motion.button>
+
             <motion.button
               whileHover={{ scale: 1.08, y: -2 }}
               whileTap={{ scale: 0.92 }}
@@ -1621,62 +1657,119 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
         )}
 
         {/* =====================================================================
-            TAB 5: PROFIL
+            TAB 5: PROFIL & MON COMPTE
            ===================================================================== */}
         {activeTab === 'profile' && (
-          <div className="p-4 space-y-4">
-            <div className="bg-white p-4 rounded-3xl border border-[#D8EADB] text-center space-y-2 shadow-2xs">
-              <div className="w-14 h-14 rounded-full brand-gradient text-white flex items-center justify-center font-black text-lg mx-auto shadow-sm uppercase">
-                {clientName ? clientName.split(' ').map((w: string) => w[0]).join('').slice(0, 2) : 'TD'}
+          <div className="p-4 space-y-4 pb-20">
+            {/* Header Profil Card */}
+            <div className="bg-white p-5 rounded-3xl border border-[#D8EADB] text-center space-y-3 shadow-sm">
+              <div className="relative w-16 h-16 mx-auto">
+                {currentUser?.avatar ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={currentUser.avatar}
+                    alt={currentUser.name}
+                    className="w-16 h-16 rounded-full object-cover border-2 border-[#0A6E3B] shadow-md mx-auto"
+                  />
+                ) : (
+                  <div className="w-16 h-16 rounded-full brand-gradient text-white flex items-center justify-center font-black text-xl mx-auto shadow-md uppercase">
+                    {clientName ? clientName.split(' ').map((w: string) => w[0]).join('').slice(0, 2) : 'TD'}
+                  </div>
+                )}
+                {isAuthenticated && (
+                  <span className="absolute bottom-0 right-0 p-1 bg-emerald-500 rounded-full ring-2 ring-white text-white">
+                    <CheckCircle2 className="w-3 h-3" />
+                  </span>
+                )}
               </div>
+
               <div>
-                <h4 className="font-bold text-sm text-[#081A10]">{clientName || 'Client Thiob'}</h4>
-                <p className="text-xs text-gray-500">{clientPhone || '+221 77 123 45 67'}</p>
+                <h4 className="font-extrabold text-base text-[#081A10]">
+                  {currentUser?.name || clientName || 'Client Thiéb & Co'}
+                </h4>
+                <p className="text-xs text-gray-500 font-medium">
+                  {currentUser?.phone || clientPhone || '+221 77 123 45 67'}
+                </p>
+                {currentUser?.email && (
+                  <p className="text-[11px] text-gray-400 mt-0.5">{currentUser.email}</p>
+                )}
               </div>
-              <div className="flex justify-center gap-2 pt-1">
-                <span className="px-2.5 py-0.5 rounded-full bg-[#E6F5EC] text-[#0A6E3B] text-[10px] font-bold">
-                  🇸🇳 {clientNeighborhood || 'Dakar, Sénégal'}
+
+              <div className="flex justify-center gap-1.5 pt-1">
+                <span className="px-3 py-1 rounded-full bg-[#E6F5EC] text-[#0A6E3B] text-[10px] font-bold border border-[#D8EADB]">
+                  🇸🇳 {currentUser?.addresses?.[0]?.neighborhood || clientNeighborhood || 'Dakar, Sénégal'}
                 </span>
-                <span className="px-2.5 py-0.5 rounded-full bg-[#FF7824]/10 text-[#FF7824] text-[10px] font-bold">
-                  Membre VIP Téranga
+                <span className="px-3 py-1 rounded-full bg-gradient-to-r from-amber-500/20 to-orange-500/20 text-[#FF7824] text-[10px] font-black border border-amber-500/30 flex items-center gap-1">
+                  <Sparkles className="w-3 h-3 text-amber-500" />
+                  {currentUser?.terangaPoints || 450} Pts Teranga
                 </span>
               </div>
+
+              <button
+                onClick={openProfileDrawer}
+                className="w-full py-2.5 px-4 rounded-2xl brand-gradient text-white font-bold text-xs shadow-sm hover:opacity-95 transition-all flex items-center justify-center gap-1.5"
+              >
+                <User className="w-4 h-4" />
+                <span>Gérer Mon Compte Complet</span>
+              </button>
             </div>
 
-            <div className="bg-white rounded-3xl border border-[#D8EADB] divide-y divide-[#D8EADB] text-xs shadow-2xs overflow-hidden">
-              <div className="p-3.5 flex justify-between items-center cursor-pointer hover:bg-gray-50">
-                <div className="flex items-center gap-2">
-                  <span>📍</span>
-                  <span className="font-semibold text-gray-700">Adresses enregistrées</span>
-                </div>
-                <ArrowRight className="w-3.5 h-3.5 text-gray-400" />
-              </div>
-              <div className="p-3.5 flex justify-between items-center cursor-pointer hover:bg-gray-50">
-                <div className="flex items-center gap-2">
-                  <span>🌊</span>
-                  <span className="font-semibold text-gray-700">Wave & Orange Money</span>
-                </div>
-                <span className="text-[10px] font-bold text-[#0A6E3B]">Connecté</span>
-              </div>
-              <div className="p-3.5 flex justify-between items-center cursor-pointer hover:bg-gray-50">
-                <div className="flex items-center gap-2">
-                  <span>📞</span>
-                  <span className="font-semibold text-gray-700">Support Thiob Express</span>
-                </div>
-                <span className="text-[10px] text-gray-400">+221 33 800 00 00</span>
-              </div>
-              {onLogout && (
-                <div 
-                  onClick={onLogout}
-                  className="p-3.5 flex justify-between items-center cursor-pointer hover:bg-rose-50 text-rose-700"
-                >
-                  <div className="flex items-center gap-2">
-                    <span>🚪</span>
-                    <span className="font-bold">Déconnexion / Changer de compte</span>
+            {/* Quick Actions List */}
+            <div className="bg-white rounded-3xl border border-[#D8EADB] divide-y divide-[#D8EADB] text-xs shadow-xs overflow-hidden">
+              <div 
+                onClick={openProfileDrawer}
+                className="p-3.5 flex justify-between items-center cursor-pointer hover:bg-gray-50 transition-colors"
+              >
+                <div className="flex items-center gap-2.5">
+                  <span className="text-base">📍</span>
+                  <div>
+                    <span className="font-bold text-gray-800 block">Mes Adresses Enregistrées</span>
+                    <span className="text-[10px] text-gray-400">
+                      {currentUser?.addresses?.length || 0} adresse(s) à Dakar
+                    </span>
                   </div>
-                  <ArrowRight className="w-3.5 h-3.5 text-rose-400" />
                 </div>
-              )}
+                <ArrowRight className="w-4 h-4 text-gray-400" />
+              </div>
+
+              <div 
+                onClick={openProfileDrawer}
+                className="p-3.5 flex justify-between items-center cursor-pointer hover:bg-gray-50 transition-colors"
+              >
+                <div className="flex items-center gap-2.5">
+                  <span className="text-base">🌊</span>
+                  <div>
+                    <span className="font-bold text-gray-800 block">Paiements Wave & Orange Money</span>
+                    <span className="text-[10px] text-emerald-600 font-semibold">Configuré & Actif</span>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-gray-400" />
+              </div>
+
+              <div 
+                onClick={() => openAuthModal('client')}
+                className="p-3.5 flex justify-between items-center cursor-pointer hover:bg-amber-50/50 transition-colors"
+              >
+                <div className="flex items-center gap-2.5">
+                  <span className="text-base">✨</span>
+                  <div>
+                    <span className="font-bold text-gray-800 block">Changer de Compte / Démo</span>
+                    <span className="text-[10px] text-amber-600 font-semibold">Tester Client, Livreur, Restaurant</span>
+                  </div>
+                </div>
+                <ArrowRight className="w-4 h-4 text-amber-500" />
+              </div>
+
+              <div 
+                onClick={logout}
+                className="p-3.5 flex justify-between items-center cursor-pointer hover:bg-rose-50 text-rose-700 transition-colors"
+              >
+                <div className="flex items-center gap-2.5">
+                  <span className="text-base">🚪</span>
+                  <span className="font-bold">Se déconnecter</span>
+                </div>
+                <ArrowRight className="w-4 h-4 text-rose-400" />
+              </div>
             </div>
           </div>
         )}
@@ -6781,6 +6874,10 @@ export default function MobileDeviceShowcase() {
         isOpen={isAdminAnalyticsOpen}
         onClose={() => setIsAdminAnalyticsOpen(false)}
       />
+
+      {/* Global Authentication Modal & Mon Compte Drawer */}
+      <AuthModal />
+      <UserProfileDrawer />
 
     </div>
   );
