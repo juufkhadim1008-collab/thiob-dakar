@@ -172,7 +172,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [clientName, setClientName] = useState<string>('');
   const [clientPhone, setClientPhone] = useState<string>('');
 
-
   // Geolocation states
   const [clientCoords, setClientCoords] = useState<GeoPoint | null>(null);
   const [clientAccuracy, setClientAccuracy] = useState<number>(5.0);
@@ -348,7 +347,34 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
 
-  const currentRestaurant = restaurants.find((r) => r.id === currentRestaurantId) || restaurants[0];
+  const DEFAULT_EMPTY_RESTO: Restaurant = {
+    id: '',
+    name: 'Mon Restaurant Dakar',
+    tagline: 'L’Excellence et la Saveur de Dakar',
+    description: 'Bienvenue sur votre espace restaurant.',
+    coverImage: 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=1200&q=80',
+    logo: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=300&q=80',
+    neighborhood: 'Almadies',
+    address: 'Dakar, Sénégal',
+    coordinates: DAKAR_DEFAULT_COORDS,
+    phone: '+221 77 000 00 00',
+    ownerName: 'Chef Partenaire',
+    rating: 5.0,
+    reviewCount: 0,
+    priceRange: '2 500 - 6 500 FCFA',
+    deliveryTimeEstimate: '20-30 min',
+    deliveryFee: 1500,
+    minOrder: 3000,
+    isOpen: true,
+    featuredTags: ['Nouveau Resto Dakar'],
+    openingHours: '11h30 - 23h30 (7j/7)',
+    gallery: [],
+    ambianceTags: ['Terrasse', 'Fait Maison'],
+    amenities: ['Wifi', 'Paiement Wave'],
+  };
+
+  const currentRestaurant: Restaurant = restaurants.find((r) => r.id === currentRestaurantId) || (restaurants.length > 0 ? restaurants[0] : DEFAULT_EMPTY_RESTO);
+
 
   // Client Geolocation Handler with exact accuracy
   const setClientLocation = (
@@ -429,7 +455,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Nearby Available Couriers Spatial Query
   const getNearbyCouriers = (radiusKm: number = radiusFilterKm) => {
-    const origin = clientCoords || (currentRestaurant.coordinates || DAKAR_GEO_PRESETS[currentRestaurant.neighborhood] || DAKAR_DEFAULT_COORDS);
+    const defaultCoords = DAKAR_DEFAULT_COORDS;
+    const restoCoords = currentRestaurant ? (currentRestaurant.coordinates || DAKAR_GEO_PRESETS[currentRestaurant.neighborhood] || defaultCoords) : defaultCoords;
+    const origin = clientCoords || restoCoords;
 
     return couriers
       .filter((c) => c.isOnline && (c.isAvailable !== false || c.status === 'AVAILABLE'))

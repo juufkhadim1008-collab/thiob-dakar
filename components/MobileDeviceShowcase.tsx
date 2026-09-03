@@ -3567,12 +3567,20 @@ function MobileRestaurantApp({ onLogout }: { onLogout?: () => void }) {
     updateMenuItem,
     deleteMenuItem,
     currentRestaurant,
+    registerNewRestaurant,
   } = useApp();
 
   const [mobileMode, setMobileMode] = useState<'vitrine' | 'dashboard'>('dashboard');
   const [restoTab, setRestoTab] = useState<'showcase' | 'overview' | 'orders' | 'courier' | 'profile'>('overview');
   const [isServiceActive, setIsServiceActive] = useState(true);
   const [vitrineCategory, setVitrineCategory] = useState('all');
+
+  // Quick Restaurant Creation State when 0 restaurants exist
+  const [initRestoName, setInitRestoName] = useState('');
+  const [initRestoNeighborhood, setInitRestoNeighborhood] = useState('Almadies');
+  const [initRestoAddress, setInitRestoAddress] = useState('');
+  const [initRestoPhone, setInitRestoPhone] = useState('');
+  const [isRegisteringResto, setIsRegisteringResto] = useState(false);
   
   // Real-time Incoming Order Notification & Chime Sound
   const [latestIncomingOrder, setLatestIncomingOrder] = useState<Order | null>(null);
@@ -3641,9 +3649,25 @@ function MobileRestaurantApp({ onLogout }: { onLogout?: () => void }) {
 
   // Active restaurant: Strictly the logged-in restaurant (persisted and dynamic)
   const currentResto = currentRestaurant;
-  const myOrders = orders.filter((o) => o.restaurantId === currentResto.id);
-  const myReservations = reservations.filter((res) => res.restaurantId === currentResto.id || res.restaurantName.toLowerCase().includes(currentResto.name.toLowerCase()));
-  const myDishes = menuItems.filter((d) => d.restaurantId === currentResto.id);
+  const myOrders = currentResto ? orders.filter((o) => o.restaurantId === currentResto.id) : [];
+  const myReservations = currentResto ? reservations.filter((res) => res.restaurantId === currentResto.id || res.restaurantName.toLowerCase().includes(currentResto.name.toLowerCase())) : [];
+  const myDishes = currentResto ? menuItems.filter((d) => d.restaurantId === currentResto.id) : [];
+
+  const handleQuickCreateResto = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!initRestoName.trim()) return;
+    setIsRegisteringResto(true);
+    await registerNewRestaurant({
+      name: initRestoName.trim(),
+      neighborhood: initRestoNeighborhood,
+      address: initRestoAddress.trim() || `${initRestoNeighborhood}, Dakar`,
+      phone: initRestoPhone.trim() || '+221 77 000 00 00',
+      logo: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=300&q=80',
+      coverImage: 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=1200&q=80',
+    });
+    setIsRegisteringResto(false);
+  };
+
 
   // Listen to new incoming orders for this restaurant and trigger sound + alert
   useEffect(() => {
@@ -3883,8 +3907,108 @@ function MobileRestaurantApp({ onLogout }: { onLogout?: () => void }) {
     { id: 'Cocktails & Jus Locaux', icon: '🍹' },
   ];
 
+  if (!currentResto || !currentResto.id || restaurants.length === 0) {
+    return (
+      <div className="h-full flex flex-col bg-[#F4F7F4] relative overflow-y-auto font-sans p-4 text-[#081A10]">
+        <div className="text-center my-4">
+          <div className="w-14 h-14 rounded-2xl bg-emerald-100 text-[#0A6E3B] flex items-center justify-center text-2xl mx-auto shadow-inner mb-3">
+            👨‍🍳
+          </div>
+          <h2 className="text-lg font-black text-[#081A10]">Espace Restaurateur Dakar</h2>
+          <p className="text-xs text-gray-500 mt-1 max-w-xs mx-auto">
+            Enregistrez votre restaurant en 30 secondes pour commencer à recevoir des commandes et afficher vos plats en direct !
+          </p>
+        </div>
+
+        <form onSubmit={handleQuickCreateResto} className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm space-y-3">
+          <div>
+            <label className="block text-[10px] font-black uppercase text-gray-500 mb-1">
+              Nom du Restaurant *
+            </label>
+            <input
+              type="text"
+              required
+              value={initRestoName}
+              onChange={(e) => setInitRestoName(e.target.value)}
+              placeholder="Ex: Le Palais du Thiéb, Chez Awa..."
+              className="w-full px-3 py-2 text-xs rounded-xl bg-gray-50 border border-gray-200 focus:outline-none focus:border-[#0A6E3B] font-medium"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[10px] font-black uppercase text-gray-500 mb-1">
+              Quartier à Dakar *
+            </label>
+            <select
+              value={initRestoNeighborhood}
+              onChange={(e) => setInitRestoNeighborhood(e.target.value)}
+              className="w-full px-3 py-2 text-xs rounded-xl bg-gray-50 border border-gray-200 focus:outline-none focus:border-[#0A6E3B] font-medium"
+            >
+              {['Almadies', 'Ngor', 'Ouakam', 'Mermoz', 'Fann', 'Plateau', 'Point E', 'Yoff', 'Sacré-Cœur', 'Liberté 6', 'Pikine', 'Guédiawaye'].map((q) => (
+                <option key={q} value={q}>{q}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-[10px] font-black uppercase text-gray-500 mb-1">
+              Adresse précise ou repère
+            </label>
+            <input
+              type="text"
+              value={initRestoAddress}
+              onChange={(e) => setInitRestoAddress(e.target.value)}
+              placeholder="Ex: Route des Almadies, en face Pharmacie"
+              className="w-full px-3 py-2 text-xs rounded-xl bg-gray-50 border border-gray-200 focus:outline-none focus:border-[#0A6E3B] font-medium"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[10px] font-black uppercase text-gray-500 mb-1">
+              Téléphone / WhatsApp Réception *
+            </label>
+            <input
+              type="tel"
+              required
+              value={initRestoPhone}
+              onChange={(e) => setInitRestoPhone(e.target.value)}
+              placeholder="+221 77 000 00 00"
+              className="w-full px-3 py-2 text-xs rounded-xl bg-gray-50 border border-gray-200 focus:outline-none focus:border-[#0A6E3B] font-medium"
+            />
+          </div>
+
+          <button
+            type="submit"
+            disabled={isRegisteringResto || !initRestoName.trim()}
+            className="w-full py-3 rounded-xl brand-gradient text-white font-black text-xs shadow-md active:scale-95 transition-all flex items-center justify-center gap-2 mt-4 cursor-pointer disabled:opacity-50"
+          >
+            {isRegisteringResto ? (
+              <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <>
+                <span>🚀</span>
+                <span>Activer mon restaurant en ligne</span>
+              </>
+            )}
+          </button>
+        </form>
+
+        {onLogout && (
+          <button
+            type="button"
+            onClick={onLogout}
+            className="mt-4 text-center text-xs text-gray-400 hover:text-gray-600 font-bold"
+          >
+            ← Retour à l’accueil client
+          </button>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="h-full flex flex-col bg-[#F4F7F4] relative overflow-hidden font-sans select-none">
+
       
       {/* Save feedback toast */}
       <AnimatePresence>
