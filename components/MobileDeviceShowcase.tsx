@@ -364,7 +364,8 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
       {/* =========================================================================
           1. HEADER YANGO FOOD & YASSIR STYLE (FROSTED GLASS & GPS LIVE)
          ========================================================================= */}
-      <div className="relative z-10 pt-4 px-4 pb-3 bg-[#F2EFE7] shrink-0 space-y-3">
+      <div className="relative z-10 pt-4 px-4 pb-3 bg-[#F6F5F1] shrink-0 space-y-3">
+
 
         {/* Top line: Hamburger (localité/GPS) + Logo Thiob Express + Notifications & Panier */}
         <div className="flex items-center justify-between gap-2">
@@ -475,7 +476,8 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
           <div className="relative z-10 pb-8 space-y-0">
             
             {/* Upper Cream Canvas Container with Slideshow & Categories */}
-            <div className="bg-[#F2EFE7] pt-2 space-y-4">
+            <div className="bg-[#F6F5F1] pt-2 space-y-4">
+
               
               {/* Locality Filter Active Banner */}
               {selectedNeighborhood !== 'Tous les quartiers' && (
@@ -636,18 +638,19 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
                     </AnimatePresence>
 
                     {/* Progress bar for 5s timer */}
-                    <div className="absolute bottom-0 inset-x-0 h-1 bg-white/20 z-20 overflow-hidden">
+                    <div className="absolute top-0 inset-x-0 h-1 bg-black/20 z-20 overflow-hidden">
                       <motion.div
                         key={currentSlideIndex}
                         initial={{ width: '0%' }}
                         animate={{ width: isSlideshowPaused ? '0%' : '100%' }}
                         transition={{ duration: 5, ease: 'linear' }}
-                        className="h-full bg-[#10B981]"
+                        className="h-full bg-[#FF7824]"
                       />
                     </div>
                   </div>
                 </div>
               </div>
+
 
               {/* =================================================================
                   🍲 SECTION CATÉGORIES DE PLATS (BADGES ORGANIQUES)
