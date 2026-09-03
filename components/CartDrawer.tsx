@@ -309,12 +309,15 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
                           onClick={() => setPaymentMethod('wave')}
                           className={`cursor-pointer p-3 rounded-xl border flex flex-col items-center text-center transition-all ${
                             paymentMethod === 'wave'
-                              ? 'border-[#3FB9F7] bg-[#3FB9F7]/10 ring-2 ring-[#3FB9F7]'
+                              ? 'border-[#1DC3EC] bg-[#1DC3EC]/10 ring-2 ring-[#1DC3EC]'
                               : 'border-gray-200 hover:border-gray-300'
                           }`}
                         >
-                          <span className="text-lg">🌊</span>
-                          <span className="font-bold text-xs text-[#0D1C12] mt-1">Wave</span>
+                          <div className="w-8 h-8 rounded-lg overflow-hidden bg-white flex items-center justify-center p-0.5 shadow-2xs">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src="/images/wave_civ_logo.jpeg" alt="Wave" className="w-full h-full object-contain rounded-md" />
+                          </div>
+                          <span className="font-bold text-xs text-[#0D1C12] mt-1">Wave Sénégal</span>
                           <span className="text-[10px] text-gray-500">Sans frais</span>
                         </motion.div>
 
@@ -323,11 +326,14 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
                           onClick={() => setPaymentMethod('orange_money')}
                           className={`cursor-pointer p-3 rounded-xl border flex flex-col items-center text-center transition-all ${
                             paymentMethod === 'orange_money'
-                              ? 'border-[#FF7900] bg-[#FF7900]/10 ring-2 ring-[#FF7900]'
+                              ? 'border-[#FF7824] bg-[#FF7824]/10 ring-2 ring-[#FF7824]'
                               : 'border-gray-200 hover:border-gray-300'
                           }`}
                         >
-                          <span className="text-lg">🟠</span>
+                          <div className="w-8 h-8 rounded-lg overflow-hidden bg-white flex items-center justify-center p-0.5 shadow-2xs">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src="/images/orange_ci.png" alt="Orange Money" className="w-full h-full object-contain rounded-md" />
+                          </div>
                           <span className="font-bold text-xs text-[#0D1C12] mt-1">Orange Money</span>
                           <span className="text-[10px] text-gray-500">Code secret OM</span>
                         </motion.div>

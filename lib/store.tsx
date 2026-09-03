@@ -13,7 +13,8 @@ import {
   PaymentMethod,
   Reservation,
   OutingPlan,
-  CourierStatus
+  CourierStatus,
+  PaymentTransaction
 } from './types';
 import { 
   RESTAURANTS as initialRestaurants, 
@@ -129,6 +130,26 @@ interface AppContextType {
   setCourierStatus: (courierId: string, status: CourierStatus) => void;
   acceptDeliveryMission: (courierId: string, orderId: string) => void;
   completeDeliveryMission: (courierId: string, orderId: string) => void;
+  registerCourier: (data: {
+    firstName: string;
+    lastName: string;
+    phone: string;
+    photo?: string;
+    vehicle?: string;
+    plateNumber?: string;
+    coordinates?: { lat: number; lng: number };
+  }) => Courier;
+
+  // Client Profile & Auth
+  clientName: string;
+  clientPhone: string;
+  setClientProfile: (name: string, phone: string, address?: string, neighborhood?: string, coords?: GeoPoint) => void;
+  loginWithOAuth: (provider: 'google' | 'facebook') => Promise<{ success: boolean; error?: string }>;
+  logoutUser: () => Promise<void>;
+
+  // Payments & Transactions
+  transactions: PaymentTransaction[];
+  recordPaymentTransaction: (tx: PaymentTransaction) => void;
 
   // Tracking Modal
   activeTrackingOrder: Order | null;
@@ -149,6 +170,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [outingPlans, setOutingPlans] = useState<OutingPlan[]>(INITIAL_OUTING_PLANS);
   const [favoriteRestaurantIds, setFavoriteRestaurantIds] = useState<string[]>(['resto-kamiss', 'resto-1']);
 
+  // Client profile info
+  const [clientName, setClientName] = useState<string>('Gourmet Thiob');
+  const [clientPhone, setClientPhone] = useState<string>('+221 77 123 45 67');
+
   // Geolocation states
   const [clientCoords, setClientCoords] = useState<GeoPoint | null>(null);
   const [clientAccuracy, setClientAccuracy] = useState<number>(5.0);
@@ -164,6 +189,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     try {
       const savedRestoId = localStorage.getItem('thiob_active_restaurant_id');
       const savedRestos = localStorage.getItem('thiob_custom_restaurants');
+      const savedCouriers = localStorage.getItem('thiob_custom_couriers');
+      const savedClientName = localStorage.getItem('thiob_client_name');
+      const savedClientPhone = localStorage.getItem('thiob_client_phone');
       const savedClientCoords = localStorage.getItem('thiob_client_coords');
       const savedClientAddress = localStorage.getItem('thiob_client_address');
       const savedClientNeighborhood = localStorage.getItem('thiob_client_neighborhood');
@@ -178,9 +206,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           });
         }
       }
+      if (savedCouriers) {
+        const parsed: Courier[] = JSON.parse(savedCouriers);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setCouriers((prev) => {
+            const combined = [...parsed, ...prev.filter(c => !parsed.some(p => p.id === c.id))];
+            return combined;
+          });
+        }
+      }
       if (savedRestoId) {
         setCurrentRestaurantId(savedRestoId);
       }
+      if (savedClientName) setClientName(savedClientName);
+      if (savedClientPhone) setClientPhone(savedClientPhone);
       if (savedClientCoords) {
         const parsedCoords = JSON.parse(savedClientCoords);
         setClientCoords(parsedCoords);
@@ -508,8 +547,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setMenuItems((prev) => prev.filter((m) => m.id !== itemId));
   };
 
-  const [cart, setCart] = useState<CartItem[]>([]);
   const [activeTrackingOrder, setActiveTrackingOrder] = useState<Order | null>(null);
+  const [transactions, setTransactions] = useState<PaymentTransaction[]>([]);
+
+  const [cart, setCart] = useState<CartItem[]>([]);
 
   // Identify the restaurant of the items in cart
   const cartRestaurant = cart.length > 0
@@ -800,6 +841,102 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     );
   };
 
+  const registerCourier = (data: {
+    firstName: string;
+    lastName: string;
+    phone: string;
+    photo?: string;
+    vehicle?: string;
+    plateNumber?: string;
+    coordinates?: { lat: number; lng: number };
+  }): Courier => {
+    const fullName = `${data.firstName} ${data.lastName}`.trim() || 'Livreur Tiak-Tiak';
+    const newId = `courier-${Date.now()}`;
+    const newCourier: Courier = {
+      id: newId,
+      name: fullName,
+      phone: data.phone,
+      photo: data.photo || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80',
+      vehicleType: (data.vehicle as any) || 'moto',
+      vehicleName: data.vehicle === 'scooter' ? 'Scooter 125cc' : data.vehicle === 'voiture' ? 'Véhicule Urbain' : data.vehicle === 'velo' ? 'Vélo Coursier' : 'Moto Jakarta Express',
+      plateNumber: data.plateNumber || 'DK-7842-AB',
+      rating: 5.0,
+      completedDeliveries: 0,
+      todayEarnings: 0,
+      isOnline: true,
+      isAvailable: true,
+      status: 'AVAILABLE',
+      currentNeighborhood: 'Plateau',
+      coordinates: data.coordinates || { lat: 14.6937, lng: -17.4441 },
+      locationAccuracy: 5.0,
+      lastUpdate: Date.now(),
+    };
+
+    setCouriers((prev) => [newCourier, ...prev]);
+    try {
+      const existing = localStorage.getItem('thiob_custom_couriers');
+      const list = existing ? JSON.parse(existing) : [];
+      localStorage.setItem('thiob_custom_couriers', JSON.stringify([newCourier, ...list]));
+    } catch {}
+
+    return newCourier;
+  };
+
+  const setClientProfile = (
+    name: string,
+    phone: string,
+    address?: string,
+    neighborhood?: string,
+    coords?: GeoPoint
+  ) => {
+    if (name) {
+      setClientName(name);
+      try { localStorage.setItem('thiob_client_name', name); } catch {}
+    }
+    if (phone) {
+      setClientPhone(phone);
+      try { localStorage.setItem('thiob_client_phone', phone); } catch {}
+    }
+    if (coords) {
+      setClientLocation(coords, address, neighborhood);
+    }
+  };
+
+  const loginWithOAuth = async (provider: 'google' | 'facebook'): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
+        },
+      });
+      if (error) throw error;
+      return { success: true };
+    } catch (err: any) {
+      console.warn(`OAuth error (${provider}):`, err?.message);
+      return { success: false, error: err?.message || 'Erreur lors de la connexion' };
+    }
+  };
+
+  const logoutUser = async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch {}
+    try {
+      localStorage.removeItem('thiob_user_session');
+    } catch {}
+    setCurrentRole('client');
+  };
+
+  const recordPaymentTransaction = (tx: PaymentTransaction) => {
+    setTransactions((prev) => [tx, ...prev]);
+    try {
+      const existing = localStorage.getItem('thiob_payment_transactions');
+      const list = existing ? JSON.parse(existing) : [];
+      localStorage.setItem('thiob_payment_transactions', JSON.stringify([tx, ...list]));
+    } catch {}
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -859,6 +996,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setCourierStatus,
         acceptDeliveryMission,
         completeDeliveryMission,
+        registerCourier,
+        clientName,
+        clientPhone,
+        setClientProfile,
+        loginWithOAuth,
+        logoutUser,
+        transactions,
+        recordPaymentTransaction,
         activeTrackingOrder,
         setActiveTrackingOrder,
       }}

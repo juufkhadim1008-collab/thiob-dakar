@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useApp } from '@/lib/store';
 import { UserRole } from '@/lib/types';
@@ -50,12 +50,13 @@ import {
   Menu
 } from 'lucide-react';
 import { CATEGORIES, DAKAR_NEIGHBORHOODS, DAKAR_ZONES } from '@/lib/mock-data';
-import { MenuItem, Restaurant, Order, OrderStatus, PaymentMethod, Reservation, OutingPlan } from '@/lib/types';
+import { MenuItem, Restaurant, Order, OrderStatus, PaymentMethod, Reservation, OutingPlan, PaymentTransaction } from '@/lib/types';
 import { formatFCFA, getStatusBadge } from '@/lib/utils';
 import confetti from 'canvas-confetti';
 import { calculateDistanceKm, formatDistanceString, DAKAR_DEFAULT_COORDS, DAKAR_GEO_PRESETS } from '@/lib/geolocation';
 import MiniLocationPicker from '@/components/map/MiniLocationPicker';
 import CourierLiveRadar from '@/components/map/CourierLiveRadar';
+import PaymentCheckoutSheet from '@/components/payment/PaymentCheckoutSheet';
 import dynamic from 'next/dynamic';
 
 const ThiobMap = dynamic(() => import('@/components/map/ThiobMap'), { 
@@ -99,6 +100,9 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
     isClientGpsActive,
     requestClientGps,
     setClientLocation,
+    clientName: storeClientName,
+    clientPhone: storeClientPhone,
+    recordPaymentTransaction,
   } = useApp();
 
 
@@ -110,12 +114,30 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
   const [dishQuantity, setDishQuantity] = useState(1);
   const [dishNotes, setDishNotes] = useState('');
   const [isCartSheetOpen, setIsCartSheetOpen] = useState(false);
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [isNeighborhoodPickerOpen, setIsNeighborhoodPickerOpen] = useState(false);
   const [checkoutStep, setCheckoutStep] = useState<'cart' | 'payment' | 'done'>('cart');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('wave');
-  const [clientName, setClientName] = useState('Moussa Diop');
-  const [clientPhone, setClientPhone] = useState('+221 77 654 32 10');
+  const [clientName, setClientName] = useState(storeClientName || 'Moussa Diop');
+  const [clientPhone, setClientPhone] = useState(storeClientPhone || '+221 77 654 32 10');
   const [deliveryStreet, setDeliveryStreet] = useState('Malika, Dakar');
+
+  useEffect(() => {
+    if (storeClientName) setClientName(storeClientName);
+    if (storeClientPhone) setClientPhone(storeClientPhone);
+  }, [storeClientName, storeClientPhone]);
+
+  const handlePaymentSuccess = (transaction: PaymentTransaction): Order | null => {
+    recordPaymentTransaction(transaction);
+    const order = placeOrder({
+      clientName: transaction.clientName,
+      clientPhone: transaction.phoneNumber || clientPhone,
+      neighborhood: selectedNeighborhood === 'Tous les quartiers' ? userLiveLocation : selectedNeighborhood,
+      street: deliveryStreet,
+      paymentMethod: transaction.method,
+    });
+    return order;
+  };
   
   // Yango / Yassir style Live GPS & Locality Filter
   const userLiveLocation = clientNeighborhood || 'Malika';
@@ -1547,16 +1569,16 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
         {activeTab === 'profile' && (
           <div className="p-4 space-y-4">
             <div className="bg-white p-4 rounded-3xl border border-[#D8EADB] text-center space-y-2 shadow-2xs">
-              <div className="w-14 h-14 rounded-full brand-gradient text-white flex items-center justify-center font-black text-lg mx-auto shadow-sm">
-                MD
+              <div className="w-14 h-14 rounded-full brand-gradient text-white flex items-center justify-center font-black text-lg mx-auto shadow-sm uppercase">
+                {clientName ? clientName.split(' ').map((w: string) => w[0]).join('').slice(0, 2) : 'TD'}
               </div>
               <div>
-                <h4 className="font-bold text-sm text-[#081A10]">Moussa Diop</h4>
-                <p className="text-xs text-gray-500">+221 77 654 32 10</p>
+                <h4 className="font-bold text-sm text-[#081A10]">{clientName || 'Client Thiob'}</h4>
+                <p className="text-xs text-gray-500">{clientPhone || '+221 77 123 45 67'}</p>
               </div>
               <div className="flex justify-center gap-2 pt-1">
                 <span className="px-2.5 py-0.5 rounded-full bg-[#E6F5EC] text-[#0A6E3B] text-[10px] font-bold">
-                  🇸🇳 Dakar, Sénégal
+                  🇸🇳 {clientNeighborhood || 'Dakar, Sénégal'}
                 </span>
                 <span className="px-2.5 py-0.5 rounded-full bg-[#FF7824]/10 text-[#FF7824] text-[10px] font-bold">
                   Membre VIP Téranga
@@ -2281,11 +2303,17 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
                       </div>
 
                       <button
-                        onClick={handleCheckout}
-                        className="w-full py-3.5 rounded-2xl brand-gradient text-white text-xs font-black shadow-md flex items-center justify-between px-5 hover:opacity-95"
+                        onClick={() => {
+                          setIsCartSheetOpen(false);
+                          setIsPaymentModalOpen(true);
+                        }}
+                        className="w-full py-3.5 rounded-2xl brand-gradient text-white text-xs font-black shadow-md flex items-center justify-between px-5 hover:opacity-95 active:scale-98 transition-all cursor-pointer"
                       >
-                        <span>Confirmer & Commander</span>
-                        <span>{formatFCFA(grandTotal)}</span>
+                        <div className="flex items-center gap-2">
+                          <span>🔒</span>
+                          <span>Passer au Paiement Sécurisé</span>
+                        </div>
+                        <span>{formatFCFA(grandTotal)} ➔</span>
                       </button>
                     </div>
                   )}
@@ -2296,6 +2324,28 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
           </div>
         )}
       </AnimatePresence>
+
+      {/* =========================================================================
+          5.1 DEDICATED FULL PAYMENT & DIGITAL RECEIPT CHECKOUT SHEET
+         ========================================================================= */}
+      <PaymentCheckoutSheet
+        isOpen={isPaymentModalOpen}
+        onClose={() => setIsPaymentModalOpen(false)}
+        cartItems={cart.map(c => ({ name: c.item.name, price: c.item.price, quantity: c.quantity }))}
+        subtotal={cartTotal}
+        deliveryFee={deliveryFee}
+        platformFee={500}
+        restaurantName={cartRestaurant?.name || 'Restaurant Dakar'}
+        restaurantPhone={cartRestaurant?.phone || '+221 77 845 12 90'}
+        clientName={clientName}
+        clientPhone={clientPhone}
+        deliveryAddress={`${deliveryStreet}, ${selectedNeighborhood === 'Tous les quartiers' ? userLiveLocation : selectedNeighborhood}`}
+        onPaymentSuccess={handlePaymentSuccess}
+        onOpenTracking={(ord) => {
+          setIsPaymentModalOpen(false);
+          onOpenTracking(ord);
+        }}
+      />
 
       {/* =========================================================================
           6. DEDICATED RESTAURANT DIGITAL SHOWCASE (VITRINE NUMÉRIQUE IMMERSIVE)
@@ -3206,6 +3256,29 @@ function MobileRestaurantApp({ onLogout }: { onLogout?: () => void }) {
   const [isServiceActive, setIsServiceActive] = useState(true);
   const [vitrineCategory, setVitrineCategory] = useState('all');
   
+  // Real-time Incoming Order Notification & Chime Sound
+  const [latestIncomingOrder, setLatestIncomingOrder] = useState<Order | null>(null);
+  const prevOrdersCountRef = useRef<number>(0);
+
+  const playChimeSound = () => {
+    try {
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContextClass) return;
+      const audioCtx = new AudioContextClass();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(587.33, audioCtx.currentTime); // D5
+      osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.15); // A5
+      gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.7);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.7);
+    } catch {}
+  };
+  
   // Table reservation assignment state
   const [assignedTables, setAssignedTables] = useState<{ [resId: string]: string }>({
     'res-1': 'Table 4 (Terrasse Vue Mer)',
@@ -3252,6 +3325,26 @@ function MobileRestaurantApp({ onLogout }: { onLogout?: () => void }) {
   const myOrders = orders.filter((o) => o.restaurantId === currentResto.id);
   const myReservations = reservations.filter((res) => res.restaurantId === currentResto.id || res.restaurantName.toLowerCase().includes(currentResto.name.toLowerCase()));
   const myDishes = menuItems.filter((d) => d.restaurantId === currentResto.id);
+
+  // Listen to new incoming orders for this restaurant and trigger sound + alert
+  useEffect(() => {
+    if (prevOrdersCountRef.current > 0 && myOrders.length > prevOrdersCountRef.current) {
+      const newest = myOrders[0];
+      if (newest && (newest.status === 'pending' || newest.status === 'accepted')) {
+        setLatestIncomingOrder(newest);
+        playChimeSound();
+        try {
+          confetti({
+            particleCount: 60,
+            spread: 70,
+            origin: { y: 0.25 },
+            colors: ['#064E2B', '#0A6E3B', '#FF7824', '#F5B738']
+          });
+        } catch {}
+      }
+    }
+    prevOrdersCountRef.current = myOrders.length;
+  }, [myOrders]);
 
   // Sync edit form on restaurant select or modal open
   const openEditGeneralModal = () => {
@@ -3485,6 +3578,65 @@ function MobileRestaurantApp({ onLogout }: { onLogout?: () => void }) {
           >
             <span className="text-base">✨</span>
             <span className="font-bold flex-1">{saveFeedback}</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* 🚨 LIVE INCOMING ORDER NOTIFICATION BANNER (NOTIFICATION EN DIRECT DU RESTAURANT) */}
+      <AnimatePresence>
+        {latestIncomingOrder && (
+          <motion.div
+            initial={{ y: -70, opacity: 0, scale: 0.92 }}
+            animate={{ y: 0, opacity: 1, scale: 1 }}
+            exit={{ y: -70, opacity: 0, scale: 0.92 }}
+            className="absolute top-2 inset-x-3 z-50 p-3 rounded-3xl bg-gradient-to-r from-[#064E2B] via-[#0A6E3B] to-[#064E2B] text-white shadow-2xl border-2 border-amber-400/90 flex items-center justify-between"
+          >
+            <div className="flex items-center gap-2.5 min-w-0 pr-2">
+              <div className="w-10 h-10 rounded-2xl bg-amber-400/20 text-amber-300 flex items-center justify-center text-xl shrink-0 animate-bounce">
+                🔔
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[9px] font-black uppercase bg-amber-400 text-black px-1.5 py-0.2 rounded-md">
+                    Nouvelle Commande
+                  </span>
+                  <span className="text-[9px] font-bold text-emerald-200">
+                    {latestIncomingOrder.paymentMethod === 'wave' && '🌊 Wave'}
+                    {latestIncomingOrder.paymentMethod === 'orange_money' && '🍊 OM'}
+                    {latestIncomingOrder.paymentMethod === 'card' && '💳 CB'}
+                    {latestIncomingOrder.paymentMethod === 'cash' && '💵 Espèces'}
+                  </span>
+                </div>
+                <h4 className="font-black text-xs text-white truncate mt-0.5">
+                  {latestIncomingOrder.orderNumber} • {formatFCFA(latestIncomingOrder.total)}
+                </h4>
+                <p className="text-[10px] text-white/80 truncate">
+                  {latestIncomingOrder.clientName} ({latestIncomingOrder.items.length} plat{latestIncomingOrder.items.length > 1 ? 's' : ''})
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1 shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileMode('dashboard');
+                  setRestoTab('orders');
+                  updateOrderStatus(latestIncomingOrder.id, 'preparing');
+                  setLatestIncomingOrder(null);
+                }}
+                className="px-3 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-black text-[10px] shadow-sm active:scale-95 transition-all cursor-pointer text-center"
+              >
+                Cuisine 🔥
+              </button>
+              <button
+                type="button"
+                onClick={() => setLatestIncomingOrder(null)}
+                className="text-[9px] text-white/75 hover:text-white text-center cursor-pointer"
+              >
+                Fermer
+              </button>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -5056,15 +5208,25 @@ function MobileCourierApp({ onLogout }: { onLogout?: () => void }) {
 // 4. MAIN SMARTPHONE SHELL & SHOWCASE CONTAINER
 // =========================================================================
 import OnboardingFlow from './OnboardingFlow';
+import { supabase } from '@/lib/supabase';
 
 export default function MobileDeviceShowcase() {
-  const { currentRole, setCurrentRole, currentRestaurantId, setCurrentRestaurantId } = useApp();
+  const { currentRole, setCurrentRole, currentRestaurantId, setCurrentRestaurantId, setClientProfile } = useApp();
   const [selectedOrderForTracking, setSelectedOrderForTracking] = useState<Order | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [showInactivitySplash, setShowInactivitySplash] = useState(false);
+  const [showOpeningSplash, setShowOpeningSplash] = useState(true);
 
-  // 1-Minute App Inactivity / App Exit Detection ➔ 5s Splash Logo Fade
+  // Écran de lancement à chaque entrée / ouverture de l'application (fond blanc & logo pur, durée 2s)
+  useEffect(() => {
+    const splashTimer = setTimeout(() => {
+      setShowOpeningSplash(false);
+    }, 2000);
+    return () => clearTimeout(splashTimer);
+  }, []);
+
+  // 1-Minute App Inactivity / App Exit Detection ➔ 2s Splash Logo Fade
   useEffect(() => {
     let leaveTimestamp: number | null = null;
     let splashTimeout: NodeJS.Timeout | null = null;
@@ -5082,7 +5244,7 @@ export default function MobileDeviceShowcase() {
           if (splashTimeout) clearTimeout(splashTimeout);
           splashTimeout = setTimeout(() => {
             setShowInactivitySplash(false);
-          }, 5000); // Reste 5 secondes puis fondu
+          }, 2000); // Reste 2 secondes puis transition
         }
         leaveTimestamp = null;
       }
@@ -5119,6 +5281,38 @@ export default function MobileDeviceShowcase() {
       if (splashTimeout) clearTimeout(splashTimeout);
     };
   }, []);
+
+  // Listen to Supabase OAuth redirects (Google, Facebook)
+  useEffect(() => {
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session?.user) {
+        const user = session.user;
+        const name = user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'Client Thiob';
+        const phone = user.user_metadata?.phone || user.phone || '+221 77 123 45 67';
+        
+        setClientProfile(name, phone);
+        setCurrentRole('client');
+        setShowOnboarding(false);
+
+        try {
+          localStorage.setItem('thiob_user_session', JSON.stringify({
+            isRegistered: true,
+            role: 'client',
+            clientInfo: {
+              name,
+              email: user.email,
+              phone,
+            },
+            timestamp: Date.now(),
+          }));
+        } catch {}
+      }
+    });
+
+    return () => {
+      authListener?.subscription.unsubscribe();
+    };
+  }, [setCurrentRole, setClientProfile]);
 
   // 1-Time Session Persistence: Only show onboarding on first launch ever
   useEffect(() => {
@@ -5160,10 +5354,14 @@ export default function MobileDeviceShowcase() {
     } catch {}
   };
 
-  const handleLogoutOrReset = () => {
+  const handleLogoutOrReset = async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch {}
     try {
       localStorage.removeItem('thiob_user_session');
     } catch {}
+    setCurrentRole('client');
     setShowOnboarding(true);
   };
 
@@ -5284,7 +5482,42 @@ export default function MobileDeviceShowcase() {
           {/* Main App Content Viewport */}
           <div className="flex-1 overflow-hidden relative">
 
-            {/* 🌟 5-Second Inactivity Return Splash Screen (Logo pur uniquement avec fondu) */}
+            {/* 🌟 1.8s Initial App Launch Splash Screen (Fond blanc & icône officielle au centre) */}
+            <AnimatePresence>
+              {showOpeningSplash && (
+                <motion.div
+                  key="app_opening_splash"
+                  initial={{ opacity: 1 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.5, ease: 'easeInOut' }}
+                  className="absolute inset-0 z-[120] bg-white flex flex-col items-center justify-center p-6 select-none pointer-events-auto"
+                >
+                  <motion.div
+                    initial={{ scale: 0.8, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0.95, opacity: 0 }}
+                    transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+                    className="flex flex-col items-center text-center"
+                  >
+                    <div className="w-28 h-28 rounded-3xl p-1.5 bg-white border border-gray-100 shadow-[0_15px_35px_rgba(255,120,36,0.15)] flex items-center justify-center mb-4">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src="/images/Icone app.png"
+                        alt="Thiob Dakar"
+                        className="w-full h-full rounded-[22px] object-cover"
+                      />
+                    </div>
+                    <h1 className="text-2xl font-black tracking-tight text-[#081A10]">
+                      Thiob<span className="text-[#FF7824]">.Dakar</span>
+                    </h1>
+                    <div className="w-12 h-1 bg-[#FF7824] rounded-full mt-1.5 opacity-80" />
+                  </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* 🌟 5-Second Inactivity Return Splash Screen (Fond blanc & Logo) */}
             <AnimatePresence>
               {showInactivitySplash && (
                 <motion.div
@@ -5292,23 +5525,28 @@ export default function MobileDeviceShowcase() {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  transition={{ duration: 0.9, ease: 'easeInOut' }}
-                  className="absolute inset-0 z-[100] bg-gradient-to-b from-[#0A6E3B] via-[#064E2B] to-[#041F11] flex items-center justify-center p-8 select-none pointer-events-auto"
+                  transition={{ duration: 0.7, ease: 'easeInOut' }}
+                  className="absolute inset-0 z-[110] bg-white flex flex-col items-center justify-center p-6 select-none pointer-events-auto"
                 >
-                  {/* Uniquement le logo, ni texte ni rien */}
                   <motion.div
                     initial={{ scale: 0.85, opacity: 0 }}
-                    animate={{ scale: [0.85, 1.05, 1], opacity: 1 }}
+                    animate={{ scale: 1, opacity: 1 }}
                     exit={{ scale: 0.95, opacity: 0 }}
-                    transition={{ duration: 0.8, ease: 'easeOut' }}
-                    className="flex items-center justify-center"
+                    transition={{ duration: 0.6, ease: 'easeOut' }}
+                    className="flex flex-col items-center text-center"
                   >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src="/shapes/logo-thiob.svg"
-                      alt=""
-                      className="w-56 max-w-[75%] h-auto drop-shadow-2xl pointer-events-none"
-                    />
+                    <div className="w-28 h-28 rounded-3xl p-1.5 bg-white border border-gray-100 shadow-[0_15px_35px_rgba(255,120,36,0.15)] flex items-center justify-center mb-4">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src="/images/Icone app.png"
+                        alt="Thiob Dakar"
+                        className="w-full h-full rounded-[22px] object-cover"
+                      />
+                    </div>
+                    <h1 className="text-2xl font-black tracking-tight text-[#081A10]">
+                      Thiob<span className="text-[#FF7824]">.Dakar</span>
+                    </h1>
+                    <div className="w-12 h-1 bg-[#FF7824] rounded-full mt-1.5 opacity-80" />
                   </motion.div>
                 </motion.div>
               )}
@@ -5338,10 +5576,17 @@ export default function MobileDeviceShowcase() {
                   className="w-full h-full"
                 >
                   {currentRole === 'client' && (
-                    <MobileClientApp onOpenTracking={(ord) => setSelectedOrderForTracking(ord)} />
+                    <MobileClientApp 
+                      onOpenTracking={(ord) => setSelectedOrderForTracking(ord)} 
+                      onLogout={handleLogoutOrReset}
+                    />
                   )}
-                  {currentRole === 'restaurant' && <MobileRestaurantApp />}
-                  {currentRole === 'courier' && <MobileCourierApp />}
+                  {currentRole === 'restaurant' && (
+                    <MobileRestaurantApp onLogout={handleLogoutOrReset} />
+                  )}
+                  {currentRole === 'courier' && (
+                    <MobileCourierApp onLogout={handleLogoutOrReset} />
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>

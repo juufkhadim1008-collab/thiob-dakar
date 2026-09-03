@@ -1,6 +1,23 @@
 export type UserRole = 'client' | 'restaurant' | 'courier' | 'admin';
 
-export type PaymentMethod = 'wave' | 'orange_money' | 'card' | 'cash';
+export type PaymentMethod = 'wave' | 'orange_money' | 'free_money' | 'card' | 'cash';
+
+export interface PaymentTransaction {
+  id: string;
+  orderId: string;
+  orderNumber: string;
+  amount: number;
+  method: PaymentMethod;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  reference: string;
+  phoneNumber?: string;
+  cardLast4?: string;
+  cashGiven?: number;
+  cashChangeAmount?: number;
+  clientName: string;
+  restaurantName: string;
+  createdAt: number;
+}
 
 export type OrderStatus = 
   | 'pending'           // En attente d'acceptation par le resto
@@ -159,7 +176,9 @@ export interface Courier {
   id: string;
   name: string;
   phone: string;
-  vehicleType: 'moto' | 'scooter' | 'velo';
+  photo?: string;
+  vehicleType: 'moto' | 'scooter' | 'velo' | 'voiture';
+  vehicleName?: string;
   plateNumber: string;
   isOnline: boolean;
   isAvailable?: boolean;
@@ -171,6 +190,7 @@ export interface Courier {
   bearing?: number;
   coordinates?: { lat: number; lng: number; accuracy?: number };
   lastLocationUpdate?: string;
+  lastUpdate?: number;
   rating: number;
   completedDeliveries: number;
   todayEarnings: number; // FCFA
