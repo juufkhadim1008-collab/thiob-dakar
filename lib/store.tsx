@@ -186,11 +186,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   // Load saved data from localStorage & Supabase Realtime
   useEffect(() => {
+    // 0. Invalidate legacy mock localStorage from dev tests
+    const STORAGE_VERSION = 'thiob_prod_clean_v2';
+    if (typeof window !== 'undefined' && localStorage.getItem('thiob_storage_version') !== STORAGE_VERSION) {
+      localStorage.removeItem('thiob_custom_restaurants');
+      localStorage.removeItem('thiob_custom_couriers');
+      localStorage.removeItem('thiob_active_restaurant_id');
+      localStorage.removeItem('thiob_orders');
+      localStorage.setItem('thiob_storage_version', STORAGE_VERSION);
+    }
+
     // 1. Local storage fallback
     try {
       const savedRestoId = localStorage.getItem('thiob_active_restaurant_id');
       const savedRestos = localStorage.getItem('thiob_custom_restaurants');
       const savedCouriers = localStorage.getItem('thiob_custom_couriers');
+
       const savedClientName = localStorage.getItem('thiob_client_name');
       const savedClientPhone = localStorage.getItem('thiob_client_phone');
       const savedClientCoords = localStorage.getItem('thiob_client_coords');

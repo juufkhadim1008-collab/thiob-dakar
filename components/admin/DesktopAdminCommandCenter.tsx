@@ -359,10 +359,10 @@ export default function DesktopAdminCommandCenter({ onSwitchToMobileSimulator }:
                   <Bike className="w-4 h-4 text-sky-400" />
                 </div>
                 <div className="flex items-baseline gap-2">
-                  <h3 className="text-2xl font-black text-white">{activeCouriers.length || 6}</h3>
+                  <h3 className="text-2xl font-black text-white">{activeCouriers.length}</h3>
                   <span className="text-[10px] font-bold text-sky-400">GPS Live</span>
                 </div>
-                <p className="text-[10px] text-emerald-300/50">Moyenne livraison : 24 min</p>
+                <p className="text-[10px] text-emerald-300/50">{activeCouriers.length > 0 ? 'Moyenne livraison : 24 min' : '0 livreur actif pour l’instant'}</p>
               </div>
 
             </div>
@@ -394,28 +394,30 @@ export default function DesktopAdminCommandCenter({ onSwitchToMobileSimulator }:
                       restaurantPos={{ lat: 14.755, lng: -17.514 }}
                       destinationPos={{ lat: 14.671, lng: -17.432 }}
                       courierName="Flotte Tiak-Tiak Dakar Live"
-                      restaurantName="Chez Kamiss • Almadies"
-                      destinationAddress="Plateau, Dakar"
-                      orderNumber="DK-LIVE-HQ"
-                      isSimulatingLiveMove={true}
+                      restaurantName={restaurants[0]?.name || "Restaurant Partenaire"}
+                      destinationAddress="Dakar, Sénégal"
+                      orderNumber="DK-LIVE"
+                      isSimulatingLiveMove={orders.length > 0}
                     />
                   </div>
 
                   {/* Zones */}
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
                     {[
-                      { name: 'Almadies & Ngor', share: '38%', orders: '45 courses', isHot: true },
-                      { name: 'Plateau & Médina', share: '27%', orders: '32 courses', isHot: false },
-                      { name: 'Mermoz & VDN', share: '19%', orders: '22 courses', isHot: false },
-                      { name: 'Keur Massar & Yoff', share: '16%', orders: '18 courses', isHot: false },
-                    ].map((z, idx) => (
-                      <div key={idx} className="p-2.5 rounded-2xl bg-black/30 border border-emerald-900/40 space-y-0.5">
-                        <div className="flex items-center justify-between">
-                          <span className="font-black text-xs text-white truncate">{z.name}</span>
-                          {z.isHot && <span className="text-[9px] text-amber-400 font-bold">🔥 Hot</span>}
+                      { name: 'Almadies & Ngor', share: orders.length > 0 ? `${orders.length} courses` : '0 course', isHot: true },
+                      { name: 'Plateau & Médina', share: orders.length > 0 ? `${orders.length} courses` : '0 course', isHot: false },
+                      { name: 'Mermoz & VDN', share: orders.length > 0 ? `${orders.length} courses` : '0 course', isHot: false },
+                      { name: 'Keur Massar & Yoff', share: orders.length > 0 ? `${orders.length} courses` : '0 course', isHot: false },
+                    ].map((z) => (
+                      <div key={z.name} className="bg-emerald-950/30 p-2.5 rounded-xl border border-emerald-900/30">
+                        <div className="flex items-center justify-between text-[11px] font-bold text-white mb-1">
+                          <span className="truncate">{z.name}</span>
+                          {z.isHot && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />}
                         </div>
-                        <p className="text-[11px] font-black text-emerald-400">{z.share}</p>
-                        <p className="text-[9px] text-gray-400">{z.orders}</p>
+                        <div className="flex items-center justify-between text-[10px] text-emerald-300/60 font-mono">
+                          <span>{z.share}</span>
+                          <span>Secteur Live</span>
+                        </div>
                       </div>
                     ))}
                   </div>

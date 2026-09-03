@@ -2366,87 +2366,32 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
 
               {/* Notification Items List */}
               <div className="space-y-2.5 max-h-[60vh] overflow-y-auto no-scrollbar pr-0.5">
-                
-                {/* Notif 1 : Promo Thiéb */}
-                <div className="bg-white/90 p-3 rounded-2xl border border-[#D8EADB] space-y-1.5 shadow-2xs hover:border-[#0A6E3B]/40 transition-all">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[9px] font-black uppercase tracking-wider text-[#FF7824] bg-orange-50 px-2 py-0.5 rounded-full">
-                      🔥 Offre Flash Dakar
-                    </span>
-                    <span className="text-[10px] text-gray-400 font-medium">Il y a 5 min</span>
+                {orders.length === 0 ? (
+                  <div className="py-8 text-center space-y-2 bg-white/60 rounded-2xl border border-dashed border-[#D8EADB]">
+                    <div className="w-10 h-10 mx-auto rounded-full bg-[#E6F5EC] text-[#0A6E3B] flex items-center justify-center">
+                      <Bell className="w-5 h-5" />
+                    </div>
+                    <p className="text-xs font-bold text-[#081A10]">Aucune notification</p>
+                    <p className="text-[10px] text-gray-400 max-w-xs mx-auto">
+                      Vos confirmations de commande, statuts de livraison et offres apparaîtront ici.
+                    </p>
                   </div>
-                  <h4 className="font-black text-xs text-[#081A10]">
-                    -20% sur les Thiébs aux Almadies
-                  </h4>
-                  <p className="text-[11px] text-gray-600 leading-relaxed">
-                    Profitez de réductions exclusives sur les plats traditionnels avec livraison offerte à partir de 5 000 FCFA.
-                  </p>
-                  <button
-                    onClick={() => {
-                      setIsNotificationsOpen(false);
-                      setSelectedCat('cat-thieb');
-                    }}
-                    className="text-[11px] font-black text-[#0A6E3B] hover:underline flex items-center gap-1 pt-1"
-                  >
-                    <span>Voir les plats</span>
-                    <span>➔</span>
-                  </button>
-                </div>
-
-                {/* Notif 2 : Livreur à proximité */}
-                <div className="bg-white/90 p-3 rounded-2xl border border-[#D8EADB] space-y-1.5 shadow-2xs hover:border-[#0A6E3B]/40 transition-all">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[9px] font-black uppercase tracking-wider text-[#0A6E3B] bg-[#E6F5EC] px-2 py-0.5 rounded-full flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                      Livreur Disponible
-                    </span>
-                    <span className="text-[10px] text-gray-400 font-medium">Il y a 12 min</span>
-                  </div>
-                  <h4 className="font-black text-xs text-[#081A10]">
-                    6 livreurs actifs autour de vous
-                  </h4>
-                  <p className="text-[11px] text-gray-600 leading-relaxed">
-                    Ibrahima et Moussa patrouillent dans votre secteur pour une livraison en moins de 15 minutes.
-                  </p>
-                  <button
-                    onClick={() => {
-                      setIsNotificationsOpen(false);
-                      setActiveTab('courier');
-                    }}
-                    className="text-[11px] font-black text-[#0A6E3B] hover:underline flex items-center gap-1 pt-1"
-                  >
-                    <span>Ouvrir le Radar GPS</span>
-                    <span>➔</span>
-                  </button>
-                </div>
-
-                {/* Notif 3 : Nouveau Resto Partenaire */}
-                <div className="bg-white/90 p-3 rounded-2xl border border-[#D8EADB] space-y-1.5 shadow-2xs hover:border-[#0A6E3B]/40 transition-all">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[9px] font-black uppercase tracking-wider text-purple-700 bg-purple-50 px-2 py-0.5 rounded-full">
-                      ✨ Nouveau Restaurant
-                    </span>
-                    <span className="text-[10px] text-gray-400 font-medium">Aujourd'hui</span>
-                  </div>
-                  <h4 className="font-black text-xs text-[#081A10]">
-                    Bienvenue à « Chez Kamiss »
-                  </h4>
-                  <p className="text-[11px] text-gray-600 leading-relaxed">
-                    Découvrez leurs spécialités Yassa Poulet braisé et Dibi d'agneau authentique avec vue panoramique.
-                  </p>
-                  <button
-                    onClick={() => {
-                      setIsNotificationsOpen(false);
-                      setActiveTab('menu');
-                    }}
-                    className="text-[11px] font-black text-[#0A6E3B] hover:underline flex items-center gap-1 pt-1"
-                  >
-                    <span>Explorer le menu</span>
-                    <span>➔</span>
-                  </button>
-                </div>
-
+                ) : (
+                  orders.map(o => (
+                    <div key={o.id} className="bg-white/90 p-3 rounded-2xl border border-[#D8EADB] space-y-1 shadow-2xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[9px] font-black uppercase text-[#0A6E3B] bg-[#E6F5EC] px-2 py-0.5 rounded-full">
+                          Commande {o.orderNumber}
+                        </span>
+                        <span className="text-[10px] text-gray-400">{o.createdAt}</span>
+                      </div>
+                      <p className="text-xs font-bold text-[#081A10]">{o.restaurantName}</p>
+                      <p className="text-[11px] text-gray-500">Statut : {o.status === 'delivered' ? 'Livré' : o.status === 'in_transit' ? 'En livraison' : 'En préparation'}</p>
+                    </div>
+                  ))
+                )}
               </div>
+
 
               {/* Action Button */}
               <button
@@ -6212,60 +6157,30 @@ function MobileCourierApp({ onLogout }: { onLogout?: () => void }) {
                 </button>
               </div>
 
-              <div className="space-y-2.5 overflow-y-auto flex-1 text-xs">
-                {/* 1. New Available Delivery Mission */}
-                {availableOrders.slice(0, 2).map((ord) => (
-                  <div 
-                    key={ord.id}
-                    onClick={() => {
-                      setIsCourierNotificationsOpen(false);
-                      setCourierTab('missions');
-                    }}
-                    className="p-3 rounded-2xl bg-[#FFF8F0] border border-[#FF7824]/30 space-y-1 cursor-pointer hover:border-[#FF7824]"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-black text-[#FF7824] flex items-center gap-1">
-                        <span>🚨</span>
-                        <span>Nouvelle Course Disponible (+{formatFCFA(ord.deliveryFee)})</span>
-                      </span>
-                      <span className="text-[9px] text-gray-400 font-bold">En direct</span>
+              <div className="space-y-2.5 overflow-y-auto flex-1 text-xs max-h-[60vh] no-scrollbar pr-0.5">
+                {orders.length === 0 ? (
+                  <div className="py-8 text-center space-y-2 bg-white/60 rounded-2xl border border-dashed border-[#D8EADB]">
+                    <div className="w-10 h-10 mx-auto rounded-full bg-[#E6F5EC] text-[#0A6E3B] flex items-center justify-center">
+                      <Bell className="w-5 h-5" />
                     </div>
-                    <p className="text-[11px] text-[#081A10] font-bold">
-                      {ord.restaurantName} ➔ {ord.deliveryAddress.neighborhood}
+                    <p className="text-xs font-bold text-[#081A10]">Aucune alerte de mission</p>
+                    <p className="text-[10px] text-gray-400 max-w-xs mx-auto">
+                      Les nouvelles courses à prendre en charge s'afficheront ici en temps réel dès qu'un client commandera.
                     </p>
-                    <span className="text-[9px] font-bold text-[#FF7824] block">Toucher pour accepter la mission ➔</span>
                   </div>
-                ))}
-
-                {/* 2. Cooking ready notification */}
-                <div 
-                  onClick={() => {
-                    setIsCourierNotificationsOpen(false);
-                    setCourierTab('client_view');
-                  }}
-                  className="p-3 rounded-2xl bg-[#E6F5EC] border border-[#0A6E3B]/20 space-y-1 cursor-pointer"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-black text-[#0A6E3B] flex items-center gap-1">
-                      <span>🍲</span>
-                      <span>Commande prête au restaurant</span>
-                    </span>
-                    <span className="text-[9px] text-gray-400 font-bold">Il y a 2 min</span>
-                  </div>
-                  <p className="text-[11px] text-[#081A10]">La commande #TK-2026-08 est prête chez <strong>Chez Kamiss</strong>. Vous pouvez récupérer le sac isotherme.</p>
-                </div>
-
-                {/* 3. Daily Earnings Wave Transfer */}
-                <div className="p-3 rounded-2xl bg-[#F4F7F4] border border-[#D8EADB] space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-black text-sky-700 flex items-center gap-1">
-                      <span>🌊</span>
-                      <span>Versement Wave Livreur</span>
-                    </span>
-                    <span className="text-[9px] text-gray-400 font-bold">Aujourd'hui</span>
-                  </div>
-                  <p className="text-[11px] text-[#081A10]">Solde journalier cumulé de <strong>{formatFCFA(currentCourier?.todayEarnings || 15000)}</strong> prêt pour versement instantané.</p>
-                </div>
+                ) : (
+                  orders.map(o => (
+                    <div key={o.id} className="p-3 rounded-2xl bg-[#E6F5EC] border border-[#0A6E3B]/20 space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-black text-[#0A6E3B]">
+                          🍲 Commande {o.orderNumber}
+                        </span>
+                        <span className="text-[9px] text-gray-400">{o.createdAt}</span>
+                      </div>
+                      <p className="text-[11px] text-[#081A10]">Prise en charge : <strong>{o.restaurantName}</strong> ➔ {o.deliveryAddress?.neighborhood}</p>
+                    </div>
+                  ))
+                )}
               </div>
             </motion.div>
           </div>
@@ -6274,6 +6189,7 @@ function MobileCourierApp({ onLogout }: { onLogout?: () => void }) {
     </div>
   );
 }
+
 
 // =========================================================================
 // 4. MAIN SMARTPHONE SHELL & SHOWCASE CONTAINER
