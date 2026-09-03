@@ -292,7 +292,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           setMenuItems(mapped);
         }
 
-        const { data: dbOrders } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
+        const { data: dbOrders, error: oErr } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
+        if (oErr) console.error('[Supabase] Error orders:', oErr);
         if (dbOrders && dbOrders.length > 0) {
           setOrders(dbOrders.map((o: any) => ({
             id: o.id,
@@ -509,8 +510,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         p_accuracy: accuracy,
         p_bearing: bearing,
         p_status: status || 'AVAILABLE',
-      }).then();
-    } catch {}
+      }).then(({ error }) => {
+        if (error) console.error('🔴 [Supabase] Échec RPC update_courier_gps :', error);
+      });
+    } catch (err) {
+      console.error('🔴 [Supabase] Exception RPC update_courier_gps :', err);
+    }
   };
 
   const updateRestaurantLocation = (
@@ -565,8 +570,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         p_lng: coords.lng,
         p_address: address,
         p_neighborhood: neighborhood,
-      }).then();
-    } catch {}
+      }).then(({ error }) => {
+        if (error) console.error('🔴 [Supabase] Échec RPC update_restaurant_location (fonction absente du schéma SQL ?) :', error);
+      });
+    } catch (err) {
+      console.error('🔴 [Supabase] Exception RPC update_restaurant_location :', err);
+    }
   };
 
 
@@ -686,7 +695,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         is_open: true,
         phone: newResto.phone,
         owner_name: newResto.ownerName,
-      }).then(() => {
+      }).then(({ error }) => {
+        if (error) {
+          console.error('🔴 [Supabase] Échec de création du restaurant (le restaurant restera invisible sur les autres appareils tant que ceci n’est pas corrigé) :', error);
+          return;
+        }
         supabase.from('menu_items').insert(starterDishes.map(d => ({
           id: d.id,
           restaurant_id: newId,
@@ -699,9 +712,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           is_popular: d.isPopular,
           preparation_time_minutes: d.preparationTimeMinutes,
           tags: d.tags || [],
-        }))).then();
+        }))).then(({ error: dishError }) => {
+          if (dishError) console.error('🔴 [Supabase] Échec de création des plats de démarrage :', dishError);
+        });
       });
-    } catch {}
+    } catch (err) {
+      console.error('🔴 [Supabase] Exception lors de la création du restaurant :', err);
+    }
 
 
     return newResto;
@@ -734,8 +751,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         gallery: updates.gallery,
         ambiance_tags: updates.ambianceTags,
         amenities: updates.amenities,
-      }).eq('id', currentRestaurantId).then();
-    } catch {}
+      }).eq('id', currentRestaurantId).then(({ error }) => {
+        if (error) console.error('🔴 [Supabase] Échec de mise à jour du restaurant :', error);
+      });
+    } catch (err) {
+      console.error('🔴 [Supabase] Exception lors de la mise à jour du restaurant :', err);
+    }
   };
 
   const toggleMenuItemAvailability = (itemId: string) => {
@@ -972,8 +993,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         delivery_street: newOrder.deliveryAddress.street,
         delivery_details: newOrder.deliveryAddress.details,
         items: newOrder.items,
-      }).then();
-    } catch {}
+      }).then(({ error }) => {
+        if (error) console.error('🔴 [Supabase] Échec d’enregistrement de la commande :', error);
+      });
+    } catch (err) {
+      console.error('🔴 [Supabase] Exception lors de l’enregistrement de la commande :', err);
+    }
 
     return newOrder;
   };
