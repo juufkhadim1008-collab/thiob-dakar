@@ -291,10 +291,9 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   const handleOAuthLogin = async (provider: 'google' | 'facebook') => {
     setIsOAuthLoading(provider);
     const res = await loginWithOAuth(provider);
-    setIsOAuthLoading(null);
-    if (res.success) {
-      triggerCelebration();
-      onComplete('client');
+    if (!res.success) {
+      alert(`Erreur connexion ${provider}: ${res.error || 'Veuillez réessayer'}`);
+      setIsOAuthLoading(null);
     }
   };
 

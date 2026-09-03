@@ -207,39 +207,3 @@ export interface PlatformMetrics {
   satisfactionRate: number;
 }
 
-export interface UserAddress {
-  id: string;
-  label: string; // Ex: "Maison", "Bureau", "Chez Maman"
-  neighborhood: string; // Ex: "Almadies", "Plateau", "Point E"
-  street: string;
-  details?: string;
-  landmark?: string;
-  isDefault?: boolean;
-}
-
-export interface UserProfile {
-  id: string;
-  name: string;
-  email?: string;
-  phone: string;
-  role: UserRole;
-  avatar?: string;
-  terangaPoints: number; // Programme de fidélité Thiéb & Co
-  addresses: UserAddress[];
-  defaultPaymentMethod?: PaymentMethod;
-  restaurantId?: string; // Si compte restaurateur
-  courierId?: string; // Si compte coursier
-  createdAt: string;
-  isVerified?: boolean;
-}
-
-export type AuthMethod = 'phone' | 'email' | 'demo';
-
-export interface AuthState {
-  user: UserProfile | null;
-  isAuthenticated: boolean;
-  isLoading: boolean;
-  error: string | null;
-}
-
-
