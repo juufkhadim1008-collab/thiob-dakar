@@ -47,8 +47,7 @@ import {
   Bookmark,
   Share2,
   Info,
-  Menu,
-  ArrowUpRight
+  Menu
 } from 'lucide-react';
 import { CATEGORIES, DAKAR_NEIGHBORHOODS, DAKAR_ZONES } from '@/lib/mock-data';
 import { MenuItem, Restaurant, Order, OrderStatus, PaymentMethod, Reservation, OutingPlan } from '@/lib/types';
@@ -103,7 +102,7 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
   } = useApp();
 
 
-  const [activeTab, setActiveTab] = useState<'home' | 'menu' | 'orders' | 'favorites' | 'profile'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'menu' | 'orders' | 'favorites' | 'profile' | 'courier'>('home');
   const [selectedCat, setSelectedCat] = useState<string>('all');
   const [selectedNeighborhood, setSelectedNeighborhood] = useState('Tous les quartiers');
   const [searchQuery, setSearchQuery] = useState('');
@@ -216,7 +215,7 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
     if (isSlideshowPaused || featuredRestaurants.length <= 1) return;
     const timer = setInterval(() => {
       setCurrentSlideIndex((prev) => (prev + 1) % featuredRestaurants.length);
-    }, 2000); // Défilement automatique toutes les 2 secondes
+    }, 5000); // Défilement automatique toutes les 5 secondes
 
     return () => clearInterval(timer);
   }, [isSlideshowPaused, featuredRestaurants.length]);
@@ -354,38 +353,33 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
         particleCount: 100,
         spread: 80,
         origin: { y: 0.6 },
-        colors: ['#064E2B', '#0A6E3B', '#FF7824', '#F5B738'],
+        colors: ['#064E2B', '#0A6E3B', '#FF7824', '#F5B738']
       });
     } catch {}
   };
 
   return (
-    <div className="h-full flex flex-col bg-[#F2EFE7] relative overflow-hidden font-sans select-none">
-      
-      {/* Dynamic Ambient Glow Backdrops for True Glassmorphism Refraction */}
-      <div className="absolute -top-12 -right-12 w-64 h-64 bg-gradient-to-br from-emerald-400/25 to-teal-500/15 rounded-full blur-3xl pointer-events-none animate-pulse-subtle" />
-      <div className="absolute top-1/3 -left-16 w-56 h-56 bg-gradient-to-tr from-amber-400/20 to-orange-500/15 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-16 right-0 w-60 h-60 bg-gradient-to-tl from-emerald-500/20 to-green-300/15 rounded-full blur-3xl pointer-events-none animate-pulse-subtle" />
+    <div className="h-full flex flex-col bg-gradient-to-b from-[#0A6E3B] via-[#064E2B] to-[#041F11] relative overflow-hidden font-sans select-none">
 
       {/* =========================================================================
           1. HEADER YANGO FOOD & YASSIR STYLE (FROSTED GLASS & GPS LIVE)
          ========================================================================= */}
-      <div className="pt-4 px-4 pb-3 bg-[#F2EFE7] border-b border-[#E4DFCF] shrink-0 z-30 space-y-3">
+      <div className="relative z-10 pt-4 px-4 pb-3 bg-[#F2EFE7] shrink-0 space-y-3">
 
         {/* Top line: Hamburger (localité/GPS) + Logo Thiob Express + Notifications & Panier */}
         <div className="flex items-center justify-between gap-2">
 
-          {/* Hamburger : ouvre le sélecteur de localité / GPS en direct */}
+          {/* Hamburger : ouvre le sélecteur de localité / GPS en direct avec Glassmorphism */}
           <motion.button
-            whileHover={{ scale: 1.05 }}
+            whileHover={{ scale: 1.08, y: -2 }}
             whileTap={{ scale: 0.92 }}
             onClick={() => setIsNeighborhoodPickerOpen(true)}
-            className="relative w-11 h-11 rounded-2xl bg-white flex items-center justify-center text-[#081A10] shadow-[0_4px_14px_rgba(6,56,29,0.08)] shrink-0"
+            className="glass-btn relative w-11 h-11 rounded-2xl flex items-center justify-center text-[#081A10] shrink-0"
             aria-label="Menu et localisation"
           >
             <Menu className="w-5 h-5" />
             {isClientGpsActive && (
-              <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full ring-2 ring-[#F2EFE7] animate-pulse" />
+              <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full ring-2 ring-white animate-pulse" />
             )}
           </motion.button>
 
@@ -393,43 +387,36 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
           <motion.div
             whileTap={{ scale: 0.96 }}
             onClick={() => setActiveTab('home')}
-            className="flex-1 flex flex-col items-center justify-center cursor-pointer select-none"
+            className="flex-1 flex items-center justify-center cursor-pointer select-none"
           >
-            <div className="flex items-center leading-none">
-              <span className="text-2xl font-black italic text-[#0A6E3B] tracking-tight">thi</span>
-              <span className="relative w-5 h-5 rounded-full bg-[#FF7824] mx-0.5 shadow-sm flex items-center justify-center">
-                <span className="w-2 h-2 rounded-full bg-white" />
-              </span>
-              <span className="text-2xl font-black italic text-[#0A6E3B] tracking-tight">b</span>
-            </div>
-            <span className="text-[9px] font-black text-[#FF7824] uppercase tracking-[0.25em] -mt-1">
-              express
-            </span>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/shapes/logo-thiob.svg" alt="Thiob Express" className="h-10 w-auto" />
           </motion.div>
 
-          {/* Notifications & Panier */}
+          {/* Notifications & Panier avec Glassmorphism */}
           <div className="flex items-center gap-2 shrink-0">
             <motion.button
-              whileHover={{ scale: 1.05 }}
+              whileHover={{ scale: 1.08, y: -2 }}
               whileTap={{ scale: 0.92 }}
               onClick={() => setIsNotificationsOpen(true)}
-              className="relative w-10 h-10 rounded-2xl bg-white flex items-center justify-center text-[#0A6E3B] shadow-[0_4px_14px_rgba(6,56,29,0.08)]"
+              className="glass-btn relative w-10 h-10 rounded-2xl flex items-center justify-center text-[#0A6E3B]"
             >
               <Bell className="w-4.5 h-4.5" />
-              <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#FF7824] text-white text-[9px] font-black rounded-full flex items-center justify-center ring-2 ring-[#F2EFE7]">
+              <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#FF7824] text-white text-[9px] font-black rounded-full flex items-center justify-center ring-2 ring-white">
                 2
               </span>
             </motion.button>
 
             <motion.button
-              whileHover={{ scale: 1.05 }}
+              whileHover={{ scale: 1.08, y: -2 }}
               whileTap={{ scale: 0.92 }}
               onClick={() => { setIsCartSheetOpen(true); setCheckoutStep('cart'); }}
-              className="relative w-10 h-10 rounded-2xl bg-white flex items-center justify-center text-[#0A6E3B] shadow-[0_4px_14px_rgba(6,56,29,0.08)]"
+              className="glass-btn relative w-10 h-10 rounded-2xl flex items-center justify-center text-[#0A6E3B]"
             >
-              <ShoppingBag className="w-4.5 h-4.5" />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/shapes/panier-icon.svg" alt="Panier" className="w-5 h-5" />
               {cartCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#FF7824] text-white text-[9px] font-black rounded-full flex items-center justify-center animate-bounce shadow-xs ring-2 ring-[#F2EFE7]">
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#FF7824] text-white text-[9px] font-black rounded-full flex items-center justify-center animate-bounce shadow-xs ring-2 ring-white">
                   {cartCount}
                 </span>
               )}
@@ -437,10 +424,10 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
           </div>
         </div>
 
-        {/* Barre de recherche + bouton filtre */}
+        {/* Barre de recherche + bouton filtre avec Glassmorphism */}
         <div className="flex items-center gap-2">
           <div className="relative flex-1">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#0A6E3B]/50" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#0A6E3B]/70" />
             <input
               type="text"
               placeholder="Recherche par plat, restaurant et secteur"
@@ -449,7 +436,7 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
               onKeyDown={(e) => {
                 if (e.key === 'Enter') setActiveTab('menu');
               }}
-              className="w-full pl-10 pr-8 py-3 bg-white border border-transparent rounded-full text-xs text-[#081A10] placeholder-gray-400 focus:border-[#0A6E3B]/30 focus:ring-2 focus:ring-[#0A6E3B]/10 focus:outline-hidden transition-all shadow-[0_4px_14px_rgba(6,56,29,0.06)]"
+              className="glass-panel-light w-full pl-10 pr-8 py-3 rounded-full text-xs text-[#081A10] placeholder-gray-400 focus:bg-white/95 focus:ring-2 focus:ring-[#0A6E3B]/20 transition-all"
             />
             {searchQuery && (
               <button
@@ -461,444 +448,597 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
             )}
           </div>
 
-          {/* Filter button */}
           <motion.button
-            whileHover={{ scale: 1.05 }}
+            whileHover={{ scale: 1.08, y: -2 }}
             whileTap={{ scale: 0.92 }}
             onClick={() => setIsFilterOpen(true)}
-            className={`w-11 h-11 rounded-2xl flex items-center justify-center transition-all shrink-0 ${
-              isFilterOpen || selectedNeighborhood !== 'Tous les quartiers' || selectedCat !== 'all'
-                ? 'brand-gradient text-white shadow-[0_4px_14px_rgba(6,56,29,0.2)]'
-                : 'bg-white text-[#0A6E3B] shadow-[0_4px_14px_rgba(6,56,29,0.08)]'
-            }`}
+            className="glass-btn w-11 h-11 rounded-2xl flex items-center justify-center text-[#081A10] shrink-0"
             aria-label="Filtres"
           >
-            <SlidersHorizontal className="w-4 h-4" />
+            <SlidersHorizontal className="w-4.5 h-4.5" />
           </motion.button>
         </div>
 
-        {/* Suggestions rapides de découverte */}
-        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar text-[10px]">
-          {[
-            { label: '📍 Almadies', query: 'Restaurants aux Almadies', zone: 'Almadies' },
-            { label: '✨ Sortie Couple', query: 'Sortie Couple', zone: 'Ngor' },
-            { label: '🍲 Thiébou jeun', query: 'Thiéboudienne', zone: 'Ngor' },
-            { label: '🔥 Dibi au Plateau', query: 'Dibi', zone: 'Plateau' },
-            { label: '🌊 Plage de Yoff', query: 'Yoff', zone: 'Yoff' },
-          ].map((pill, i) => (
-            <motion.button
-              key={i}
-              whileHover={{ scale: 1.04, y: -1 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => {
-                setSearchQuery(pill.query);
-                if (pill.zone) setSelectedNeighborhood(pill.zone);
-                setActiveTab('menu');
-              }}
-              className="px-2.5 py-1 rounded-full bg-white hover:bg-[#E6F5EC] text-[#405849] hover:text-[#0A6E3B] shrink-0 font-bold transition-all shadow-2xs"
-            >
-              {pill.label}
-            </motion.button>
-          ))}
-        </div>
+
 
       </div>
 
       {/* =========================================================================
           2. MAIN TAB CONTENT AREA
          ========================================================================= */}
-      <div className="flex-1 overflow-y-auto no-scrollbar pb-28 relative">
+      <div className="flex-1 overflow-y-auto no-scrollbar pb-28 relative z-10">
         
         {/* =====================================================================
             TAB 1: HOME (ACCUEIL & DIAPORAMA 2 SECONDES)
            ===================================================================== */}
         {activeTab === 'home' && (
-          <div className="relative z-10 pb-8 space-y-4 pt-3">
+          <div className="relative z-10 pb-8 space-y-0">
             
-            {/* Locality Filter Active Banner */}
-            {selectedNeighborhood !== 'Tous les quartiers' && (
-              <motion.div
-                initial={{ opacity: 0, y: -5 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="px-4"
-              >
-                <div className="bg-[#E6F5EC] border border-[#0A6E3B]/30 rounded-2xl p-2.5 px-3 flex items-center justify-between text-xs shadow-2xs">
-                  <div className="flex items-center gap-2 text-[#081A10]">
-                    <MapPin className="w-3.5 h-3.5 text-[#0A6E3B] shrink-0" />
-                    <span className="text-[11px]">
-                      Restos à <strong>{selectedNeighborhood}</strong> ({activeRestaurants.length} trouvé{activeRestaurants.length > 1 ? 's' : ''})
-                    </span>
-                  </div>
-                  <button
-                    onClick={() => setSelectedNeighborhood('Tous les quartiers')}
-                    className="text-[10px] font-black text-[#0A6E3B] bg-white px-2 py-0.5 rounded-lg border border-[#0A6E3B]/20 hover:bg-gray-50 shadow-2xs"
-                  >
-                    Tout Dakar ✕
-                  </button>
-                </div>
-              </motion.div>
-            )}
-
-            {/* Live Order Ribbon if tracking active */}
-            {activeTrackingOrder && (
-              <div className="px-4">
+            {/* Upper Cream Canvas Container with Slideshow & Categories */}
+            <div className="bg-[#F2EFE7] pt-2 space-y-4">
+              
+              {/* Locality Filter Active Banner */}
+              {selectedNeighborhood !== 'Tous les quartiers' && (
                 <motion.div
-                  initial={{ opacity: 0, y: -10 }}
+                  initial={{ opacity: 0, y: -5 }}
                   animate={{ opacity: 1, y: 0 }}
-                  onClick={() => onOpenTracking(activeTrackingOrder)}
-                  className="p-3 rounded-2xl brand-gradient text-white flex items-center justify-between cursor-pointer shadow-md border border-white/20"
+                  className="px-4"
                 >
-                  <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-[#FF7824] animate-ping"></span>
-                    <span className="text-xs font-bold">Commande en cours • {activeTrackingOrder.orderNumber}</span>
+                  <div className="bg-[#E6F5EC] border border-[#0A6E3B]/30 rounded-2xl p-2.5 px-3 flex items-center justify-between text-xs shadow-2xs">
+                    <div className="flex items-center gap-2 text-[#081A10]">
+                      <MapPin className="w-3.5 h-3.5 text-[#0A6E3B] shrink-0" />
+                      <span className="text-[11px]">
+                        Restos à <strong>{selectedNeighborhood}</strong> ({activeRestaurants.length} trouvé{activeRestaurants.length > 1 ? 's' : ''})
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => setSelectedNeighborhood('Tous les quartiers')}
+                      className="text-[10px] font-black text-[#0A6E3B] bg-white px-2 py-0.5 rounded-lg border border-[#0A6E3B]/20 hover:bg-gray-50 shadow-2xs"
+                    >
+                      Tout Dakar ✕
+                    </button>
                   </div>
-                  <span className="text-[10px] bg-white/20 px-2.5 py-1 rounded-full font-bold">Suivre ➔</span>
                 </motion.div>
-              </div>
-            )}
+              )}
 
-            {/* =================================================================
-                🌟 HERO : RESTAURANTS À PROXIMITÉ EN DIAPORAMA (TOUTES LES 2s)
-               ================================================================= */}
-            <div className="px-4 space-y-2">
-              <div className="flex items-center justify-between">
+              {/* Live Order Ribbon if tracking active */}
+              {activeTrackingOrder && (
+                <div className="px-4">
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    onClick={() => onOpenTracking(activeTrackingOrder)}
+                    className="p-3 rounded-2xl brand-gradient text-white flex items-center justify-between cursor-pointer shadow-md border border-white/20"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#FF7824] animate-ping"></span>
+                      <span className="text-xs font-bold">Commande en cours • {activeTrackingOrder.orderNumber}</span>
+                    </div>
+                    <span className="text-[10px] bg-white/20 px-2.5 py-1 rounded-full font-bold">Suivre ➔</span>
+                  </motion.div>
+                </div>
+              )}
+
+              {/* =================================================================
+                  🌟 HERO : RESTO À PROXIMITÉ (DIAPORAMA 2s)
+                 ================================================================= */}
+              <div className="px-4 space-y-2">
                 <h3 className="text-sm font-black text-[#FF7824] tracking-tight">
                   Resto à proximité
                 </h3>
 
-                {/* Slide indicator dots */}
-                <div className="flex items-center gap-1">
-                  {featuredRestaurants.map((_, idx) => (
-                    <button
-                      key={`dot-${idx}`}
-                      onClick={() => setCurrentSlideIndex(idx)}
-                      className={`h-1.5 rounded-full transition-all duration-300 ${
-                        idx === (currentSlideIndex % featuredRestaurants.length)
-                          ? 'w-5 bg-[#0A6E3B]'
-                          : 'w-1.5 bg-[#D8EADB]'
-                      }`}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              {/* SLIDESHOW CARD (forme organique + pin décoratif) */}
-              <div className="relative">
-
-                {/* Grand pin décoratif orange, déborde du coin de la carte */}
-                <div className="absolute -top-3 -right-3 z-20 pointer-events-none">
-                  <div className="relative w-16 h-16">
-                    <div className="absolute inset-0 w-14 h-14 bg-[#FF7824] rounded-[50%_50%_50%_0] rotate-[-45deg] shadow-lg shadow-orange-900/20" />
-                    <div className="absolute top-6 left-4 w-9 h-9 border-[3px] border-white/90 rounded-[50%_50%_50%_0] rotate-[-45deg]" />
-                  </div>
-                </div>
-
-                <div
-                  onMouseEnter={() => setIsSlideshowPaused(true)}
-                  onMouseLeave={() => setIsSlideshowPaused(false)}
-                  onTouchStart={() => setIsSlideshowPaused(true)}
-                  onTouchEnd={() => setIsSlideshowPaused(false)}
-                  className="organic-card-shape relative h-60 overflow-hidden shadow-lg bg-black text-white group cursor-pointer"
-                  onClick={() => {
-                    if (currentRestaurant) {
-                      handleOpenShowcase(currentRestaurant);
-                    }
-                  }}
-                >
-                  <AnimatePresence mode="wait">
-                    {currentRestaurant && (
-                      <motion.div
-                        key={currentRestaurant.id}
-                        initial={{ opacity: 0, scale: 1.05 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        exit={{ opacity: 0, scale: 0.98 }}
-                        transition={{ duration: 0.45, ease: 'easeInOut' }}
-                        className="absolute inset-0"
-                      >
-                        {/* Cover Photo */}
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={currentRestaurant.coverImage}
-                          alt={currentRestaurant.name}
-                          className="w-full h-full object-cover brightness-[0.78] group-hover:scale-105 transition-transform duration-700"
-                        />
-
-                        {/* Gradient Overlay */}
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-black/40"></div>
-
-                        {/* Top-left texte : Restaurant / Nom / Quartier */}
-                        <div className="absolute top-4 left-4 right-16 z-10 space-y-0.5">
-                          <span className="text-[10px] font-medium text-white/70 tracking-wide">
-                            Restaurant
-                          </span>
-                          <h4 className="text-xl font-black text-white leading-tight drop-shadow-md line-clamp-1">
-                            {currentRestaurant.name}
-                          </h4>
-                          <p className="text-xs text-white/85">
-                            {currentRestaurant.neighborhood}
-                          </p>
-                          <div className="inline-flex items-center gap-1 pt-1 px-2 py-0.5 rounded-full bg-black/40 text-[10px] font-black text-white backdrop-blur-xs">
-                            <Star className="w-2.5 h-2.5 fill-amber-300 text-amber-300" />
-                            <span>{currentRestaurant.rating} ({currentRestaurant.reviewCount})</span>
-                          </div>
-                        </div>
-
-                        {/* Bottom-left : pin + quartier (ouvre la localisation de la vitrine) */}
-                        <motion.button
-                          whileTap={{ scale: 0.95 }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleOpenShowcase(currentRestaurant);
-                            setShowcaseSubTab('location');
-                          }}
-                          className="absolute bottom-3.5 left-3.5 z-10 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/90 backdrop-blur-md text-[#081A10] text-xs font-bold shadow-md"
-                        >
-                          <MapPin className="w-3.5 h-3.5 text-[#0A6E3B]" />
-                          <span>{currentRestaurant.neighborhood}</span>
-                        </motion.button>
-
-                        {/* Bottom-right : bouton flèche vers la vitrine */}
-                        <motion.button
-                          whileTap={{ scale: 0.9 }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleOpenShowcase(currentRestaurant);
-                          }}
-                          className="absolute bottom-3.5 right-3.5 z-10 w-9 h-9 rounded-full bg-white/90 backdrop-blur-md flex items-center justify-center shadow-md text-[#0A6E3B]"
-                          aria-label="Voir la vitrine du restaurant"
-                        >
-                          <ArrowUpRight className="w-4 h-4" />
-                        </motion.button>
-
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-
-                  {/* Progress bar for 2s timer */}
-                  <div className="absolute bottom-0 inset-x-0 h-1 bg-white/20 z-20 overflow-hidden">
-                    <motion.div
-                      key={currentSlideIndex}
-                      initial={{ width: '0%' }}
-                      animate={{ width: isSlideshowPaused ? '0%' : '100%' }}
-                      transition={{ duration: 2, ease: 'linear' }}
-                      className="h-full bg-[#10B981]"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* =================================================================
-                📍 SECTION ZONES : SECTEURS DE DAKAR (BADGES ORGANIQUES)
-               ================================================================= */}
-            <div className="space-y-2 pt-1">
-              <div className="flex items-start gap-4 overflow-x-auto no-scrollbar px-4 pb-1">
-                {DAKAR_ZONES.slice(0, 5).map((zone) => (
-                  <motion.div
-                    key={zone.id}
-                    whileHover={{ y: -3, scale: 1.05 }}
-                    whileTap={{ scale: 0.92 }}
+                {/* Slideshow Card Animated */}
+                <div className="relative">
+                  <div
+                    onMouseEnter={() => setIsSlideshowPaused(true)}
+                    onMouseLeave={() => setIsSlideshowPaused(false)}
+                    onTouchStart={() => setIsSlideshowPaused(true)}
+                    onTouchEnd={() => setIsSlideshowPaused(false)}
+                    className="relative h-52 overflow-hidden shadow-lg bg-black text-white group cursor-pointer rounded-[18px_18px_18px_36px]"
                     onClick={() => {
-                      setSelectedNeighborhood(zone.neighborhood);
-                      setActiveTab('menu');
+                      if (currentRestaurant) {
+                        handleOpenShowcase(currentRestaurant);
+                      }
                     }}
-                    className="flex flex-col items-center gap-1.5 cursor-pointer shrink-0"
                   >
-                    <div className="zone-badge-shape w-16 h-16 overflow-hidden border-2 border-white shadow-[0_8px_20px_rgba(6,78,43,0.12)] bg-gray-100">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={zone.image} alt={zone.name} className="w-full h-full object-cover" />
+                    <AnimatePresence mode="popLayout">
+                      {currentRestaurant && (
+                        <motion.div
+                          key={currentRestaurant.id}
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          transition={{ duration: 0.7, ease: [0.4, 0, 0.2, 1] }}
+                          className="absolute inset-0"
+                        >
+                          {/* Cover Photo with slow ambient zoom */}
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <motion.img
+                            src={currentRestaurant.coverImage}
+                            alt={currentRestaurant.name}
+                            initial={{ scale: 1.08 }}
+                            animate={{ scale: 1 }}
+                            transition={{ duration: 5, ease: 'easeOut' }}
+                            className="w-full h-full object-cover brightness-[0.82]"
+                          />
+
+                          {/* Dégradé vert haut vers bas pour sublimer et contraster les textes */}
+                          <div className="absolute inset-0 bg-gradient-to-b from-[#052814]/90 via-[#0A6E3B]/45 to-transparent pointer-events-none" />
+
+                          {/* Dégradé sombre bas vers haut pour les badges de localisation */}
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent pointer-events-none" />
+
+                          {/* Top Info : Restaurant + Nom avec animation fluide */}
+                          <div className="absolute top-4 left-4 z-10 space-y-0.5">
+                            <motion.span
+                              initial={{ opacity: 0, y: -4 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ duration: 0.4, delay: 0.15 }}
+                              className="text-[11px] font-medium text-white/80 block tracking-wide"
+                            >
+                              Restaurant
+                            </motion.span>
+                            <motion.h4
+                              initial={{ opacity: 0, y: 6 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ duration: 0.5, delay: 0.22, ease: 'easeOut' }}
+                              className="text-xl font-black text-white leading-tight drop-shadow-md"
+                            >
+                              {currentRestaurant.name}
+                            </motion.h4>
+                            <motion.p
+                              initial={{ opacity: 0, y: 6 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ duration: 0.45, delay: 0.3 }}
+                              className="text-xs text-white/80 font-medium"
+                            >
+                              {currentRestaurant.neighborhood}
+                            </motion.p>
+                          </div>
+
+                          {/* Bottom-left : pin + quartier avec légère animation d'entrée */}
+                          <motion.button
+                            initial={{ opacity: 0, x: -8 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ duration: 0.45, delay: 0.28 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenShowcase(currentRestaurant);
+                              setShowcaseSubTab('location');
+                            }}
+                            className="absolute bottom-3.5 left-3.5 z-10 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/90 backdrop-blur-md text-[#081A10] text-xs font-bold shadow-md hover:bg-white transition-colors"
+                          >
+                            <MapPin className="w-3.5 h-3.5 text-[#0A6E3B]" />
+                            <span>{currentRestaurant.neighborhood}</span>
+                          </motion.button>
+
+                          {/* Bottom-right : bouton flèche vers les restaurants de Dakar */}
+                          <motion.button
+                            initial={{ opacity: 0, scale: 0.8 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{ duration: 0.4, delay: 0.32 }}
+                            whileHover={{ scale: 1.08, y: -3 }}
+          whileTap={{ scale: 0.9 }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveTab('menu');
+                            }}
+                            className="absolute bottom-3.5 right-3.5 z-10 w-9 h-9 rounded-full brand-gradient flex items-center justify-center shadow-md hover:brightness-110 transition-all cursor-pointer"
+                            aria-label="Explorer tous les restaurants de Dakar"
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src="/shapes/arrow.svg" alt="" className="w-4.5 h-auto" />
+                          </motion.button>
+
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
+                    {/* Progress bar for 5s timer */}
+                    <div className="absolute bottom-0 inset-x-0 h-1 bg-white/20 z-20 overflow-hidden">
+                      <motion.div
+                        key={currentSlideIndex}
+                        initial={{ width: '0%' }}
+                        animate={{ width: isSlideshowPaused ? '0%' : '100%' }}
+                        transition={{ duration: 5, ease: 'linear' }}
+                        className="h-full bg-[#10B981]"
+                      />
                     </div>
-                    <span className="text-[10px] font-bold text-center text-[#081A10] max-w-[70px] line-clamp-1">
-                      {zone.name}
-                    </span>
-                  </motion.div>
-                ))}
-              </div>
-            </div>
-
-            {/* =================================================================
-                🔥 SECTION : PLATS POPULAIRES DU JOUR (fond vert organique)
-               ================================================================= */}
-            <div className="relative pt-5">
-              <div className="absolute inset-x-0 top-5 bottom-0 bg-gradient-to-b from-[#0A6E3B] to-[#052112] rounded-t-[48px]" />
-
-              <div className="relative px-4 pb-2 space-y-3">
-                <div>
-                  <h3 className="text-sm font-black text-white tracking-tight">
-                    Plats Populaires & Recommandés
-                  </h3>
-                  <p className="text-[10px] text-emerald-100/70">Préparés minute par les meilleurs chefs de Dakar</p>
+                  </div>
                 </div>
+              </div>
 
-                <div className="grid grid-cols-3 gap-2.5">
-                  {displayedDishes.map((dish) => {
-                    const isItemFav = favoriteIds.includes(dish.id);
+              {/* =================================================================
+                  🍲 SECTION CATÉGORIES DE PLATS (BADGES ORGANIQUES)
+                 ================================================================= */}
+              <div className="space-y-2 pt-1 pb-2">
+                <div className="flex items-start gap-4 overflow-x-auto no-scrollbar px-4 pb-1">
+                  {[
+                    { id: 'all', name: 'Tous', image: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=400&q=80' },
+                    { id: 'cat-thieb', name: 'Thiéb', image: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=400&q=80' },
+                    { id: 'cat-yassa', name: 'Yassa', image: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=400&q=80' },
+                    { id: 'cat-dibi', name: 'Dibi', image: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=400&q=80' },
+                    { id: 'cat-street', name: 'Burgers', image: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=400&q=80' },
+                    { id: 'cat-fish', name: 'Poissons', image: 'https://images.unsplash.com/photo-1534422298391-e4f8c172dddb?auto=format&fit=crop&w=400&q=80' },
+                    { id: 'cat-pastels', name: 'Pastels', image: 'https://images.unsplash.com/photo-1550966871-3ed3cdb5ed0c?auto=format&fit=crop&w=400&q=80' },
+                    { id: 'cat-boissons', name: 'Jus & Dégué', image: 'https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?auto=format&fit=crop&w=400&q=80' },
+                  ].map((catItem) => {
+                    const isCatSelected = selectedCat === catItem.id;
                     return (
                       <motion.div
-                        key={dish.id}
-                        whileHover={{ y: -3 }}
-                        whileTap={{ scale: 0.96 }}
-                        onClick={() => { setSelectedDish(dish); setDishQuantity(1); }}
-                        className="relative organic-card-shape bg-white p-2 shadow-md flex flex-col cursor-pointer group transition-all"
+                        key={catItem.id}
+                        whileHover={{ y: -3, scale: 1.05 }}
+                        whileTap={{ scale: 0.92 }}
+                        onClick={() => {
+                          setSelectedCat(catItem.id === selectedCat ? 'all' : catItem.id);
+                        }}
+                        className="flex flex-col items-center gap-1.5 cursor-pointer shrink-0"
                       >
-                        {/* Badge Promo / Bestseller */}
-                        {dish.isPopular && (
-                          <div className="absolute top-1.5 left-1.5 z-10 px-1.5 py-0.5 rounded-full bg-[#FF7824] text-white text-[8px] font-black shadow-xs">
-                            Best
-                          </div>
-                        )}
-
-                        {/* Photo du plat + bouton d'ajout rapide */}
-                        <div className="relative w-full aspect-square rounded-2xl overflow-hidden mb-1.5 bg-gray-50">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={dish.image}
-                            alt={dish.name}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                          />
-                          <button
-                            onClick={(e) => handleQuickAdd(dish, e)}
-                            className={`absolute bottom-1.5 right-1.5 w-6 h-6 rounded-full flex items-center justify-center shadow-md transition-all ${
-                              quickAddedId === dish.id
-                                ? 'bg-emerald-600 text-white scale-110'
-                                : 'bg-[#FF7824] text-white hover:bg-[#E86315]'
-                            }`}
-                            aria-label="Ajouter au panier"
+                        <div className={`relative transition-all ${isCatSelected ? 'scale-105' : 'opacity-95 hover:opacity-100'}`}>
+                          <svg 
+                            viewBox="0 0 210 186" 
+                            className="w-16 h-auto" 
+                            style={{ 
+                              filter: isCatSelected 
+                                ? 'drop-shadow(0 6px 14px rgba(10,110,59,0.55)) drop-shadow(0 2px 5px rgba(0,0,0,0.2))' 
+                                : 'drop-shadow(0 5px 12px rgba(0,0,0,0.22)) drop-shadow(0 2px 4px rgba(10,110,59,0.3))' 
+                            }}
                           >
-                            {quickAddedId === dish.id ? <Check className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
-                          </button>
+                            <defs>
+                              <clipPath id={`catClip-${catItem.id}`}>
+                                <path d="M189.1,48.89c-2.48-5.07-6.96-8.56-12.27-9.67-5.35-6.63-11.38-11.1-11.49-11.18-13.13-9.45-27.81-11.71-41.73-12.75-3.41-.25-6.8-.41-10.07-.55-3.35-.15-6.51-.29-9.69-.53l-1.35-.1c-5.34-.4-11.19-.84-17.07-1,.01-.02.02-.04.03-.05-6.61.64-13.41.35-20.03,1.67-2,.4-4.31.98-6.66,1.37-1.3.56-2.58,1.08-3.87,1.52h0c-1.68.76-3.42,1.65-5.22,2.67l-.16-1.31-17.25,7.59c-4.7,2.07-14.17,8.6-16.44,18.56-.92,4.06-.49,8.16,1.16,11.81l-.78.99,2.95,7.19c.06.34.13.94.18,1.4.09.77.2,1.72.39,2.78-3.91,6.06-5.66,13.66-4.23,20.75.96,4.78,3.28,8.85,6.57,11.93-1.28,3.38-1.91,7.03-1.8,10.73.06,2.07.37,4.09.9,6.01-3.36,7.93-3.39,17.31.5,24.82,6.33,12.2,18.84,14.93,27.99,16.91,1.37.3,2.67.58,3.89.88,2.07.5,4.22,1.08,6.51,1.69,2.78.74,5.66,1.51,8.47,2.16,10.08,2.35,19.1,2.59,27.82,2.83l2.37.06c9.21.26,18.63-.46,26.93-1.09l.5-.04c16.68-1.27,29.69-3.23,42.97-9.08.89-.39,1.79-.81,2.68-1.23,9.98-4.79,17.07-15.22,18.07-26.56.54-6.12-.74-11.81-3.61-16.54.13-2.67-.13-5.27-.78-7.73,5.76-4.83,8.96-12.46,8.59-21.13-.23-5.34-1.85-11.19-4.75-16.45,2.54-6.25,2.56-13.66-.21-19.31Z" />
+                              </clipPath>
+                            </defs>
+                            <image href={catItem.image} width="210" height="186" preserveAspectRatio="xMidYMid slice" clipPath={`url(#catClip-${catItem.id})`} />
+                            {/* Contour vert élégant */}
+                            <path 
+                              d="M189.1,48.89c-2.48-5.07-6.96-8.56-12.27-9.67-5.35-6.63-11.38-11.1-11.49-11.18-13.13-9.45-27.81-11.71-41.73-12.75-3.41-.25-6.8-.41-10.07-.55-3.35-.15-6.51-.29-9.69-.53l-1.35-.1c-5.34-.4-11.19-.84-17.07-1,.01-.02.02-.04.03-.05-6.61.64-13.41.35-20.03,1.67-2,.4-4.31.98-6.66,1.37-1.3.56-2.58,1.08-3.87,1.52h0c-1.68.76-3.42,1.65-5.22,2.67l-.16-1.31-17.25,7.59c-4.7,2.07-14.17,8.6-16.44,18.56-.92,4.06-.49,8.16,1.16,11.81l-.78.99,2.95,7.19c.06.34.13.94.18,1.4.09.77.2,1.72.39,2.78-3.91,6.06-5.66,13.66-4.23,20.75.96,4.78,3.28,8.85,6.57,11.93-1.28,3.38-1.91,7.03-1.8,10.73.06,2.07.37,4.09.9,6.01-3.36,7.93-3.39,17.31.5,24.82,6.33,12.2,18.84,14.93,27.99,16.91,1.37.3,2.67.58,3.89.88,2.07.5,4.22,1.08,6.51,1.69,2.78.74,5.66,1.51,8.47,2.16,10.08,2.35,19.1,2.59,27.82,2.83l2.37.06c9.21.26,18.63-.46,26.93-1.09l.5-.04c16.68-1.27,29.69-3.23,42.97-9.08.89-.39,1.79-.81,2.68-1.23,9.98-4.79,17.07-15.22,18.07-26.56.54-6.12-.74-11.81-3.61-16.54.13-2.67-.13-5.27-.78-7.73,5.76-4.83,8.96-12.46,8.59-21.13-.23-5.34-1.85-11.19-4.75-16.45,2.54-6.25,2.56-13.66-.21-19.31Z" 
+                              fill="none" 
+                              stroke={isCatSelected ? '#0A6E3B' : 'rgba(10, 110, 59, 0.55)'} 
+                              strokeWidth={isCatSelected ? '6' : '4.5'}
+                            />
+                          </svg>
+                          {isCatSelected && (
+                            <div className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-[#0A6E3B] text-white flex items-center justify-center text-[8px] font-black ring-2 ring-white">
+                              ✓
+                            </div>
+                          )}
                         </div>
 
-                        {/* Info plat */}
-                        <h5 className="font-bold text-[11px] text-[#081A10] leading-tight line-clamp-1">
-                          {dish.name}
-                        </h5>
-                        <div className="flex items-center justify-between mt-0.5">
-                          <span className="text-[11px] font-black text-[#FF7824]">
-                            {formatFCFA(dish.price)}
-                          </span>
-                          <button
-                            onClick={(e) => toggleFavorite(dish.id, e)}
-                            className="p-0.5 active:scale-75 transition-transform"
-                            aria-label="Favori"
-                          >
-                            <Heart className={`w-3.5 h-3.5 ${isItemFav ? 'fill-rose-500 text-rose-500' : 'text-gray-300'}`} />
-                          </button>
-                        </div>
+                        <span className={`text-[10px] font-black text-center max-w-[70px] line-clamp-1 ${
+                          isCatSelected ? 'text-[#0A6E3B]' : 'text-[#081A10]'
+                        }`}>
+                          {catItem.name}
+                        </span>
                       </motion.div>
                     );
                   })}
                 </div>
+              </div>
 
-                {/* Bouton "Tout" : affiche l'ensemble des plats */}
-                <div className="flex justify-center pt-1">
-                  <motion.button
-                    whileHover={{ scale: 1.04 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => setShowAllDishes(!showAllDishes)}
-                    className="px-6 py-2.5 rounded-full bg-[#052112] text-white text-xs font-black flex items-center gap-2 shadow-lg border border-white/10"
-                  >
-                    <span>{showAllDishes ? 'Voir moins' : 'Tout'}</span>
-                    <span className="w-5 h-5 rounded-full bg-white/15 flex items-center justify-center">
-                      <ArrowUpRight className="w-3 h-3" />
-                    </span>
-                  </motion.button>
-                </div>
+              {/* =========================================================================
+                  FORME BLANCHE ORGANIQUE (SVG /shapes/cream-mask.svg)
+                 ========================================================================= */}
+              <div className="w-full -mt-2 overflow-visible pointer-events-none relative z-0">
+                <svg
+                  viewBox="0 0 1374.24 450"
+                  preserveAspectRatio="none"
+                  className="w-full h-10 block"
+                >
+                  <path 
+                    fill="#F6F5F1" 
+                    d="M1374.24,0v440c-57.67-18.18-114.2-44.05-167.93-76.99-162.39-99.57-225.7-238.28-430.52-277.02-192.74-36.46-267.39,48.68-436.29,98.52-111.55,32.91-228.8,45.97-339.5,16.06V0h1374.24Z" 
+                  />
+                </svg>
+              </div>
 
-                {/* =============================================================
-                    🍲 CATÉGORIES DE PLATS
-                   ============================================================= */}
-                <div className="space-y-2 pt-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-black text-white uppercase tracking-wider">
-                      Catégories de Plats
-                    </span>
-                    <span className="text-[11px] font-bold text-emerald-200 cursor-pointer hover:underline" onClick={() => setSelectedCat('all')}>
-                      Tout voir
-                    </span>
-                  </div>
+            </div>
 
-                  <div className="flex items-start gap-3 overflow-x-auto no-scrollbar pb-2 pt-1">
-                    {/* 1. All categories */}
+            {/* =================================================================
+                🌿 FORME VERTE + SECTION DES PLATS (TOUJOURS AU-DESSUS)
+               ================================================================= */}
+            <div className="relative z-10 -mt-2 pt-2 pb-6 px-3.5 space-y-3">
+              
+              {/* Texture SVG des pétales superposée sur le fond vert continu de l'app */}
+              <div className="absolute inset-0 pointer-events-none -z-10 overflow-hidden">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src="/shapes/bottom-petals.svg"
+                  alt=""
+                  className="w-full h-full object-cover opacity-60 mix-blend-screen pointer-events-none"
+                />
+              </div>
+
+              {/* Grille des plats en cartes (3 par ligne) - dépasse légèrement sur le haut de la forme verte */}
+              <div className="grid grid-cols-3 gap-2.5 relative z-20 -mt-6">
+
+
+                {displayedDishes.map((dish) => {
+                  const isItemFav = favoriteIds.includes(dish.id);
+                  return (
                     <motion.div
-                      whileHover={{ y: -3, scale: 1.05 }}
-                      whileTap={{ scale: 0.92 }}
-                      onClick={() => setSelectedCat('all')}
-                      className="flex flex-col items-center gap-1.5 cursor-pointer shrink-0"
+                      key={dish.id}
+                      whileHover={{ y: -3, scale: 1.02 }}
+                      whileTap={{ scale: 0.96 }}
+                      onClick={() => { setSelectedDish(dish); setDishQuantity(1); }}
+                      className="relative flex flex-col cursor-pointer group transition-all select-none bg-white rounded-[14px] shadow-[0_6px_16px_rgba(0,0,0,0.2)] p-1.5 pb-2.5 justify-between"
+                      style={{ aspectRatio: '100 / 126' }}
                     >
-                      <div className={`w-14 h-14 zone-badge-shape flex items-center justify-center text-xl transition-all ${
-                        selectedCat === 'all'
-                          ? 'bg-[#FF7824] text-white ring-4 ring-white/25 shadow-lg scale-105'
-                          : 'bg-white/10 backdrop-blur-md text-white border border-white/20 hover:bg-white/15'
-                      }`}>
-                        🍲
+                      {/* Photo du plat */}
+                      <div className="relative w-full aspect-square overflow-hidden rounded-[10px] bg-gray-100">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img 
+                          src={dish.image} 
+                          alt={dish.name}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                        
+                        {/* Quick add button floating on corner with Glassmorphism */}
+                        <button
+                          onClick={(e) => handleQuickAdd(dish, e)}
+                          className={`absolute bottom-1 right-1 w-5.5 h-5.5 rounded-full flex items-center justify-center shadow-md backdrop-blur-md border border-white/40 transition-all ${
+                            quickAddedId === dish.id
+                              ? 'bg-emerald-600/90 text-white scale-110'
+                              : 'bg-[#FF7824]/90 text-white hover:bg-[#FF7824]'
+                          }`}
+                          aria-label="Ajouter au panier"
+                        >
+                          {quickAddedId === dish.id ? <Check className="w-2.5 h-2.5" /> : <Plus className="w-2.5 h-2.5" />}
+                        </button>
                       </div>
-                      <span className={`text-[10px] font-black text-center max-w-[64px] line-clamp-1 ${
-                        selectedCat === 'all' ? 'text-[#FF7824]' : 'text-emerald-100/80'
-                      }`}>
-                        Tous
-                      </span>
+
+                      {/* Info plat décalé en bas : Titre + Prix + Cœur Favori */}
+                      <div className="px-0.5 pt-1 flex items-end justify-between gap-1">
+                        <div className="min-w-0 flex-1">
+                          <h5 className="font-black text-[10.5px] text-[#081A10] leading-tight truncate">
+                            {dish.name}
+                          </h5>
+                          <span className="text-[10.5px] font-black text-[#FF7824] block leading-tight mt-0.5">
+                            {dish.price} Fcfa
+                          </span>
+                        </div>
+
+                        <button
+                          onClick={(e) => toggleFavorite(dish.id, e)}
+                          className="p-0.5 shrink-0 active:scale-75 transition-transform"
+                          aria-label="Favori"
+                        >
+                          <Heart className={`w-3.5 h-3.5 ${isItemFav ? 'fill-[#E52E2E] text-[#E52E2E]' : 'text-gray-400 stroke-[1.5]'}`} />
+                        </button>
+                      </div>
                     </motion.div>
 
-                    {/* Categories mapped */}
-                    {CATEGORIES.map((cat) => {
-                      const isCatSelected = selectedCat === cat.id;
-                      return (
-                        <motion.div
-                          key={cat.id}
-                          whileHover={{ y: -3, scale: 1.05 }}
-                          whileTap={{ scale: 0.92 }}
-                          onClick={() => setSelectedCat(cat.id)}
-                          className="flex flex-col items-center gap-1.5 cursor-pointer shrink-0"
-                        >
-                          <div className={`w-14 h-14 zone-badge-shape flex items-center justify-center text-xl transition-all ${
-                            isCatSelected
-                              ? 'bg-[#FF7824] text-white ring-4 ring-white/25 shadow-lg scale-105'
-                              : 'bg-white/10 backdrop-blur-md text-white border border-white/20 hover:bg-white/15'
-                          }`}>
-                            {cat.icon}
-                          </div>
-                          <span className={`text-[10px] font-black text-center max-w-[64px] line-clamp-1 ${
-                            isCatSelected ? 'text-[#FF7824]' : 'text-emerald-100/80'
-                          }`}>
-                            {cat.name.split(' ')[0]}
-                          </span>
-                        </motion.div>
-                      );
-                    })}
-                  </div>
-                </div>
+                  );
+                })}
+              </div>
 
-                {/* =============================================================
-                    🎁 CARTE FIDÉLITÉ TÉRANGA DAKAR
-                   ============================================================= */}
-                <div className="pt-1">
+              {/* Bouton "Tout ➔" avec Glassmorphism */}
+              <div className="flex justify-center pt-2">
+                <motion.button
+                  whileHover={{ scale: 1.04 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setShowAllDishes(!showAllDishes)}
+                  className="px-6 py-2 rounded-full bg-[#052112]/85 backdrop-blur-md text-white text-xs font-black flex items-center gap-2 shadow-xl border border-white/20 hover:bg-[#08301B]/95 hover:border-white/40 transition-all"
+                >
+                  <span>{showAllDishes ? 'Voir moins' : 'Tout'}</span>
+                  <span>➔</span>
+                </motion.button>
+              </div>
+
+            </div>
+
+
+          </div>
+        )}
+
+        {/* =====================================================================
+            TAB: LIVREURS À PROXIMITÉ EN DIRECT (RADAR GPS & DISPONIBILITÉ)
+           ===================================================================== */}
+        {activeTab === 'courier' && (
+          <div className="p-4 space-y-4 pb-16">
+            
+            {/* Header avec statut GPS en direct */}
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
+                  <h3 className="font-black text-sm text-white">
+                    Livreurs Express à Proximité
+                  </h3>
+                </div>
+                <p className="text-[10px] text-white/80 mt-0.5">
+                  Radar GPS temps réel autour de <strong className="text-white">{selectedNeighborhood !== 'Tous les quartiers' ? selectedNeighborhood : (userLiveLocation || 'Dakar')}</strong>
+                </p>
+              </div>
+
+              <div className="px-2.5 py-1 rounded-full bg-white/15 backdrop-blur-md border border-white/25 text-white text-[10px] font-black flex items-center gap-1">
+                <Bike className="w-3 h-3 text-emerald-300" />
+                <span>6 Actifs</span>
+              </div>
+            </div>
+
+            {/* Radar GPS Live Map Preview */}
+            <div className="relative rounded-3xl overflow-hidden shadow-md border border-white/20">
+              <CourierLiveRadar
+                courierPos={DAKAR_GEO_PRESETS[selectedNeighborhood] || DAKAR_GEO_PRESETS['Mermoz']}
+                restaurantPos={DAKAR_GEO_PRESETS['Ngor']}
+                destinationPos={DAKAR_GEO_PRESETS['Plateau']}
+                courierName="Ibrahima Fall"
+                restaurantName="Chez Kamiss"
+                destinationAddress={userLiveLocation || 'Dakar'}
+                orderNumber="RADAR-LIVE"
+                isSimulatingLiveMove={true}
+              />
+            </div>
+
+            {/* Filtre de zone pour les livreurs */}
+            <div className="space-y-1.5">
+              <span className="text-[10px] font-black uppercase tracking-wider text-white/80">
+                Secteurs de Dakar
+              </span>
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1">
+                {['Tous les quartiers', 'Almadies', 'Ngor', 'Mermoz', 'Plateau', 'Yoff', 'Pikine'].map((zone) => {
+                  const isSel = selectedNeighborhood === zone;
+                  return (
+                    <button
+                      key={zone}
+                      onClick={() => setSelectedNeighborhood(zone)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-bold shrink-0 transition-all border ${
+                        isSel
+                          ? 'bg-emerald-500 text-white border-emerald-400 shadow-xs'
+                          : 'bg-white/15 text-white border-white/20 hover:bg-white/25 backdrop-blur-md'
+                      }`}
+                    >
+                      {zone === 'Tous les quartiers' ? '🌍 Tout Dakar' : `📍 ${zone}`}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Liste des livreurs disponibles à proximité */}
+            <div className="space-y-3 pt-1">
+              <span className="text-xs font-black text-white">
+                Livreurs disponibles pour vos courses
+              </span>
+
+              {[
+                {
+                  id: 'courier-1',
+                  name: 'Ibrahima Fall',
+                  phone: '+221 77 845 12 34',
+                  moto: 'Yamaha NMAX 155',
+                  plaque: 'DK-4921-AZ',
+                  distance: '350m',
+                  eta: '2 min',
+                  rating: 4.9,
+                  trips: 420,
+                  zone: 'Almadies',
+                  photo: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
+                  status: 'Disponible immédiatement',
+                },
+                {
+                  id: 'courier-2',
+                  name: 'Moussa Diop',
+                  phone: '+221 78 321 65 98',
+                  moto: 'Honda CG 125',
+                  plaque: 'DK-8104-BB',
+                  distance: '800m',
+                  eta: '4 min',
+                  rating: 4.8,
+                  trips: 310,
+                  zone: 'Ngor',
+                  photo: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80',
+                  status: 'En patrouille active',
+                },
+                {
+                  id: 'courier-3',
+                  name: 'Cheikh Ndiaye',
+                  phone: '+221 76 555 43 21',
+                  moto: 'Yamaha T-Max 530',
+                  plaque: 'DK-1290-CC',
+                  distance: '1.2 km',
+                  eta: '5 min',
+                  rating: 5.0,
+                  trips: 650,
+                  zone: 'Mermoz',
+                  photo: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80',
+                  status: 'Disponible express',
+                },
+                {
+                  id: 'courier-4',
+                  name: 'Modou Sow',
+                  phone: '+221 77 666 77 88',
+                  moto: 'Suzuki Address 110',
+                  plaque: 'DK-9843-DD',
+                  distance: '1.6 km',
+                  eta: '7 min',
+                  rating: 4.9,
+                  trips: 280,
+                  zone: 'Plateau',
+                  photo: 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?auto=format&fit=crop&w=200&q=80',
+                  status: 'Disponible',
+                },
+                {
+                  id: 'courier-5',
+                  name: 'Babacar Gueye',
+                  phone: '+221 78 999 00 11',
+                  moto: 'KTM Duke 200',
+                  plaque: 'DK-7722-EE',
+                  distance: '2.1 km',
+                  eta: '9 min',
+                  rating: 4.8,
+                  trips: 190,
+                  zone: 'Yoff',
+                  photo: 'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?auto=format&fit=crop&w=200&q=80',
+                  status: 'Disponible',
+                },
+              ]
+                .filter((c) => selectedNeighborhood === 'Tous les quartiers' || c.zone.toLowerCase() === selectedNeighborhood.toLowerCase())
+                .map((courier) => (
                   <motion.div
-                    whileHover={{ scale: 1.01, y: -2 }}
-                    className="dark-green-obsidian organic-card-shape p-4 text-white shadow-xl border border-emerald-400/30 flex items-center justify-between gap-3 relative overflow-hidden sheen-effect"
+                    key={courier.id}
+                    whileHover={{ y: -3, scale: 1.01 }}
+                    className="glass-panel-light p-3.5 rounded-2xl flex items-center justify-between gap-3 shadow-[0_8px_24px_rgba(6,56,29,0.12)] border border-white/90 hover:border-white transition-all"
                   >
-                    <div className="space-y-1 relative z-10">
-                      <div className="flex items-center gap-1.5">
-                        <Gift className="w-4 h-4 text-[#F5B738]" />
-                        <span className="text-[10px] font-black uppercase tracking-wider text-[#F5B738]">Programme Téranga Privilège</span>
+                    {/* Courier Avatar + Info */}
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="relative shrink-0">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={courier.photo}
+                          alt={courier.name}
+                          className="w-12 h-12 rounded-full object-cover ring-2 ring-[#0A6E3B]/40 shadow-xs"
+                        />
+                        <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-500 ring-2 ring-white animate-pulse" />
                       </div>
-                      <p className="text-xs font-black text-white">
-                        Plus vous commandez, plus vous gagnez !
-                      </p>
-                      <div className="flex items-center gap-1 pt-1.5">
-                        <span className="text-xs bg-white/10 p-1 rounded-lg">🍲</span>
-                        <span className="text-xs bg-white/10 p-1 rounded-lg">🍲</span>
-                        <span className="text-xs bg-white/10 p-1 rounded-lg">🍲</span>
-                        <span className="text-xs bg-white/5 p-1 rounded-lg opacity-40">🍲</span>
-                        <span className="text-[10px] text-emerald-200 font-bold ml-1">1 commande avant le plat offert</span>
+
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <h4 className="font-black text-xs text-[#081A10] truncate">
+                            {courier.name}
+                          </h4>
+                          <span className="text-[9px] bg-emerald-100/90 text-emerald-800 font-black px-2 py-0.5 rounded-full backdrop-blur-xs border border-emerald-300/50 shrink-0">
+                            ⚡ Certifié
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-gray-600 font-medium mt-0.5">
+                          🏍️ {courier.moto} • <span className="font-mono text-[9px] font-bold text-gray-500">{courier.plaque}</span>
+                        </p>
+                        <div className="flex items-center gap-1.5 text-[10px] font-bold mt-1 flex-wrap">
+                          <span className="text-[#0A6E3B]">📍 {courier.zone} ({courier.distance})</span>
+                          <span className="text-gray-300">•</span>
+                          <span className="text-[#FF7824] bg-orange-50 px-1.5 py-0.2 rounded-md">~{courier.eta}</span>
+                          <span className="text-gray-300">•</span>
+                          <span className="text-gray-700">⭐ {courier.rating} ({courier.trips})</span>
+                        </div>
                       </div>
                     </div>
-                    <div className="w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center text-2xl shrink-0 border border-white/25 shadow-inner">
-                      🎁
+
+                    {/* Actions : Appel + Demande Liquid Glass */}
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <a
+                        href={`tel:${courier.phone}`}
+                        className="glass-btn w-10 h-10 rounded-xl flex items-center justify-center text-[#0A6E3B] hover:scale-105 transition-all text-sm"
+                        title="Appeler le livreur"
+                      >
+                        📞
+                      </a>
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => {
+                          alert(`Demande de course envoyée à ${courier.name} (${courier.moto}) ! Il arrive dans environ ${courier.eta}.`);
+                        }}
+                        className="px-3.5 py-2.5 rounded-xl brand-gradient text-white text-[11px] font-black shadow-md hover:brightness-110 transition-all cursor-pointer"
+                      >
+                        Commander
+                      </motion.button>
                     </div>
                   </motion.div>
-                </div>
-              </div>
+
+                ))}
             </div>
 
           </div>
@@ -909,16 +1049,17 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
            ===================================================================== */}
         {activeTab === 'menu' && (
           <div className="p-4 space-y-4 pb-12">
+
             
             {/* Header with search context & live counter */}
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="font-black text-sm text-[#081A10]">
+                <h3 className="font-black text-sm text-white">
                   {selectedNeighborhood !== 'Tous les quartiers'
                     ? `Restaurants à ${selectedNeighborhood}`
                     : 'Explorer Dakar & ses Restaurants'}
                 </h3>
-                <p className="text-[10px] text-gray-400">
+                <p className="text-[10px] text-white/80">
                   {userLiveLocation ? `Depuis ${userLiveLocation} • ` : ''}
                   {activeRestaurants.length} établissement{activeRestaurants.length > 1 ? 's' : ''} trouvé{activeRestaurants.length > 1 ? 's' : ''}
                 </p>
@@ -927,7 +1068,7 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
               {selectedNeighborhood !== 'Tous les quartiers' && (
                 <button
                   onClick={() => setSelectedNeighborhood('Tous les quartiers')}
-                  className="px-2 py-1 rounded-lg bg-gray-100 text-[10px] font-bold text-gray-600 hover:text-[#0A6E3B]"
+                  className="px-2.5 py-1 rounded-lg bg-white/20 text-[10px] font-bold text-white hover:bg-white/30 transition-colors"
                 >
                   Tout Dakar ✕
                 </button>
@@ -951,8 +1092,8 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
                     onClick={() => setRestoDiscoveryFilter(flt.id as any)}
                     className={`px-3 py-1.5 rounded-full text-xs font-bold shrink-0 transition-all border ${
                       isSel
-                        ? 'bg-[#0A6E3B] text-white border-[#0A6E3B] shadow-xs'
-                        : 'bg-white text-gray-600 border-[#D8EADB] hover:border-gray-300'
+                        ? 'bg-emerald-500 text-white border-emerald-400 shadow-xs'
+                        : 'bg-white/15 text-white border-white/20 hover:bg-white/25 backdrop-blur-md'
                     }`}
                   >
                     {flt.label}
@@ -960,6 +1101,7 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
                 );
               })}
             </div>
+
 
             {/* Restaurant Cards List */}
             {activeRestaurants.length === 0 ? (
@@ -991,8 +1133,8 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
                     return (
                       <motion.div
                         key={resto.id}
-                        whileHover={{ y: -2 }}
-                        className="bg-white rounded-3xl overflow-hidden border border-[#D8EADB] shadow-xs hover:shadow-md transition-all group"
+                        whileHover={{ y: -3, scale: 1.01 }}
+                        className="glass-panel-light rounded-[28px] overflow-hidden border border-white/90 shadow-[0_10px_30px_rgba(6,56,29,0.14)] hover:shadow-xl transition-all group"
                       >
                         {/* Cover image banner with overlays */}
                         <div className="relative h-44 w-full bg-gray-100 overflow-hidden cursor-pointer" onClick={() => handleOpenShowcase(resto)}>
@@ -1002,29 +1144,29 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
                             alt={resto.name}
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                           />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                          <div className="absolute inset-0 bg-gradient-to-t from-[#052112]/90 via-black/25 to-transparent" />
 
-                          {/* Top Badges */}
+                          {/* Top Badges Liquid Glass */}
                           <div className="absolute top-3 left-3 flex items-center gap-1.5">
-                            <span className="px-2.5 py-1 rounded-full bg-white/95 text-[#0A6E3B] text-[10px] font-black shadow-xs flex items-center gap-1 backdrop-blur-xs">
+                            <span className="glass-btn px-2.5 py-1 rounded-full text-[#0A6E3B] text-[10px] font-black shadow-xs flex items-center gap-1">
                               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                               Ouvert
                             </span>
-                            <span className="px-2.5 py-1 rounded-full bg-black/60 text-white text-[10px] font-bold backdrop-blur-md">
+                            <span className="glass-panel-dark px-2.5 py-1 rounded-full text-white text-[10px] font-bold">
                               📍 {resto.neighborhood}
                             </span>
                           </div>
 
-                          {/* Top Right Favorite Button */}
+                          {/* Top Right Favorite Button Liquid Glass */}
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               toggleFavoriteRestaurant(resto.id);
                             }}
-                            className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/90 text-gray-600 hover:text-rose-500 flex items-center justify-center text-xs shadow-md transition-transform active:scale-75"
+                            className="glass-btn absolute top-3 right-3 w-8 h-8 rounded-full text-gray-600 hover:text-rose-500 flex items-center justify-center text-xs shadow-md transition-transform active:scale-75"
                             aria-label="Ajouter aux favoris"
                           >
-                            <Heart className={`w-4 h-4 ${isFav ? 'fill-rose-500 text-rose-500' : 'text-gray-400'}`} />
+                            <Heart className={`w-4 h-4 ${isFav ? 'fill-rose-500 text-rose-500' : 'text-gray-600'}`} />
                           </button>
 
                           {/* Bottom info on Image */}
@@ -1034,9 +1176,9 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
                                 <h4 className="font-black text-sm text-white drop-shadow-sm leading-tight">{resto.name}</h4>
                                 <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                               </div>
-                              <p className="text-[10px] text-gray-200 line-clamp-1">{resto.tagline}</p>
+                              <p className="text-[10px] text-white/80 line-clamp-1 mt-0.5">{resto.tagline}</p>
                             </div>
-                            <div className="px-2 py-1 rounded-xl bg-[#0A6E3B] text-white text-xs font-black shrink-0 flex items-center gap-1 shadow-md">
+                            <div className="px-2.5 py-1 rounded-xl bg-emerald-600/95 backdrop-blur-md text-white text-xs font-black shrink-0 flex items-center gap-1 shadow-md border border-white/30">
                               ⭐ {resto.rating}
                             </div>
                           </div>
@@ -1046,12 +1188,12 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
                         <div className="p-3.5 space-y-3">
                           
                           {/* Distance, Trajet & Gamme de Prix */}
-                          <div className="flex items-center justify-between text-[11px] text-gray-500 pb-1 border-b border-gray-100">
-                            <div className="flex items-center gap-1.5 text-gray-700">
+                          <div className="flex items-center justify-between text-[11px] text-gray-600 pb-1 border-b border-gray-100/80">
+                            <div className="flex items-center gap-1.5 text-[#081A10] font-bold">
                               <Navigation className="w-3 h-3 text-[#0A6E3B]" />
-                              <span className="font-bold">Depuis {userLiveLocation} : <strong>{distanceInfo.dist}</strong> ({distanceInfo.time})</span>
+                              <span>Depuis {userLiveLocation} : <strong className="text-[#0A6E3B]">{distanceInfo.dist}</strong> ({distanceInfo.time})</span>
                             </div>
-                            <span className="text-[10px] font-extrabold text-[#0A6E3B] bg-[#E6F5EC] px-2 py-0.5 rounded-md">
+                            <span className="text-[10px] font-extrabold text-[#0A6E3B] bg-[#E6F5EC] border border-[#0A6E3B]/20 px-2 py-0.5 rounded-md">
                               {resto.priceRange || '2500 - 6000 FCFA'}
                             </span>
                           </div>
@@ -1061,30 +1203,30 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
                             {resto.ambianceTags?.slice(0, 3).map((tag, idx) => (
                               <span
                                 key={idx}
-                                className="px-2 py-0.5 rounded-lg bg-[#F4F7F4] border border-[#D8EADB] text-[#081A10] text-[10px] font-bold"
+                                className="px-2 py-0.5 rounded-lg bg-[#0A6E3B]/10 border border-[#0A6E3B]/20 text-[#0A6E3B] text-[10px] font-black"
                               >
                                 {tag}
                               </span>
                             ))}
                             {resto.gallery && resto.gallery.length > 0 && (
-                              <span className="px-2 py-0.5 rounded-lg bg-gray-100 text-gray-600 text-[10px] font-semibold flex items-center gap-1">
+                              <span className="px-2 py-0.5 rounded-lg bg-gray-100/80 text-gray-600 text-[10px] font-semibold flex items-center gap-1">
                                 <Camera className="w-2.5 h-2.5" />
                                 {resto.gallery.length} photos
                               </span>
                             )}
                           </div>
 
-                          {/* Action Buttons */}
+                          {/* Action Buttons Liquid Glass */}
                           <div className="pt-1 flex items-center gap-2">
                             <button
                               onClick={() => handleOpenShowcase(resto)}
-                              className="flex-1 py-2.5 rounded-xl brand-gradient text-white text-xs font-black shadow-xs flex items-center justify-center gap-1.5 hover:opacity-95 transition-opacity"
+                              className="flex-1 py-2.5 rounded-xl brand-gradient text-white text-xs font-black shadow-md flex items-center justify-center gap-1.5 hover:brightness-110 transition-all cursor-pointer"
                             >
                               <span>👁️ Visiter la vitrine</span>
                             </button>
                             <button
                               onClick={() => handleOpenReservation(resto)}
-                              className="px-3 py-2.5 rounded-xl bg-[#E6F5EC] border border-[#0A6E3B]/30 text-[#0A6E3B] text-xs font-black hover:bg-[#d5eedf] transition-colors flex items-center gap-1"
+                              className="glass-btn px-3 py-2.5 rounded-xl text-[#0A6E3B] text-xs font-black hover:bg-[#E6F5EC] transition-all flex items-center gap-1 cursor-pointer"
                             >
                               <Calendar className="w-3.5 h-3.5" />
                               <span>Réserver</span>
@@ -1093,6 +1235,7 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
 
                         </div>
                       </motion.div>
+
                     );
                   })}
               </div>
@@ -1107,11 +1250,12 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
         {activeTab === 'orders' && (
           <div className="p-4 space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="font-black text-sm text-[#081A10]">Mes Commandes</h3>
-              <span className="text-[10px] font-bold text-[#0A6E3B] bg-[#E6F5EC] px-2 py-0.5 rounded-full">
+              <h3 className="font-black text-sm text-white">Mes Commandes</h3>
+              <span className="text-[10px] font-black text-white bg-white/15 backdrop-blur-md border border-white/20 px-2.5 py-0.5 rounded-full">
                 {orders.length} au total
               </span>
             </div>
+
 
             {orders.length === 0 ? (
               <div className="text-center py-16 space-y-3 bg-white rounded-3xl border border-[#D8EADB] p-6">
@@ -1178,28 +1322,29 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
           <div className="p-4 space-y-4 pb-12">
             
             {/* Sub-tabs: Mes Sorties / Plats Favoris */}
-            <div className="flex bg-gray-200/70 p-1 rounded-2xl">
+            <div className="flex bg-black/30 backdrop-blur-md p-1 rounded-2xl border border-white/15">
               <button
                 onClick={() => setFavoritesSubTab('outings')}
                 className={`flex-1 py-2 rounded-xl text-xs font-black transition-all ${
                   favoritesSubTab === 'outings'
-                    ? 'bg-white text-[#0A6E3B] shadow-xs'
-                    : 'text-gray-500 hover:text-gray-800'
+                    ? 'bg-white text-[#0A6E3B] shadow-md'
+                    : 'text-white/80 hover:text-white'
                 }`}
               >
-                ❤️ Mes Sorties & Tables ({reservations.length + outingPlans.length})
+                ❤️ Sorties ({reservations.length + outingPlans.length})
               </button>
               <button
                 onClick={() => setFavoritesSubTab('dishes')}
                 className={`flex-1 py-2 rounded-xl text-xs font-black transition-all ${
                   favoritesSubTab === 'dishes'
-                    ? 'bg-white text-[#0A6E3B] shadow-xs'
-                    : 'text-gray-500 hover:text-gray-800'
+                    ? 'bg-white text-[#0A6E3B] shadow-md'
+                    : 'text-white/80 hover:text-white'
                 }`}
               >
                 🍲 Plats Favoris ({favoriteDishes.length})
               </button>
             </div>
+
 
             {/* Sub-tab 1: Outings, Reservations, and Saved Restaurants */}
             {favoritesSubTab === 'outings' && (
@@ -1208,14 +1353,14 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
                 {/* 1. Mes Réservations de Table Confirmées */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <h4 className="text-xs font-black text-[#081A10] uppercase tracking-wider flex items-center gap-1.5">
-                      <Calendar className="w-3.5 h-3.5 text-[#0A6E3B]" />
+                    <h4 className="text-xs font-black text-white uppercase tracking-wider flex items-center gap-1.5">
+                      <Calendar className="w-3.5 h-3.5 text-emerald-300" />
                       <span>Tables Réservées ({reservations.length})</span>
                     </h4>
                   </div>
 
                   {reservations.length === 0 ? (
-                    <div className="p-4 text-center bg-white rounded-2xl border border-[#D8EADB] text-xs text-gray-500 space-y-1">
+                    <div className="p-4 text-center glass-panel-light rounded-2xl border border-white/80 text-xs text-gray-600 space-y-1">
                       <p>Aucune réservation en cours.</p>
                       <button
                         onClick={() => setActiveTab('menu')}
@@ -1228,7 +1373,7 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
                     reservations.map((res) => (
                       <div
                         key={res.id}
-                        className="bg-white p-3.5 rounded-2xl border border-[#D8EADB] space-y-2 shadow-xs"
+                        className="glass-panel-light p-3.5 rounded-2xl border border-white/80 space-y-2 shadow-xs"
                       >
                         <div className="flex items-start justify-between">
                           <div>
@@ -1238,26 +1383,26 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
                                 {res.status === 'confirmed' ? '✓ Confirmée' : res.status}
                               </span>
                             </div>
-                            <span className="text-[10px] text-gray-400 font-mono">Code : {res.reservationNumber}</span>
+                            <span className="text-[10px] text-gray-500 font-mono">Code : {res.reservationNumber}</span>
                           </div>
                           <span className="text-[11px] font-bold text-[#FF7824] bg-[#FF7824]/10 px-2 py-0.5 rounded-full">
                             {res.occasion}
                           </span>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-2 text-[11px] bg-[#F4F7F4] p-2 rounded-xl border border-[#D8EADB]">
+                        <div className="grid grid-cols-2 gap-2 text-[11px] bg-white/70 p-2 rounded-xl border border-white/60">
                           <div>
-                            <span className="text-gray-400 block text-[9px] font-bold">Date & Heure</span>
+                            <span className="text-gray-500 block text-[9px] font-bold">Date & Heure</span>
                             <span className="font-black text-[#081A10]">{res.date} • {res.time}</span>
                           </div>
                           <div>
-                            <span className="text-gray-400 block text-[9px] font-bold">Convives</span>
+                            <span className="text-gray-500 block text-[9px] font-bold">Convives</span>
                             <span className="font-black text-[#081A10]">{res.guestsCount} personne{res.guestsCount > 1 ? 's' : ''}</span>
                           </div>
                         </div>
 
                         {res.notes && (
-                          <p className="text-[10px] text-gray-500 italic bg-amber-50 p-1.5 rounded-lg border border-amber-200/50">
+                          <p className="text-[10px] text-amber-900 bg-amber-50/90 p-1.5 rounded-lg border border-amber-200/50">
                             📝 Note : {res.notes}
                           </p>
                         )}
@@ -1269,10 +1414,11 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
                 {/* 2. Sorties Programmées */}
                 <div className="space-y-2 pt-2">
                   <div className="flex items-center justify-between">
-                    <h4 className="text-xs font-black text-[#081A10] uppercase tracking-wider flex items-center gap-1.5">
+                    <h4 className="text-xs font-black text-white uppercase tracking-wider flex items-center gap-1.5">
                       <span>✨ Sorties Prévues ({outingPlans.length})</span>
                     </h4>
                   </div>
+
 
                   {outingPlans.map((plan) => (
                     <div
@@ -1319,7 +1465,7 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
 
                 {/* 3. Restaurants Favoris Enregistrés */}
                 <div className="space-y-2 pt-2">
-                  <h4 className="text-xs font-black text-[#081A10] uppercase tracking-wider">
+                  <h4 className="text-xs font-black text-white uppercase tracking-wider">
                     ❤️ Restaurants Favoris ({favoriteRestoList.length})
                   </h4>
 
@@ -1328,13 +1474,13 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
                       <div
                         key={resto.id}
                         onClick={() => handleOpenShowcase(resto)}
-                        className="bg-white p-3 rounded-2xl border border-[#D8EADB] flex items-center justify-between gap-3 shadow-2xs cursor-pointer hover:border-[#0A6E3B] transition-colors"
+                        className="glass-panel-light p-3 rounded-2xl border border-white/80 flex items-center justify-between gap-3 shadow-2xs cursor-pointer hover:border-[#0A6E3B] transition-all"
                       >
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={resto.coverImage} alt={resto.name} className="w-14 h-14 rounded-xl object-cover shrink-0" />
                         <div className="flex-1 min-w-0">
                           <h5 className="font-bold text-xs text-[#081A10] truncate">{resto.name}</h5>
-                          <p className="text-[10px] text-gray-400">📍 {resto.neighborhood} • ⭐ {resto.rating}</p>
+                          <p className="text-[10px] text-gray-500">📍 {resto.neighborhood} • ⭐ {resto.rating}</p>
                         </div>
                         <button className="px-3 py-1.5 rounded-xl bg-[#E6F5EC] text-[#0A6E3B] text-[11px] font-bold">
                           Vitrine ➔
@@ -1343,6 +1489,7 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
                     ))}
                   </div>
                 </div>
+
 
               </div>
             )}
@@ -1476,86 +1623,111 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
       )}
 
       {/* =========================================================================
-          FLOATING ORGANIC BOTTOM DOCK NAVIGATION (FROSTED GLASS PILL WITH SPRING PHYSICS)
+          FLOATING ORGANIC BOTTOM DOCK NAVIGATION (WITH CUSTOM WAVE BACKGROUND)
          ========================================================================= */}
-      <div className="absolute bottom-2 inset-x-3 flex items-end justify-around z-30 px-1">
+      <div className="absolute bottom-0 inset-x-0 z-30 pt-2 pb-2">
+        
+        {/* Wave Background SVG Shape */}
+        <div className="absolute inset-0 top-1 pointer-events-none">
+          <svg 
+            viewBox="0 0 1000 240" 
+            preserveAspectRatio="none" 
+            className="w-full h-full drop-shadow-[0_-3px_10px_rgba(0,0,0,0.05)]"
+          >
+            <path 
+              d="M0,95 C140,90 220,70 300,70 C420,70 520,115 640,115 C760,115 880,45 1000,20 L1000,240 L0,240 Z" 
+              fill="#FFFFFF" 
+            />
+          </svg>
+        </div>
+
+
+        <div className="relative flex items-end justify-around px-2 z-10">
 
         {/* 1. Home */}
         <motion.button
+          whileHover={{ scale: 1.08, y: -3 }}
           whileTap={{ scale: 0.9 }}
           onClick={() => setActiveTab('home')}
           className="flex flex-col items-center justify-center gap-1"
         >
-          <div className={`w-12 h-12 zone-badge-shape flex items-center justify-center transition-all ${
-            activeTab === 'home'
-              ? 'brand-gradient shadow-[0_10px_24px_rgba(6,56,29,0.35)]'
-              : 'bg-white shadow-[0_8px_20px_rgba(6,56,29,0.14)]'
-          }`}>
-            <svg width="19" height="19" viewBox="0 0 24 24" fill={activeTab === 'home' ? '#FFFFFF' : '#FF7824'} xmlns="http://www.w3.org/2000/svg">
-              <path d="M10 20V14H14V20H19V12H22L12 3L2 12H5V20H10Z"/>
+          <div className="relative w-14" style={{ aspectRatio: '113.57 / 100.25' }}>
+            <svg viewBox="0 0 113.57 100.25" className="absolute inset-0 w-full h-full" style={{ filter: 'drop-shadow(0 2px 5px rgba(0,0,0,0.18))' }}>
+              <path d="M105.56,78.89c-2.32,1.87-5.72,3.82-8.46,5-16.51,7.12-39.56,9.67-56.82,16-11.63,1.93-22.17-3.95-26.76-14.9-4.03-9.62-7.73-31.38-10.1-42.53-2.32-10.9-6.62-21.78.52-31.81C9.09,3.41,15.22.62,23.91.18c16.3-.84,47.43,1.48,64.05,3.49,23.41,2.83,23.34,17.43,24.66,36.58.83,12.13,3.62,30.05-7.06,38.64Z" fill={activeTab === 'home' ? '#0A6E3B' : '#F6F5F1'} />
             </svg>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <svg width="19" height="19" viewBox="0 0 24 24" fill={activeTab === 'home' ? '#FFFFFF' : '#FF7824'} xmlns="http://www.w3.org/2000/svg">
+                <path d="M10 20V14H14V20H19V12H22L12 3L2 12H5V20H10Z"/>
+              </svg>
+            </div>
           </div>
           <span className={`text-[9px] font-black ${activeTab === 'home' ? 'text-[#0A6E3B]' : 'text-[#081A10]/70'}`}>
             Home
           </span>
         </motion.button>
 
-        {/* 2. Restos (Livreur / Découverte) */}
+        {/* 2. Livreur / Livreurs à proximité en direct */}
         <motion.button
+          whileHover={{ scale: 1.08, y: -3 }}
           whileTap={{ scale: 0.9 }}
-          onClick={() => setActiveTab('menu')}
+          onClick={() => setActiveTab('courier')}
           className="flex flex-col items-center justify-center gap-1"
         >
-          <div className={`w-12 h-12 zone-badge-shape flex items-center justify-center transition-all ${
-            activeTab === 'menu'
-              ? 'brand-gradient shadow-[0_10px_24px_rgba(6,56,29,0.35)]'
-              : 'bg-white shadow-[0_8px_20px_rgba(6,56,29,0.14)]'
-          }`}>
-            <Bike className={`w-4.5 h-4.5 ${activeTab === 'menu' ? 'text-white' : 'text-[#081A10]/60'}`} />
+          <div className="relative w-14" style={{ aspectRatio: '113.57 / 100.25' }}>
+            <svg viewBox="0 0 113.57 100.25" className="absolute inset-0 w-full h-full" style={{ filter: 'drop-shadow(0 2px 5px rgba(0,0,0,0.18))' }}>
+              <path d="M105.56,78.89c-2.32,1.87-5.72,3.82-8.46,5-16.51,7.12-39.56,9.67-56.82,16-11.63,1.93-22.17-3.95-26.76-14.9-4.03-9.62-7.73-31.38-10.1-42.53-2.32-10.9-6.62-21.78.52-31.81C9.09,3.41,15.22.62,23.91.18c16.3-.84,47.43,1.48,64.05,3.49,23.41,2.83,23.34,17.43,24.66,36.58.83,12.13,3.62,30.05-7.06,38.64Z" fill={activeTab === 'courier' ? '#0A6E3B' : '#F6F5F1'} />
+            </svg>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <Bike className={`w-4.5 h-4.5 ${activeTab === 'courier' ? 'text-white' : 'text-[#081A10]/60'}`} />
+            </div>
           </div>
-          <span className={`text-[9px] font-black ${activeTab === 'menu' ? 'text-[#0A6E3B]' : 'text-[#081A10]/70'}`}>
-            Restos
+          <span className={`text-[9px] font-black ${activeTab === 'courier' ? 'text-[#0A6E3B]' : 'text-[#081A10]/70'}`}>
+            Livreur
           </span>
         </motion.button>
 
-        {/* 3. Orders / Commandes (Maps) */}
+        {/* 3. Orders / Commandes */}
         <motion.button
+          whileHover={{ scale: 1.08, y: -3 }}
           whileTap={{ scale: 0.9 }}
           onClick={() => setActiveTab('orders')}
-          className="relative flex flex-col items-center justify-center gap-1"
+          className="flex flex-col items-center justify-center gap-1"
         >
-          <div className={`relative w-12 h-12 zone-badge-shape flex items-center justify-center transition-all ${
-            activeTab === 'orders'
-              ? 'brand-gradient shadow-[0_10px_24px_rgba(6,56,29,0.35)]'
-              : 'bg-white shadow-[0_8px_20px_rgba(6,56,29,0.14)]'
-          }`}>
-            <MapPin className={`w-4.5 h-4.5 ${activeTab === 'orders' ? 'fill-white text-white' : 'text-[#081A10]/60'}`} />
-            {orders.length > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-[#FF7824] rounded-full ring-2 ring-white" />
-            )}
+          <div className="relative w-14" style={{ aspectRatio: '113.57 / 100.25' }}>
+            <svg viewBox="0 0 113.57 100.25" className="absolute inset-0 w-full h-full" style={{ filter: 'drop-shadow(0 2px 5px rgba(0,0,0,0.18))' }}>
+              <path d="M105.56,78.89c-2.32,1.87-5.72,3.82-8.46,5-16.51,7.12-39.56,9.67-56.82,16-11.63,1.93-22.17-3.95-26.76-14.9-4.03-9.62-7.73-31.38-10.1-42.53-2.32-10.9-6.62-21.78.52-31.81C9.09,3.41,15.22.62,23.91.18c16.3-.84,47.43,1.48,64.05,3.49,23.41,2.83,23.34,17.43,24.66,36.58.83,12.13,3.62,30.05-7.06,38.64Z" fill={activeTab === 'orders' ? '#0A6E3B' : '#F6F5F1'} />
+            </svg>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <ShoppingBag className={`w-4.5 h-4.5 ${activeTab === 'orders' ? 'text-white' : 'text-[#081A10]/60'}`} />
+              {orders.length > 0 && (
+                <span className="absolute top-1.5 right-2.5 w-2.5 h-2.5 bg-[#FF7824] rounded-full ring-2 ring-white animate-pulse" />
+              )}
+            </div>
           </div>
           <span className={`text-[9px] font-black ${activeTab === 'orders' ? 'text-[#0A6E3B]' : 'text-[#081A10]/70'}`}>
-            Maps
+            Commandes
           </span>
         </motion.button>
 
         {/* 4. Favoris */}
         <motion.button
+          whileHover={{ scale: 1.08, y: -3 }}
           whileTap={{ scale: 0.9 }}
           onClick={() => setActiveTab('favorites')}
-          className="relative flex flex-col items-center justify-center gap-1"
+          className="flex flex-col items-center justify-center gap-1"
         >
-          <div className={`relative w-12 h-12 zone-badge-shape flex items-center justify-center transition-all ${
-            activeTab === 'favorites'
-              ? 'brand-gradient shadow-[0_10px_24px_rgba(6,56,29,0.35)]'
-              : 'bg-white shadow-[0_8px_20px_rgba(6,56,29,0.14)]'
-          }`}>
-            <Star className={`w-4.5 h-4.5 ${activeTab === 'favorites' ? 'fill-white text-white' : 'text-[#081A10]/60'}`} />
-            {favoriteIds.length > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-[#FF7824] text-white text-[8px] font-black rounded-full flex items-center justify-center ring-1 ring-white">
-                {favoriteIds.length}
-              </span>
-            )}
+          <div className="relative w-14" style={{ aspectRatio: '113.57 / 100.25' }}>
+            <svg viewBox="0 0 113.57 100.25" className="absolute inset-0 w-full h-full" style={{ filter: 'drop-shadow(0 2px 5px rgba(0,0,0,0.18))' }}>
+              <path d="M105.56,78.89c-2.32,1.87-5.72,3.82-8.46,5-16.51,7.12-39.56,9.67-56.82,16-11.63,1.93-22.17-3.95-26.76-14.9-4.03-9.62-7.73-31.38-10.1-42.53-2.32-10.9-6.62-21.78.52-31.81C9.09,3.41,15.22.62,23.91.18c16.3-.84,47.43,1.48,64.05,3.49,23.41,2.83,23.34,17.43,24.66,36.58.83,12.13,3.62,30.05-7.06,38.64Z" fill={activeTab === 'favorites' ? '#0A6E3B' : '#F6F5F1'} />
+            </svg>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <Star className={`w-4.5 h-4.5 ${activeTab === 'favorites' ? 'fill-white text-white' : 'text-[#081A10]/60'}`} />
+              {favoriteIds.length > 0 && (
+                <span className="absolute top-1.5 right-2 w-3.5 h-3.5 bg-[#FF7824] text-white text-[8px] font-black rounded-full flex items-center justify-center ring-1 ring-white">
+                  {favoriteIds.length}
+                </span>
+              )}
+            </div>
           </div>
           <span className={`text-[9px] font-black ${activeTab === 'favorites' ? 'text-[#0A6E3B]' : 'text-[#081A10]/70'}`}>
             Favoris
@@ -1564,24 +1736,28 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
 
         {/* 5. Profil */}
         <motion.button
+          whileHover={{ scale: 1.08, y: -3 }}
           whileTap={{ scale: 0.9 }}
           onClick={() => setActiveTab('profile')}
           className="flex flex-col items-center justify-center gap-1"
         >
-          <div className={`w-12 h-12 zone-badge-shape flex items-center justify-center transition-all ${
-            activeTab === 'profile'
-              ? 'brand-gradient shadow-[0_10px_24px_rgba(6,56,29,0.35)]'
-              : 'bg-white shadow-[0_8px_20px_rgba(6,56,29,0.14)]'
-          }`}>
-            <User className={`w-4.5 h-4.5 ${activeTab === 'profile' ? 'text-white' : 'text-[#081A10]/60'}`} />
+          <div className="relative w-14" style={{ aspectRatio: '113.57 / 100.25' }}>
+            <svg viewBox="0 0 113.57 100.25" className="absolute inset-0 w-full h-full" style={{ filter: 'drop-shadow(0 2px 5px rgba(0,0,0,0.18))' }}>
+              <path d="M105.56,78.89c-2.32,1.87-5.72,3.82-8.46,5-16.51,7.12-39.56,9.67-56.82,16-11.63,1.93-22.17-3.95-26.76-14.9-4.03-9.62-7.73-31.38-10.1-42.53-2.32-10.9-6.62-21.78.52-31.81C9.09,3.41,15.22.62,23.91.18c16.3-.84,47.43,1.48,64.05,3.49,23.41,2.83,23.34,17.43,24.66,36.58.83,12.13,3.62,30.05-7.06,38.64Z" fill={activeTab === 'profile' ? '#0A6E3B' : '#F6F5F1'} />
+            </svg>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <User className={`w-4.5 h-4.5 ${activeTab === 'profile' ? 'text-white' : 'text-[#081A10]/60'}`} />
+            </div>
           </div>
           <span className={`text-[9px] font-black ${activeTab === 'profile' ? 'text-[#0A6E3B]' : 'text-[#081A10]/70'}`}>
             Profil
           </span>
-
         </motion.button>
 
+
+        </div>
       </div>
+
 
       {/* =========================================================================
           3. MODAL PRODUCT DETAIL (INSPIRÉ DE L'ÉCRAN "DETAILS" DES MAQUETTES)

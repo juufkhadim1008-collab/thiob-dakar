@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Calque_2" data-name="Calque 2" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 338.98 368.43">
+  <defs>
+    <style>
+      .cls-1 {
+        filter: url(#drop-shadow-1);
+      }
+
+      .cls-2 {
+        fill: #f6f5f1;
+      }
+    </style>
+    <filter id="drop-shadow-1" x="-15.65" y="-13.6" width="370" height="400" filterUnits="userSpaceOnUse">
+      <feOffset dx="0" dy="2"/>
+      <feGaussianBlur result="blur" stdDeviation="5"/>
+      <feFlood flood-color="#000" flood-opacity=".24"/>
+      <feComposite in2="blur" operator="in"/>
+      <feComposite in="SourceGraphic"/>
+    </filter>
+  </defs>
+  <g id="Calque_1-2" data-name="Calque 1">
+    <g class="cls-1">
+      <path class="cls-2" d="M35.76,46.56c-4.98,8.64-9.67,20.89-12.17,30.57C8.57,135.41,12.04,212.97,0,273.35c-.38,39.48,24.51,71.31,63.11,80.83,33.89,8.36,107.79,9.36,145.89,11.46,37.25,2.05,75.47,10.64,104.94-18.14,21.28-20.79,27.33-42.49,24.33-71.48-5.63-54.34-29.38-156.13-44.6-210.05C272.22-10,223.95-2.25,159.93,3.28c-40.57,3.5-101.27,3.53-124.17,43.28Z"/>
+    </g>
+  </g>
+</svg>
