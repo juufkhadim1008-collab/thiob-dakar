@@ -502,22 +502,25 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
 
         {/* Barre de recherche + bouton filtre avec Glassmorphism */}
         <div className="flex items-center gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[#0A6E3B]/70" />
+          <div className="relative flex-1 flex items-center">
+            <div className="absolute left-3.5 top-1/2 -translate-y-1/2 z-10 pointer-events-none flex items-center justify-center text-[#0A6E3B]">
+              <Search className="w-4 h-4 shrink-0 text-[#0A6E3B]" />
+            </div>
             <input
               type="text"
-              placeholder="Recherche par plat, restaurant et secteur"
+              placeholder="Recherche par plat, restaurant et quartier..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') setActiveTab('menu');
               }}
-              className="glass-panel-light w-full pl-10 pr-8 py-3 rounded-full text-xs text-[#081A10] placeholder-gray-400 focus:bg-white/95 focus:ring-2 focus:ring-[#0A6E3B]/20 transition-all"
+              className="w-full bg-white/95 backdrop-blur-md border border-[#D8EADB] pl-10 pr-9 py-2.5 rounded-full text-xs text-[#081A10] placeholder-gray-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0A6E3B]/30 shadow-xs transition-all"
             />
             {searchQuery && (
               <button
+                type="button"
                 onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-0.5"
+                className="absolute right-3 top-1/2 -translate-y-1/2 z-10 text-gray-400 hover:text-gray-600 p-1 flex items-center justify-center cursor-pointer"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -528,10 +531,10 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
             whileHover={{ scale: 1.08, y: -2 }}
             whileTap={{ scale: 0.92 }}
             onClick={() => setIsFilterOpen(true)}
-            className="glass-btn w-11 h-11 rounded-2xl flex items-center justify-center text-[#081A10] shrink-0"
+            className="w-10 h-10 rounded-2xl bg-white/95 backdrop-blur-md border border-[#D8EADB] flex items-center justify-center text-[#0A6E3B] shadow-xs shrink-0 cursor-pointer active:scale-95 transition-all"
             aria-label="Filtres"
           >
-            <SlidersHorizontal className="w-4.5 h-4.5" />
+            <SlidersHorizontal className="w-4 h-4" />
           </motion.button>
         </div>
 
