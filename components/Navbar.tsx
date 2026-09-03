@@ -204,8 +204,8 @@ export default function Navbar({
               <span className="w-2 h-2 rounded-full bg-[#008235]"></span>
               <span>
                 {currentRole === 'client' && 'Mode Client'}
-                {currentRole === 'restaurant' && 'Restaurant (Le Thiéb Royal)'}
-                {currentRole === 'courier' && 'Livreur (Ibrahima)'}
+                {currentRole === 'restaurant' && 'Espace Restaurant'}
+                {currentRole === 'courier' && 'Espace Livreur'}
                 {currentRole === 'admin' && 'Admin Dakar 360°'}
               </span>
             </div>

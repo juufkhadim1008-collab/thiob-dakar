@@ -162,17 +162,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [currentRole, setCurrentRole] = useState<UserRole>('client');
   const [restaurants, setRestaurants] = useState<Restaurant[]>(initialRestaurants);
   const [menuItems, setMenuItems] = useState<MenuItem[]>(initialMenuItems);
-  const [currentRestaurantId, setCurrentRestaurantId] = useState<string>('resto-kamiss');
+  const [currentRestaurantId, setCurrentRestaurantId] = useState<string>('');
   const [orders, setOrders] = useState<Order[]>(INITIAL_ORDERS);
   const [couriers, setCouriers] = useState<Courier[]>(INITIAL_COURIERS);
   const [metrics, setMetrics] = useState<PlatformMetrics>(INITIAL_METRICS);
   const [reservations, setReservations] = useState<Reservation[]>(INITIAL_RESERVATIONS);
   const [outingPlans, setOutingPlans] = useState<OutingPlan[]>(INITIAL_OUTING_PLANS);
   const [favoriteRestaurantIds, setFavoriteRestaurantIds] = useState<string[]>([]);
-
-  // Client profile info
   const [clientName, setClientName] = useState<string>('');
   const [clientPhone, setClientPhone] = useState<string>('');
+
 
   // Geolocation states
   const [clientCoords, setClientCoords] = useState<GeoPoint | null>(null);
@@ -187,12 +186,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Load saved data from localStorage & Supabase Realtime
   useEffect(() => {
     // 0. Invalidate legacy mock localStorage from dev tests
-    const STORAGE_VERSION = 'thiob_prod_clean_v2';
+    const STORAGE_VERSION = 'thiob_prod_clean_v5';
     if (typeof window !== 'undefined' && localStorage.getItem('thiob_storage_version') !== STORAGE_VERSION) {
-      localStorage.removeItem('thiob_custom_restaurants');
-      localStorage.removeItem('thiob_custom_couriers');
-      localStorage.removeItem('thiob_active_restaurant_id');
-      localStorage.removeItem('thiob_orders');
+      localStorage.clear();
       localStorage.setItem('thiob_storage_version', STORAGE_VERSION);
     }
 

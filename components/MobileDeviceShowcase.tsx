@@ -88,6 +88,8 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
     cartRestaurant,
     placeOrder,
     orders,
+    currentRole,
+    setCurrentRole,
     activeTrackingOrder,
     setActiveTrackingOrder,
     reservations,
@@ -110,6 +112,7 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
     clientPhone: storeClientPhone,
     recordPaymentTransaction,
   } = useApp();
+
 
 
   const [activeTab, setActiveTab] = useState<'home' | 'menu' | 'orders' | 'favorites' | 'profile' | 'courier'>('home');
@@ -606,30 +609,54 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
                   Resto à proximité
                 </h3>
 
-                {/* Slideshow Card Animated */}
+                {/* Slideshow Card Animated or Empty State */}
                 <div className="relative">
-                  <div
-                    onMouseEnter={() => setIsSlideshowPaused(true)}
-                    onMouseLeave={() => setIsSlideshowPaused(false)}
-                    onTouchStart={() => setIsSlideshowPaused(true)}
-                    onTouchEnd={() => setIsSlideshowPaused(false)}
-                    className="relative h-52 overflow-hidden shadow-lg bg-black text-white group cursor-pointer rounded-[18px_18px_18px_36px]"
-                    onClick={() => {
-                      if (currentRestaurant) {
-                        handleOpenShowcase(currentRestaurant);
-                      }
-                    }}
-                  >
-                    <AnimatePresence mode="popLayout">
-                      {currentRestaurant && (
-                        <motion.div
-                          key={currentRestaurant.id}
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          exit={{ opacity: 0 }}
-                          transition={{ duration: 0.7, ease: [0.4, 0, 0.2, 1] }}
-                          className="absolute inset-0"
-                        >
+                  {restaurants.length === 0 ? (
+                    <div className="p-5 rounded-[18px_18px_18px_36px] bg-gradient-to-br from-[#0A6E3B] to-[#041E10] text-white shadow-xl space-y-2.5 border border-emerald-500/20">
+                      <div className="flex items-center justify-between">
+                        <span className="px-2.5 py-0.5 rounded-full bg-white/20 text-[9px] font-black uppercase tracking-wider text-emerald-200">
+                          🚀 Bienvenue à Dakar
+                        </span>
+                        <span className="text-[10px] text-emerald-300/70 font-mono">Plateforme Prête</span>
+                      </div>
+                      <div>
+                        <h4 className="text-base font-black leading-tight text-white">Vous êtes restaurateur à Dakar ?</h4>
+                        <p className="text-[11px] text-white/80 mt-1 leading-relaxed">
+                          Inscrivez votre restaurant en quelques secondes pour publier votre carte et recevoir vos commandes en direct.
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => setCurrentRole('restaurant')}
+                        className="w-full py-2.5 bg-[#FF7824] hover:bg-[#FF7824]/90 text-white font-black text-xs rounded-xl shadow-md transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                      >
+                        <span>Créer mon restaurant</span>
+                        <span>➔</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <div
+                      onMouseEnter={() => setIsSlideshowPaused(true)}
+                      onMouseLeave={() => setIsSlideshowPaused(false)}
+                      onTouchStart={() => setIsSlideshowPaused(true)}
+                      onTouchEnd={() => setIsSlideshowPaused(false)}
+                      className="relative h-52 overflow-hidden shadow-lg bg-black text-white group cursor-pointer rounded-[18px_18px_18px_36px]"
+                      onClick={() => {
+                        if (currentRestaurant) {
+                          handleOpenShowcase(currentRestaurant);
+                        }
+                      }}
+                    >
+                      <AnimatePresence mode="popLayout">
+                        {currentRestaurant && (
+                          <motion.div
+                            key={currentRestaurant.id}
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.7, ease: [0.4, 0, 0.2, 1] }}
+                            className="absolute inset-0"
+                          >
+
                           {/* Cover Photo with slow ambient zoom */}
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <motion.img
@@ -725,8 +752,12 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
                       />
                     </div>
                   </div>
-                </div>
+                )}
               </div>
+            </div>
+
+
+
 
               {/* =================================================================
                   🍲 SECTION CATÉGORIES DE PLATS (BADGES ORGANIQUES)
@@ -837,9 +868,28 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
               {/* Grille des plats en cartes (3 par ligne) - dépasse légèrement sur le haut de la forme verte */}
               <div className="grid grid-cols-3 gap-2.5 relative z-20 -mt-6">
 
+                {displayedDishes.length === 0 ? (
+                  <div className="col-span-3 py-10 px-4 text-center space-y-2.5 bg-white/90 backdrop-blur-md rounded-2xl border border-dashed border-[#D8EADB] shadow-sm">
+                    <div className="w-10 h-10 mx-auto rounded-xl bg-[#E6F5EC] text-[#0A6E3B] flex items-center justify-center text-lg">
+                      🍲
+                    </div>
+                    <div>
+                      <h5 className="text-xs font-black text-[#081A10]">Aucun plat enregistré</h5>
+                      <p className="text-[10px] text-gray-500 mt-0.5 max-w-[200px] mx-auto">
+                        Inscrivez un restaurant pour publier vos premiers plats en direct.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setCurrentRole('restaurant')}
+                      className="px-3 py-1.5 bg-[#0A6E3B] text-white text-[10px] font-black rounded-lg hover:bg-[#085a30] transition-colors cursor-pointer"
+                    >
+                      Ajouter un plat ➔
+                    </button>
+                  </div>
+                ) : (
+                  displayedDishes.map((dish) => {
+                    const isItemFav = favoriteIds.includes(dish.id);
 
-                {displayedDishes.map((dish) => {
-                  const isItemFav = favoriteIds.includes(dish.id);
                   return (
                     <motion.div
                       key={dish.id}
@@ -892,10 +942,10 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
                         </button>
                       </div>
                     </motion.div>
-
                   );
-                })}
-              </div>
+                })
+              )}
+            </div>
 
               {/* Bouton "Tout ➔" avec Glassmorphism */}
               <div className="flex justify-center pt-2">
