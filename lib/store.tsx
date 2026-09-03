@@ -634,6 +634,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // Push to Supabase for multi-device cross-platform sync
     try {
       supabase.from('restaurants').insert({
+        id: newId,
         name: newResto.name,
         tagline: newResto.tagline,
         description: newResto.description,
@@ -647,8 +648,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         delivery_fee: newResto.deliveryFee,
         min_order: newResto.minOrder,
         is_open: true,
-      }).then();
+        phone: newResto.phone,
+        owner_name: newResto.ownerName,
+      }).then(() => {
+        supabase.from('menu_items').insert(starterDishes.map(d => ({
+          id: d.id,
+          restaurant_id: newId,
+          name: d.name,
+          description: d.description,
+          price: d.price,
+          category_id: d.category,
+          image: d.image,
+          is_available: d.isAvailable,
+          is_popular: d.isPopular,
+          preparation_time_minutes: d.preparationTimeMinutes,
+          tags: d.tags || [],
+        }))).then();
+      });
     } catch {}
+
 
     return newResto;
   };
@@ -811,8 +829,36 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     clearCart();
     setActiveTrackingOrder(newOrder);
+
+    // Push order to Supabase for multi-device cross-platform sync
+    try {
+      supabase.from('orders').insert({
+        id: newOrder.id,
+        order_number: newOrder.orderNumber,
+        client_name: newOrder.clientName,
+        client_phone: newOrder.clientPhone,
+        restaurant_id: newOrder.restaurantId,
+        restaurant_name: newOrder.restaurantName,
+        courier_id: newOrder.courierId,
+        courier_name: newOrder.courierName,
+        courier_phone: newOrder.courierPhone,
+        status: newOrder.status,
+        subtotal: newOrder.subtotal,
+        delivery_fee: newOrder.deliveryFee,
+        platform_fee: newOrder.platformFee,
+        total: newOrder.total,
+        payment_method: newOrder.paymentMethod,
+        payment_status: newOrder.paymentStatus,
+        delivery_neighborhood: newOrder.deliveryAddress.neighborhood,
+        delivery_street: newOrder.deliveryAddress.street,
+        delivery_details: newOrder.deliveryAddress.details,
+        items: newOrder.items,
+      }).then();
+    } catch {}
+
     return newOrder;
   };
+
 
 
   // Reservations
