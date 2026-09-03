@@ -24,6 +24,7 @@ import {
   Plus,
   Minus,
   Activity,
+  Globe,
   Check,
   CheckCircle2,
   Navigation,
@@ -5210,6 +5211,7 @@ function MobileCourierApp({ onLogout }: { onLogout?: () => void }) {
 // =========================================================================
 import OnboardingFlow from './OnboardingFlow';
 import AdminAnalyticsModal from '@/components/admin/AdminAnalyticsModal';
+import DesktopAdminCommandCenter from '@/components/admin/DesktopAdminCommandCenter';
 import { supabase } from '@/lib/supabase';
 
 export default function MobileDeviceShowcase() {
@@ -5217,6 +5219,7 @@ export default function MobileDeviceShowcase() {
   const [selectedOrderForTracking, setSelectedOrderForTracking] = useState<Order | null>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [isAdminAnalyticsOpen, setIsAdminAnalyticsOpen] = useState(false);
+  const [isDesktopCommandCenter, setIsDesktopCommandCenter] = useState(false);
   const [isReady, setIsReady] = useState(false);
   const [showInactivitySplash, setShowInactivitySplash] = useState(false);
   const [showOpeningSplash, setShowOpeningSplash] = useState(true);
@@ -5376,6 +5379,14 @@ export default function MobileDeviceShowcase() {
     );
   }
 
+  if (isDesktopCommandCenter) {
+    return (
+      <DesktopAdminCommandCenter
+        onSwitchToMobileSimulator={() => setIsDesktopCommandCenter(false)}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#F0F5F2] md:bg-[#062112] text-[#081A10] md:text-white flex flex-col items-center justify-start p-0 md:py-6 md:px-4 relative overflow-x-hidden selection:bg-[#0A6E3B]">
       
@@ -5409,15 +5420,24 @@ export default function MobileDeviceShowcase() {
           </div>
         </div>
 
-        {/* 3 Mobile Roles Selector + Onboarding Trigger + Analytics */}
+        {/* 3 Mobile Roles Selector + Onboarding Trigger + Analytics + Desktop HQ */}
         <div className="flex flex-wrap items-center gap-2">
+          {/* Grand Dashboard Bureau Full-Screen Button */}
+          <button
+            onClick={() => setIsDesktopCommandCenter(true)}
+            className="px-3.5 py-1.5 rounded-xl text-xs font-black transition-all border flex items-center gap-1.5 shadow-md bg-gradient-to-r from-[#0A6E3B] to-[#10B981] hover:brightness-110 text-white border-emerald-400/30 cursor-pointer"
+          >
+            <Globe className="w-3.5 h-3.5 text-emerald-200" />
+            <span>🖥️ Grand Dashboard PC</span>
+          </button>
+
           {/* Analytics Studio Button */}
           <button
             onClick={() => setIsAdminAnalyticsOpen(true)}
-            className="px-3 py-1.5 rounded-xl text-xs font-black transition-all border flex items-center gap-1.5 shadow-md bg-white/10 hover:bg-white/20 text-emerald-300 border-white/20"
+            className="px-3 py-1.5 rounded-xl text-xs font-black transition-all border flex items-center gap-1.5 shadow-md bg-white/10 hover:bg-white/20 text-emerald-300 border-white/20 cursor-pointer"
           >
             <Activity className="w-3.5 h-3.5 text-emerald-400" />
-            <span>📊 Analytics & Audience</span>
+            <span>📊 Analytics</span>
           </button>
 
           {/* Onboarding Trigger Button */}
