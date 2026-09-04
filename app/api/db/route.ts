@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { table, action = 'insert', data, match } = body;
 
-    if (!table || !data) {
+    if (!table || (action !== 'delete' && !data)) {
       return NextResponse.json({ error: 'Table and data required' }, { status: 400 });
     }
 
