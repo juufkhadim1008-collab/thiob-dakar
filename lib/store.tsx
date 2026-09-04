@@ -97,7 +97,10 @@ interface AppContextType {
 
 
   // Reservations & Outings
-  createReservation: (data: Omit<Reservation, 'id' | 'reservationNumber' | 'status' | 'createdAt'>) => Reservation;
+  createReservation: (
+    data: Omit<Reservation, 'id' | 'reservationNumber' | 'status' | 'createdAt'>,
+    paymentInfo?: { depositAmount?: number; paymentMethod?: string }
+  ) => Reservation;
   cancelReservation: (id: string) => void;
   createOutingPlan: (data: Omit<OutingPlan, 'id' | 'createdAt'>) => OutingPlan;
   deleteOutingPlan: (id: string) => void;
@@ -157,6 +160,32 @@ interface AppContextType {
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
+
+async function queryDb(table: string): Promise<{ data: any[] | null; error: any }> {
+  try {
+    const res = await fetch(`/api/db?table=${table}`);
+    if (res.ok) {
+      const json = await res.json();
+      return { data: json.data || [], error: null };
+    }
+  } catch {}
+  return supabase.from(table).select('*');
+}
+
+async function mutateDb(table: string, data: any, action: 'insert' | 'upsert' | 'update' | 'delete' = 'insert', match?: any): Promise<{ data: any | null; error: any }> {
+  try {
+    const res = await fetch('/api/db', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ table, data, action, match }),
+    });
+    if (res.ok) {
+      const json = await res.json();
+      return { data: json.data, error: null };
+    }
+  } catch {}
+  return supabase.from(table).insert(data);
+}
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [currentRole, setCurrentRole] = useState<UserRole>('client');
@@ -235,12 +264,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (savedClientNeighborhood) setClientNeighborhood(savedClientNeighborhood);
     } catch {}
 
-    // 2. Fetch from Supabase Central Database
+    // 2. Fetch from Central Database via Proxy
     const fetchSupabaseData = async () => {
       try {
-        console.log('[Supabase] Fetching central data from Supabase...');
-        const { data: dbRestos, error: rErr } = await supabase.from('restaurants').select('*');
-        if (rErr) console.error('[Supabase] Error restaurants:', rErr);
+        console.log('[Database] Fetching central data from database...');
+        const { data: dbRestos, error: rErr } = await queryDb('restaurants');
+        if (rErr) console.error('[Database] Error restaurants:', rErr);
 
         if (dbRestos && dbRestos.length > 0) {
           const mapped: Restaurant[] = dbRestos.map((r: any) => ({
@@ -272,8 +301,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           setCurrentRestaurantId(prevId => (prevId && prevId !== 'resto-empty' ? prevId : mapped[0].id));
         }
 
-        const { data: dbItems, error: mErr } = await supabase.from('menu_items').select('*');
-        if (mErr) console.error('[Supabase] Error menu_items:', mErr);
+        const { data: dbItems, error: mErr } = await queryDb('menu_items');
+        if (mErr) console.error('[Database] Error menu_items:', mErr);
 
         if (dbItems && dbItems.length > 0) {
           const mapped: MenuItem[] = dbItems.map((m: any) => ({
@@ -292,8 +321,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           setMenuItems(mapped);
         }
 
-        const { data: dbOrders, error: oErr } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
-        if (oErr) console.error('[Supabase] Error orders:', oErr);
+        const { data: dbOrders, error: oErr } = await queryDb('orders');
+        if (oErr) console.error('[Database] Error orders:', oErr);
         if (dbOrders && dbOrders.length > 0) {
           setOrders(dbOrders.map((o: any) => ({
             id: o.id,
@@ -322,8 +351,28 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             },
           })));
         }
+
+        const { data: dbReservations, error: resErr } = await queryDb('reservations');
+        if (resErr) console.error('[Database] Error reservations:', resErr);
+        if (dbReservations && dbReservations.length > 0) {
+          setReservations(dbReservations.map((r: any) => ({
+            id: r.id,
+            reservationNumber: r.reservation_number,
+            restaurantId: r.restaurant_id,
+            restaurantName: r.restaurant_name,
+            clientName: r.client_name,
+            clientPhone: r.client_phone,
+            date: r.date,
+            time: r.time,
+            guestsCount: r.guests_count || 2,
+            occasion: r.occasion || '',
+            status: r.status || 'confirmed',
+            notes: r.notes || '',
+            createdAt: r.created_at,
+          })));
+        }
       } catch (err) {
-        console.warn('Supabase fetch error:', err);
+        console.warn('Database fetch error:', err);
       }
     };
 
@@ -339,6 +388,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         fetchSupabaseData();
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'menu_items' }, () => {
+        fetchSupabaseData();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'reservations' }, () => {
         fetchSupabaseData();
       })
       .subscribe();
@@ -1006,7 +1058,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
 
   // Reservations
-  const createReservation = (data: Omit<Reservation, 'id' | 'reservationNumber' | 'status' | 'createdAt'>): Reservation => {
+  const createReservation = (
+    data: Omit<Reservation, 'id' | 'reservationNumber' | 'status' | 'createdAt'>,
+    paymentInfo?: { depositAmount?: number; paymentMethod?: string }
+  ): Reservation => {
     const newRes: Reservation = {
       ...data,
       id: `res-${Date.now()}`,
@@ -1015,6 +1070,31 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       createdAt: new Date().toISOString(),
     };
     setReservations((prev) => [newRes, ...prev]);
+
+    // Push to Supabase for multi-device cross-platform sync (le restaurant doit voir la réservation)
+    try {
+      supabase.from('reservations').insert({
+        id: newRes.id,
+        reservation_number: newRes.reservationNumber,
+        restaurant_id: newRes.restaurantId,
+        restaurant_name: newRes.restaurantName,
+        client_name: newRes.clientName,
+        client_phone: newRes.clientPhone,
+        date: newRes.date,
+        time: newRes.time,
+        guests_count: newRes.guestsCount,
+        occasion: newRes.occasion,
+        notes: newRes.notes || '',
+        status: newRes.status,
+        deposit_amount: paymentInfo?.depositAmount || 0,
+        payment_method: paymentInfo?.paymentMethod || 'wave',
+      }).then(({ error }) => {
+        if (error) console.error('🔴 [Supabase] Échec de synchronisation de la réservation (le restaurant ne la verra pas) :', error);
+      });
+    } catch (err) {
+      console.error('🔴 [Supabase] Exception lors de la synchronisation de la réservation :', err);
+    }
+
     return newRes;
   };
 

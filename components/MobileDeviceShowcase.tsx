@@ -49,7 +49,8 @@ import {
   Bookmark,
   Share2,
   Info,
-  Menu
+  Menu,
+  Trash2
 } from 'lucide-react';
 import { CATEGORIES, DAKAR_NEIGHBORHOODS, DAKAR_ZONES } from '@/lib/mock-data';
 import { MenuItem, Restaurant, Order, OrderStatus, PaymentMethod, Reservation, OutingPlan, PaymentTransaction } from '@/lib/types';
@@ -178,6 +179,8 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
   const [reservationOccasion, setReservationOccasion] = useState('Sortie avec ma copine');
   const [reservationNotes, setReservationNotes] = useState('');
   const [confirmedReservationCode, setConfirmedReservationCode] = useState<string | null>(null);
+  const [isReservationPaymentOpen, setIsReservationPaymentOpen] = useState(false);
+  const RESERVATION_DEPOSIT = 5000;
 
   // ❤️ Programmer une Sortie
   const [isOutingModalOpen, setIsOutingModalOpen] = useState(false);
@@ -364,20 +367,26 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
     setIsReservationModalOpen(true);
   };
 
-  const handleConfirmReservation = () => {
-    if (!reservationResto) return;
-    const res = createReservation({
-      restaurantId: reservationResto.id,
-      restaurantName: reservationResto.name,
-      clientName,
-      clientPhone,
-      date: reservationDate,
-      time: reservationTime,
-      guestsCount: reservationGuests,
-      occasion: reservationOccasion,
-      notes: reservationNotes,
-    });
+  // Appelée uniquement APRÈS paiement réussi de l'acompte (PaymentCheckoutSheet)
+  const handleReservationPaymentSuccess = (transaction: PaymentTransaction) => {
+    if (!reservationResto) return null;
+    const res = createReservation(
+      {
+        restaurantId: reservationResto.id,
+        restaurantName: reservationResto.name,
+        clientName,
+        clientPhone,
+        date: reservationDate,
+        time: reservationTime,
+        guestsCount: reservationGuests,
+        occasion: reservationOccasion,
+        notes: reservationNotes,
+      },
+      { depositAmount: transaction.amount, paymentMethod: transaction.method }
+    );
     setConfirmedReservationCode(res.reservationNumber);
+    setIsReservationPaymentOpen(false);
+    setIsReservationModalOpen(true);
     try {
       confetti({
         particleCount: 80,
@@ -386,6 +395,7 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
         colors: ['#064E2B', '#0A6E3B', '#FF7824', '#F5B738']
       });
     } catch {}
+    return null;
   };
 
   const handleOpenOuting = (resto: Restaurant) => {
@@ -1883,6 +1893,23 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
               <div className="relative h-56 w-full shrink-0 bg-gray-100">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={selectedDish.image} alt={selectedDish.name} className="w-full h-full object-cover" />
+
+                {/* Restaurant d'origine du plat */}
+                {(() => {
+                  const dishResto = restaurants.find((r) => r.id === selectedDish.restaurantId);
+                  if (!dishResto) return null;
+                  return (
+                    <button
+                      onClick={() => { setSelectedDish(null); handleOpenShowcase(dishResto); }}
+                      className="absolute top-4 left-4 max-w-[70%] inline-flex items-center gap-1.5 pl-1 pr-3 py-1 rounded-full bg-white/95 backdrop-blur-md text-[#081A10] text-[10px] font-bold shadow-md"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={dishResto.logo} alt={dishResto.name} className="w-5 h-5 rounded-full object-cover shrink-0" />
+                      <span className="truncate">{dishResto.name}</span>
+                    </button>
+                  );
+                })()}
+
                 <button
                   onClick={() => setSelectedDish(null)}
                   className="absolute top-4 right-4 w-8 h-8 rounded-full bg-black/50 text-white flex items-center justify-center text-xs backdrop-blur-xs shadow-md"
@@ -3243,7 +3270,31 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
                 </div>
               ) : (
                 <div className="space-y-3.5 overflow-y-auto flex-1">
-                  
+
+                  {/* Coordonnées du client (obligatoire pour que le restaurant puisse vous joindre) */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1.5">
+                      <span className="text-[11px] font-black text-gray-400 uppercase tracking-wider block">Votre nom *</span>
+                      <input
+                        type="text"
+                        value={clientName}
+                        onChange={(e) => setClientName(e.target.value)}
+                        placeholder="Votre nom complet"
+                        className="w-full p-2.5 bg-[#F4F7F4] border border-[#D8EADB] rounded-xl text-xs text-[#081A10] focus:bg-white focus:border-[#0A6E3B] focus:outline-hidden"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <span className="text-[11px] font-black text-gray-400 uppercase tracking-wider block">Téléphone *</span>
+                      <input
+                        type="tel"
+                        value={clientPhone}
+                        onChange={(e) => setClientPhone(e.target.value)}
+                        placeholder="+221 77 000 00 00"
+                        className="w-full p-2.5 bg-[#F4F7F4] border border-[#D8EADB] rounded-xl text-xs text-[#081A10] focus:bg-white focus:border-[#0A6E3B] focus:outline-hidden"
+                      />
+                    </div>
+                  </div>
+
                   {/* Number of guests */}
                   <div className="space-y-1.5">
                     <span className="text-[11px] font-black text-gray-400 uppercase tracking-wider block">Nombre de convives</span>
@@ -3346,13 +3397,29 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
                     />
                   </div>
 
+                  {/* Acompte requis avant confirmation */}
+                  <div className="p-3 rounded-2xl bg-[#FFF4ED] border border-[#FF7824]/30 flex items-center justify-between text-xs">
+                    <div>
+                      <span className="text-[10px] text-[#FF7824] font-bold block uppercase tracking-wider">Acompte pour garantir la table</span>
+                      <span className="text-[10px] text-gray-500">Remboursé si le restaurant annule</span>
+                    </div>
+                    <span className="font-black text-sm text-[#081A10]">{formatFCFA(RESERVATION_DEPOSIT)}</span>
+                  </div>
+
                   {/* Submit CTA */}
                   <button
-                    onClick={handleConfirmReservation}
+                    onClick={() => {
+                      if (!clientName.trim() || !clientPhone.trim()) {
+                        alert('Merci de renseigner votre nom et votre téléphone pour que le restaurant puisse vous joindre.');
+                        return;
+                      }
+                      setIsReservationModalOpen(false);
+                      setIsReservationPaymentOpen(true);
+                    }}
                     className="w-full py-3.5 rounded-2xl brand-gradient text-white text-xs font-black shadow-md mt-2 flex items-center justify-between px-4 hover:opacity-95"
                   >
-                    <span>Confirmer la réservation</span>
-                    <span>{reservationGuests} convives ➔</span>
+                    <span>🔒 Payer l&apos;acompte et réserver</span>
+                    <span>{formatFCFA(RESERVATION_DEPOSIT)} ➔</span>
                   </button>
 
                 </div>
@@ -3362,6 +3429,26 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
           </div>
         )}
       </AnimatePresence>
+
+      {/* =========================================================================
+          7.1 PAIEMENT DE L'ACOMPTE DE RÉSERVATION (avant validation définitive)
+         ========================================================================= */}
+      {reservationResto && (
+        <PaymentCheckoutSheet
+          isOpen={isReservationPaymentOpen}
+          onClose={() => { setIsReservationPaymentOpen(false); setIsReservationModalOpen(true); }}
+          cartItems={[{ name: `Acompte réservation (${reservationGuests} pers.)`, price: RESERVATION_DEPOSIT, quantity: 1 }]}
+          subtotal={RESERVATION_DEPOSIT}
+          deliveryFee={0}
+          platformFee={0}
+          restaurantName={reservationResto.name}
+          restaurantPhone={reservationResto.phone}
+          clientName={clientName}
+          clientPhone={clientPhone}
+          deliveryAddress={reservationResto.address}
+          onPaymentSuccess={handleReservationPaymentSuccess}
+        />
+      )}
 
       {/* =========================================================================
           8. OUTING PLANNER MODAL (PROGRAMMER UNE SORTIE)
@@ -3616,6 +3703,10 @@ function MobileRestaurantApp({ onLogout }: { onLogout?: () => void }) {
   const [latestIncomingOrder, setLatestIncomingOrder] = useState<Order | null>(null);
   const prevOrdersCountRef = useRef<number>(0);
 
+  // Real-time Incoming Reservation Notification & Chime Sound
+  const [latestIncomingReservation, setLatestIncomingReservation] = useState<Reservation | null>(null);
+  const prevReservationsCountRef = useRef<number>(0);
+
   const playChimeSound = () => {
     try {
       const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
@@ -3718,6 +3809,26 @@ function MobileRestaurantApp({ onLogout }: { onLogout?: () => void }) {
     }
     prevOrdersCountRef.current = myOrders.length;
   }, [myOrders]);
+
+  // Listen to new incoming reservations for this restaurant and trigger sound + alert
+  useEffect(() => {
+    if (prevReservationsCountRef.current > 0 && myReservations.length > prevReservationsCountRef.current) {
+      const newest = myReservations[0];
+      if (newest) {
+        setLatestIncomingReservation(newest);
+        playChimeSound();
+        try {
+          confetti({
+            particleCount: 60,
+            spread: 70,
+            origin: { y: 0.25 },
+            colors: ['#064E2B', '#0A6E3B', '#FF7824', '#F5B738']
+          });
+        } catch {}
+      }
+    }
+    prevReservationsCountRef.current = myReservations.length;
+  }, [myReservations]);
 
   // Sync edit form on restaurant select or modal open
   const openEditGeneralModal = () => {
@@ -4105,6 +4216,56 @@ function MobileRestaurantApp({ onLogout }: { onLogout?: () => void }) {
               <button
                 type="button"
                 onClick={() => setLatestIncomingOrder(null)}
+                className="text-[9px] text-white/75 hover:text-white text-center cursor-pointer"
+              >
+                Fermer
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* 🚨 LIVE INCOMING RESERVATION NOTIFICATION BANNER (NOTIFICATION EN DIRECT DU RESTAURANT) */}
+      <AnimatePresence>
+        {latestIncomingReservation && (
+          <motion.div
+            initial={{ y: -70, opacity: 0, scale: 0.92 }}
+            animate={{ y: 0, opacity: 1, scale: 1 }}
+            exit={{ y: -70, opacity: 0, scale: 0.92 }}
+            className="absolute top-2 inset-x-3 z-50 p-3 rounded-3xl bg-gradient-to-r from-[#064E2B] via-[#0A6E3B] to-[#064E2B] text-white shadow-2xl border-2 border-amber-400/90 flex items-center justify-between"
+          >
+            <div className="flex items-center gap-2.5 min-w-0 pr-2">
+              <div className="w-10 h-10 rounded-2xl bg-amber-400/20 text-amber-300 flex items-center justify-center text-xl shrink-0 animate-bounce">
+                📅
+              </div>
+              <div className="min-w-0">
+                <span className="text-[9px] font-black uppercase bg-amber-400 text-black px-1.5 py-0.2 rounded-md">
+                  Nouvelle Réservation
+                </span>
+                <h4 className="font-black text-xs text-white truncate mt-0.5">
+                  {latestIncomingReservation.reservationNumber} • {latestIncomingReservation.date} à {latestIncomingReservation.time}
+                </h4>
+                <p className="text-[10px] text-white/80 truncate">
+                  {latestIncomingReservation.clientName} ({latestIncomingReservation.guestsCount} pers.)
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1 shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileMode('dashboard');
+                  setRestoTab('orders');
+                  setLatestIncomingReservation(null);
+                }}
+                className="px-3 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-black text-[10px] shadow-sm active:scale-95 transition-all cursor-pointer text-center"
+              >
+                Voir Table
+              </button>
+              <button
+                type="button"
+                onClick={() => setLatestIncomingReservation(null)}
                 className="text-[9px] text-white/75 hover:text-white text-center cursor-pointer"
               >
                 Fermer
@@ -4546,6 +4707,45 @@ function MobileRestaurantApp({ onLogout }: { onLogout?: () => void }) {
                 <span>+ Ajouter Plat</span>
               </button>
             </div>
+
+            {/* Ma Carte : liste complète des plats avec disponibilité & suppression */}
+            {myDishes.length > 0 && (
+              <div className="space-y-2">
+                <h5 className="font-black text-xs text-[#081A10]">Ma Carte ({myDishes.length} plat{myDishes.length > 1 ? 's' : ''})</h5>
+                <div className="space-y-2">
+                  {myDishes.map((dish) => (
+                    <div key={dish.id} className="p-2.5 rounded-2xl bg-white border border-[#D8EADB] flex items-center gap-2.5 shadow-2xs">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={dish.image} alt={dish.name} className="w-11 h-11 rounded-xl object-cover bg-gray-50 shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <span className="font-black text-xs text-[#081A10] truncate block">{dish.name}</span>
+                        <span className="font-mono text-[10px] font-bold text-[#0A6E3B]">{formatFCFA(dish.price)}</span>
+                      </div>
+                      <button
+                        onClick={() => toggleMenuItemAvailability(dish.id)}
+                        className={`px-2 py-1 rounded-lg text-[9px] font-black shrink-0 ${
+                          dish.isAvailable ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+                        }`}
+                      >
+                        {dish.isAvailable ? 'En stock' : 'Épuisé'}
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (confirm(`Supprimer définitivement "${dish.name}" de la carte ? Il disparaîtra aussi de la vitrine client.`)) {
+                            deleteMenuItem(dish.id);
+                          }
+                        }}
+                        className="w-8 h-8 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center hover:bg-rose-100 active:scale-90 transition-all shrink-0"
+                        aria-label={`Supprimer ${dish.name}`}
+                        title="Supprimer ce plat"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* List of Orders */}
             {myOrders.length === 0 ? (
