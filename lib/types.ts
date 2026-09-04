@@ -61,6 +61,7 @@ export interface RestaurantReview {
 
 export interface Restaurant {
   id: string;
+  userId?: string; // auth.uid() du propriétaire Supabase Auth
   name: string;
   tagline: string;
   description: string;
@@ -174,6 +175,7 @@ export type CourierStatus = 'OFFLINE' | 'ONLINE' | 'AVAILABLE' | 'BUSY';
 
 export interface Courier {
   id: string;
+  userId?: string; // auth.uid() du propriétaire Supabase Auth
   name: string;
   phone: string;
   photo?: string;

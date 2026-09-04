@@ -119,6 +119,7 @@ interface AppContextType {
     phone?: string;
     coverImage?: string;
     coordinates?: { lat: number; lng: number };
+    userId?: string;
   }) => Restaurant;
   updateCurrentRestaurant: (updates: Partial<Restaurant>) => void;
   updateOrderStatus: (orderId: string, newStatus: OrderStatus) => void;
@@ -141,6 +142,7 @@ interface AppContextType {
     vehicle?: string;
     plateNumber?: string;
     coordinates?: { lat: number; lng: number };
+    userId?: string;
   }) => Courier;
 
   // Client Profile & Auth
@@ -148,6 +150,15 @@ interface AppContextType {
   clientPhone: string;
   setClientProfile: (name: string, phone: string, address?: string, neighborhood?: string, coords?: GeoPoint) => void;
   loginWithOAuth: (provider: 'google' | 'facebook') => Promise<{ success: boolean; error?: string }>;
+  signUpWithEmail: (email: string, password: string, fullName?: string) => Promise<{ success: boolean; userId?: string; error?: string }>;
+  signInWithEmail: (email: string, password: string) => Promise<{
+    success: boolean;
+    userId?: string;
+    restaurant?: Restaurant;
+    courier?: Courier;
+    fullName?: string;
+    error?: string;
+  }>;
   logoutUser: () => Promise<void>;
 
   // Payments & Transactions
@@ -640,6 +651,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     phone?: string;
     coverImage?: string;
     coordinates?: { lat: number; lng: number };
+    userId?: string;
   }): Restaurant => {
     const newId = `resto-${Date.now()}`;
     const presetCoords = DAKAR_GEO_PRESETS[data.neighborhood] || DAKAR_GEO_PRESETS['Almadies'];
@@ -647,6 +659,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     const newResto: Restaurant = {
       id: newId,
+      userId: data.userId,
       name: data.name,
       logo: data.logo || 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=300&q=80',
       coverImage: data.coverImage || 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=1200&q=80',
@@ -732,6 +745,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     try {
       supabase.from('restaurants').insert({
         id: newId,
+        user_id: data.userId || null,
         name: newResto.name,
         tagline: newResto.tagline,
         description: newResto.description,
@@ -1233,11 +1247,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     vehicle?: string;
     plateNumber?: string;
     coordinates?: { lat: number; lng: number };
+    userId?: string;
   }): Courier => {
     const fullName = `${data.firstName} ${data.lastName}`.trim() || 'Livreur Tiak-Tiak';
     const newId = `courier-${Date.now()}`;
     const newCourier: Courier = {
       id: newId,
+      userId: data.userId,
       name: fullName,
       phone: data.phone,
       photo: data.photo || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80',
@@ -1263,6 +1279,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem('thiob_custom_couriers', JSON.stringify([newCourier, ...list]));
     } catch {}
 
+    // Push to Supabase for multi-device cross-platform sync
+    try {
+      supabase.from('couriers').insert({
+        id: newId,
+        user_id: data.userId || null,
+        name: newCourier.name,
+        phone: newCourier.phone,
+        photo: newCourier.photo,
+        vehicle_type: newCourier.vehicleType,
+        vehicle_name: newCourier.vehicleName,
+        plate_number: newCourier.plateNumber,
+        is_online: true,
+        is_available: true,
+        status: 'AVAILABLE',
+        current_neighborhood: newCourier.currentNeighborhood,
+        latitude: newCourier.coordinates?.lat,
+        longitude: newCourier.coordinates?.lng,
+      }).then(({ error }) => {
+        if (error) console.error('🔴 [Supabase] Échec de création du livreur (invisible sur les autres appareils) :', error);
+      });
+    } catch (err) {
+      console.error('🔴 [Supabase] Exception lors de la création du livreur :', err);
+    }
+
     return newCourier;
   };
 
@@ -1283,6 +1323,123 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
     if (coords) {
       setClientLocation(coords, address, neighborhood);
+    }
+  };
+
+  // Inscription réelle par e-mail / mot de passe (Supabase Auth)
+  const signUpWithEmail = async (
+    email: string,
+    password: string,
+    fullName?: string
+  ): Promise<{ success: boolean; userId?: string; error?: string }> => {
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: fullName ? { data: { full_name: fullName } } : undefined,
+      });
+      if (error) throw error;
+      if (!data.user) throw new Error('Compte non créé, veuillez réessayer.');
+      return { success: true, userId: data.user.id };
+    } catch (err: any) {
+      console.error('🔴 [Supabase Auth] Échec inscription :', err);
+      return { success: false, error: err?.message || 'Erreur lors de la création du compte' };
+    }
+  };
+
+  // Connexion réelle par e-mail / mot de passe (Supabase Auth) + récupération
+  // du restaurant ou du livreur réellement associé à ce compte (auth.uid()).
+  const signInWithEmail = async (
+    email: string,
+    password: string
+  ): Promise<{
+    success: boolean;
+    userId?: string;
+    restaurant?: Restaurant;
+    courier?: Courier;
+    fullName?: string;
+    error?: string;
+  }> => {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      const userId = data.user?.id;
+      if (!userId) throw new Error('Connexion impossible, veuillez réessayer.');
+
+      const [{ data: restoRows }, { data: courierRows }] = await Promise.all([
+        supabase.from('restaurants').select('*').eq('user_id', userId).limit(1),
+        supabase.from('couriers').select('*').eq('user_id', userId).limit(1),
+      ]);
+
+      let foundRestaurant: Restaurant | undefined;
+      if (restoRows && restoRows.length > 0) {
+        const r: any = restoRows[0];
+        foundRestaurant = {
+          id: r.id,
+          userId: r.user_id,
+          name: r.name,
+          tagline: r.tagline || 'L’Excellence et la Saveur de Dakar',
+          description: r.description || '',
+          coverImage: r.cover_image,
+          logo: r.logo,
+          neighborhood: r.neighborhood,
+          address: r.address,
+          coordinates: { lat: Number(r.latitude) || 14.7431, lng: Number(r.longitude) || -17.5186 },
+          phone: r.phone,
+          ownerName: r.owner_name,
+          rating: Number(r.rating) || 5.0,
+          reviewCount: Number(r.review_count) || 0,
+          priceRange: r.price_range,
+          deliveryTimeEstimate: r.delivery_time_estimate,
+          deliveryFee: Number(r.delivery_fee) || 1500,
+          minOrder: Number(r.min_order) || 3000,
+          isOpen: r.is_open ?? true,
+          featuredTags: r.featured_tags || [],
+          openingHours: r.opening_hours,
+          gallery: r.gallery || [],
+          ambianceTags: r.ambiance_tags || [],
+          amenities: r.amenities || [],
+        };
+        const resolvedResto = foundRestaurant;
+        setRestaurants((prev) => (prev.some((p) => p.id === resolvedResto.id) ? prev.map((p) => (p.id === resolvedResto.id ? resolvedResto : p)) : [resolvedResto, ...prev]));
+        setCurrentRestaurantId(resolvedResto.id);
+        try { localStorage.setItem('thiob_active_restaurant_id', resolvedResto.id); } catch {}
+      }
+
+      let foundCourier: Courier | undefined;
+      if (courierRows && courierRows.length > 0) {
+        const c: any = courierRows[0];
+        foundCourier = {
+          id: c.id,
+          userId: c.user_id,
+          name: c.name,
+          phone: c.phone,
+          photo: c.photo,
+          vehicleType: c.vehicle_type,
+          vehicleName: c.vehicle_name,
+          plateNumber: c.plate_number,
+          isOnline: c.is_online,
+          isAvailable: c.is_available,
+          status: c.status,
+          currentNeighborhood: c.current_neighborhood,
+          coordinates: { lat: Number(c.latitude) || 14.6937, lng: Number(c.longitude) || -17.4441 },
+          rating: Number(c.rating) || 5.0,
+          completedDeliveries: c.completed_deliveries || 0,
+          todayEarnings: c.today_earnings || 0,
+        };
+        const resolvedCourier = foundCourier;
+        setCouriers((prev) => (prev.some((p) => p.id === resolvedCourier.id) ? prev.map((p) => (p.id === resolvedCourier.id ? resolvedCourier : p)) : [resolvedCourier, ...prev]));
+      }
+
+      const fullName: string | undefined = data.user?.user_metadata?.full_name;
+      if (fullName) {
+        setClientProfile(fullName, data.user?.phone || '');
+      }
+
+      return { success: true, userId, restaurant: foundRestaurant, courier: foundCourier, fullName };
+    } catch (err: any) {
+      console.error('🔴 [Supabase Auth] Échec connexion :', err);
+      return { success: false, error: err?.message === 'Invalid login credentials' ? 'E-mail ou mot de passe incorrect.' : (err?.message || 'Erreur lors de la connexion') };
     }
   };
 
@@ -1385,6 +1542,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         clientPhone,
         setClientProfile,
         loginWithOAuth,
+        signUpWithEmail,
+        signInWithEmail,
         logoutUser,
         transactions,
         recordPaymentTransaction,

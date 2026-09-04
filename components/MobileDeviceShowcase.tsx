@@ -6634,15 +6634,42 @@ export default function MobileDeviceShowcase() {
         const user = session.user;
         const name = user.user_metadata?.full_name || user.user_metadata?.name || user.email?.split('@')[0] || 'Client Thiob';
         const phone = user.user_metadata?.phone || user.phone || '+221 77 123 45 67';
-        
-        setClientProfile(name, phone);
-        setCurrentRole('client');
+
+        let intendedRole: 'client' | 'restaurant' | 'courier' = 'client';
+        try {
+          intendedRole = (localStorage.getItem('thiob_oauth_intended_role') as any) || 'client';
+        } catch {}
+
+        if (intendedRole === 'restaurant') {
+          const { data: restoRows } = await supabase.from('restaurants').select('id').eq('user_id', user.id).limit(1);
+          if (restoRows && restoRows.length > 0) {
+            setCurrentRestaurantId(restoRows[0].id);
+            setCurrentRole('restaurant');
+            try { localStorage.setItem('thiob_active_restaurant_id', restoRows[0].id); } catch {}
+          } else {
+            alert('Aucun restaurant n’est associé à ce compte Google/Facebook. Veuillez créer votre restaurant via "Créer un compte".');
+            return;
+          }
+        } else if (intendedRole === 'courier') {
+          const { data: courierRows } = await supabase.from('couriers').select('id').eq('user_id', user.id).limit(1);
+          if (courierRows && courierRows.length > 0) {
+            setCurrentRole('courier');
+          } else {
+            alert('Aucun profil livreur n’est associé à ce compte Google/Facebook. Veuillez créer votre profil via "Créer un compte".');
+            return;
+          }
+        } else {
+          setClientProfile(name, phone);
+          setCurrentRole('client');
+        }
+
         setShowOnboarding(false);
+        try { localStorage.removeItem('thiob_oauth_intended_role'); } catch {}
 
         try {
           localStorage.setItem('thiob_user_session', JSON.stringify({
             isRegistered: true,
-            role: 'client',
+            role: intendedRole,
             clientInfo: {
               name,
               email: user.email,
@@ -6657,7 +6684,7 @@ export default function MobileDeviceShowcase() {
     return () => {
       authListener?.subscription.unsubscribe();
     };
-  }, [setCurrentRole, setClientProfile]);
+  }, [setCurrentRole, setClientProfile, setCurrentRestaurantId]);
 
   // 1-Time Session Persistence: Only show onboarding on first launch ever
   useEffect(() => {

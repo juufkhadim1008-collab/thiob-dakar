@@ -84,17 +84,22 @@ const VEHICLE_OPTIONS = [
 ];
 
 export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
-  const { 
-    setCurrentRole, 
-    registerNewRestaurant, 
-    registerCourier, 
-    setClientProfile, 
-    loginWithOAuth 
+  const {
+    setCurrentRole,
+    registerNewRestaurant,
+    registerCourier,
+    setClientProfile,
+    loginWithOAuth,
+    signUpWithEmail,
+    signInWithEmail,
+    setCurrentRestaurantId,
   } = useApp();
 
   const [step, setStep] = useState<OnboardingStep>('splash');
   const [selectedRole, setSelectedRole] = useState<UserRole | null>('client');
   const [isOAuthLoading, setIsOAuthLoading] = useState<'google' | 'facebook' | null>(null);
+  const [isSubmittingAuth, setIsSubmittingAuth] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
 
   // --- Auth Form State (Matching Foodie Mockup) ---
   const [authEmailOrPhone, setAuthEmailOrPhone] = useState('');
@@ -121,6 +126,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   // --- Courier Registration State ---
   const [courierFirstName, setCourierFirstName] = useState('');
   const [courierLastName, setCourierLastName] = useState('');
+  const [courierEmail, setCourierEmail] = useState('');
   const [courierPhone, setCourierPhone] = useState('+221 77 ');
   const [courierPhoto, setCourierPhoto] = useState('https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80');
   const [courierVehicle, setCourierVehicle] = useState('moto');
@@ -132,6 +138,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
 
   // --- Client Registration State ---
   const [clientName, setClientName] = useState('');
+  const [clientEmail, setClientEmail] = useState('');
   const [clientPhone, setClientPhone] = useState('+221 77 ');
   const [clientLocation, setClientLocation] = useState('Dakar, Sénégal');
   const [clientNeighborhood, setClientNeighborhood] = useState('Plateau');
@@ -250,9 +257,20 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     } catch {}
   };
 
-  const finishOnboarding = (role: UserRole) => {
-    triggerCelebration();
+  const finishOnboarding = async (role: UserRole) => {
     if (role === 'restaurant') {
+      if (!restoEmail.trim() || !authPassword || authPassword.length < 6) {
+        alert('Veuillez renseigner un email et un mot de passe (6 caractères minimum) pour créer votre compte.');
+        return;
+      }
+      setIsSubmittingAuth(true);
+      const auth = await signUpWithEmail(restoEmail.trim(), authPassword, restoName.trim() || 'Mon Restaurant Dakar');
+      setIsSubmittingAuth(false);
+      if (!auth.success) {
+        alert(`Impossible de créer votre compte : ${auth.error || 'veuillez réessayer.'}`);
+        return;
+      }
+      triggerCelebration();
       registerNewRestaurant({
         name: restoName.trim() || 'Mon Restaurant Dakar',
         logo: restoLogo,
@@ -262,9 +280,22 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
         phone: restoPhone || '+221 77 123 45 67',
         coordinates: restoGpsCoords || undefined,
         coverImage: restoCoverImage || restoCustomLogo || 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=1200&q=80',
+        userId: auth.userId,
       });
       setCurrentRole('restaurant');
     } else if (role === 'courier') {
+      if (!courierEmail.trim() || !authPassword || authPassword.length < 6) {
+        alert('Veuillez renseigner un email et un mot de passe (6 caractères minimum) pour créer votre compte.');
+        return;
+      }
+      setIsSubmittingAuth(true);
+      const auth = await signUpWithEmail(courierEmail.trim(), authPassword, `${courierFirstName.trim()} ${courierLastName.trim()}`.trim());
+      setIsSubmittingAuth(false);
+      if (!auth.success) {
+        alert(`Impossible de créer votre compte : ${auth.error || 'veuillez réessayer.'}`);
+        return;
+      }
+      triggerCelebration();
       registerCourier({
         firstName: courierFirstName.trim() || 'Amadou',
         lastName: courierLastName.trim() || 'Diallo',
@@ -273,9 +304,25 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
         vehicle: courierVehicle,
         plateNumber: courierPlate,
         coordinates: courierGpsCoords || undefined,
+        userId: auth.userId,
       });
       setCurrentRole('courier');
     } else {
+      // Client : compte optionnel — email fourni = vrai compte Supabase, sinon mode invité local
+      if (clientEmail.trim() && authPassword) {
+        if (authPassword.length < 6) {
+          alert('Le mot de passe doit contenir au moins 6 caractères.');
+          return;
+        }
+        setIsSubmittingAuth(true);
+        const auth = await signUpWithEmail(clientEmail.trim(), authPassword, clientName.trim() || 'Client Thiob');
+        setIsSubmittingAuth(false);
+        if (!auth.success) {
+          alert(`Impossible de créer votre compte : ${auth.error || 'veuillez réessayer.'}`);
+          return;
+        }
+      }
+      triggerCelebration();
       setClientProfile(
         clientName.trim() || 'Client Thiob',
         clientPhone || '+221 77 123 45 67',
@@ -288,8 +335,50 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     onComplete(role);
   };
 
+  // Connexion réelle : vérifie les identifiants et retrouve le restaurant / livreur du compte
+  const handleLoginSubmit = async () => {
+    setLoginError(null);
+    if (!authEmailOrPhone.trim() || !authPassword) {
+      setLoginError('Veuillez renseigner votre email et votre mot de passe.');
+      return;
+    }
+    setIsSubmittingAuth(true);
+    const res = await signInWithEmail(authEmailOrPhone.trim(), authPassword);
+    setIsSubmittingAuth(false);
+
+    if (!res.success) {
+      setLoginError(res.error || 'Connexion impossible.');
+      return;
+    }
+
+    triggerCelebration();
+
+    if (selectedRole === 'restaurant') {
+      if (!res.restaurant) {
+        setLoginError('Aucun restaurant n’est associé à ce compte. Créez-en un si c’est votre première connexion.');
+        return;
+      }
+      setCurrentRestaurantId(res.restaurant.id);
+      setCurrentRole('restaurant');
+      onComplete('restaurant');
+    } else if (selectedRole === 'courier') {
+      if (!res.courier) {
+        setLoginError('Aucun profil livreur n’est associé à ce compte. Créez-en un si c’est votre première connexion.');
+        return;
+      }
+      setCurrentRole('courier');
+      onComplete('courier');
+    } else {
+      setCurrentRole('client');
+      onComplete('client');
+    }
+  };
+
   const handleOAuthLogin = async (provider: 'google' | 'facebook') => {
     setIsOAuthLoading(provider);
+    try {
+      localStorage.setItem('thiob_oauth_intended_role', selectedRole || 'client');
+    } catch {}
     const res = await loginWithOAuth(provider);
     if (!res.success) {
       alert(`Erreur connexion ${provider}: ${res.error || 'Veuillez réessayer'}`);
@@ -638,16 +727,23 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                     Mot de passe oublié ?
                   </button>
                 </div>
+
+                {loginError && (
+                  <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-[11px] font-bold text-rose-600">
+                    {loginError}
+                  </div>
+                )}
               </div>
 
               {/* Login Button */}
               <div className="mt-4">
                 <motion.button
                   whileTap={{ scale: 0.96 }}
-                  onClick={() => finishOnboarding(selectedRole || 'client')}
-                  className="w-full py-3.5 rounded-2xl bg-[#FF7824] hover:bg-[#E86315] text-white font-bold text-xs shadow-lg shadow-orange-500/20 active:scale-95 transition-all text-center cursor-pointer"
+                  onClick={handleLoginSubmit}
+                  disabled={isSubmittingAuth}
+                  className="w-full py-3.5 rounded-2xl bg-[#FF7824] hover:bg-[#E86315] text-white font-bold text-xs shadow-lg shadow-orange-500/20 active:scale-95 transition-all text-center cursor-pointer disabled:opacity-60"
                 >
-                  Se connecter
+                  {isSubmittingAuth ? 'Connexion...' : 'Se connecter'}
                 </motion.button>
               </div>
 
@@ -820,7 +916,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[11px] font-black text-[#081A10]">Email de contact</label>
+                  <label className="text-[11px] font-black text-[#081A10]">Email de connexion *</label>
                   <input
                     type="email"
                     placeholder="contact@resto.sn"
@@ -829,6 +925,28 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                     className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold text-[#081A10] shadow-inner"
                   />
                 </div>
+              </div>
+
+              {/* Mot de passe du compte (sert à se reconnecter plus tard) */}
+              <div className="space-y-1">
+                <label className="text-[11px] font-black text-[#081A10]">Mot de passe *</label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="Au moins 6 caractères"
+                    value={authPassword}
+                    onChange={(e) => setAuthPassword(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold text-[#081A10] shadow-inner pr-14"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-[10px] font-bold"
+                  >
+                    {showPassword ? 'Cacher' : 'Voir'}
+                  </button>
+                </div>
+                <p className="text-[9px] text-gray-400">Ce mot de passe vous servira à vous reconnecter depuis n'importe quel appareil.</p>
               </div>
 
               {/* Restaurant Type Grid */}
@@ -860,6 +978,10 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
               onClick={() => {
                 if (!restoName.trim()) {
                   alert('Veuillez renseigner le nom de votre restaurant');
+                  return;
+                }
+                if (!restoEmail.trim() || !authPassword || authPassword.length < 6) {
+                  alert('Veuillez renseigner un email et un mot de passe (6 caractères minimum) pour créer votre compte.');
                   return;
                 }
                 setStep('resto_step2');
@@ -1092,6 +1214,40 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                 />
               </div>
 
+              {/* Email de connexion */}
+              <div className="space-y-1">
+                <label className="text-[11px] font-black text-[#081A10]">Email de connexion *</label>
+                <input
+                  type="email"
+                  placeholder="votre@email.com"
+                  value={courierEmail}
+                  onChange={(e) => setCourierEmail(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-2xl text-xs font-bold text-[#081A10] placeholder-gray-400 focus:outline-hidden focus:border-[#FF7824] shadow-inner"
+                />
+              </div>
+
+              {/* Mot de passe */}
+              <div className="space-y-1">
+                <label className="text-[11px] font-black text-[#081A10]">Mot de passe *</label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    placeholder="Au moins 6 caractères"
+                    value={authPassword}
+                    onChange={(e) => setAuthPassword(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-2xl text-xs font-bold text-[#081A10] placeholder-gray-400 focus:outline-hidden focus:border-[#FF7824] shadow-inner pr-14"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-[10px] font-bold"
+                  >
+                    {showPassword ? 'Cacher' : 'Voir'}
+                  </button>
+                </div>
+                <p className="text-[9px] text-gray-400">Vous servira à vous reconnecter depuis n'importe quel appareil.</p>
+              </div>
+
             </div>
 
             <motion.button
@@ -1099,6 +1255,10 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
               onClick={() => {
                 if (!courierFirstName.trim() || !courierLastName.trim()) {
                   alert('Veuillez renseigner votre prénom et nom');
+                  return;
+                }
+                if (!courierEmail.trim() || !authPassword || authPassword.length < 6) {
+                  alert('Veuillez renseigner un email et un mot de passe (6 caractères minimum) pour créer votre compte.');
                   return;
                 }
                 setStep('courier_step2');
@@ -1441,6 +1601,39 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                   className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-2xl text-xs font-bold text-[#081A10] placeholder-gray-400 focus:bg-white focus:border-[#0A6E3B] focus:outline-hidden shadow-inner"
                 />
               </div>
+
+              {/* Email + mot de passe (optionnel — pour se reconnecter depuis un autre appareil) */}
+              <div className="space-y-1">
+                <label className="text-[11px] font-black text-[#081A10]">Email (optionnel, pour se reconnecter ailleurs)</label>
+                <input
+                  type="email"
+                  placeholder="votre@email.com"
+                  value={clientEmail}
+                  onChange={(e) => setClientEmail(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-2xl text-xs font-bold text-[#081A10] placeholder-gray-400 focus:bg-white focus:border-[#0A6E3B] focus:outline-hidden shadow-inner"
+                />
+              </div>
+              {clientEmail.trim() && (
+                <div className="space-y-1">
+                  <label className="text-[11px] font-black text-[#081A10]">Mot de passe *</label>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="Au moins 6 caractères"
+                      value={authPassword}
+                      onChange={(e) => setAuthPassword(e.target.value)}
+                      className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-2xl text-xs font-bold text-[#081A10] placeholder-gray-400 focus:bg-white focus:border-[#0A6E3B] focus:outline-hidden shadow-inner pr-14"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-[10px] font-bold"
+                    >
+                      {showPassword ? 'Cacher' : 'Voir'}
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Geolocation */}
               <div className="p-3 rounded-2xl bg-gray-50 border border-gray-200 space-y-2 text-center">
