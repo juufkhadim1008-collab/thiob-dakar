@@ -98,9 +98,19 @@ export default function ClientSpace({
     return matchNeighborhood && matchSearch && matchRadius;
   }).sort((a, b) => a.distanceKm - b.distanceKm);
 
+  // Normalisation des catégories (rétrocompatibilité avec les anciens IDs)
+  const normalizeDishCategory = (catId?: string) => {
+    if (!catId) return 'cat-plat-local';
+    if (catId === 'cat-thieb' || catId === 'cat-yassa' || catId === 'cat-dibi' || catId === 'cat-poisson' || catId === 'cat-fish') return 'cat-plat-local';
+    if (catId === 'cat-street' || catId === 'cat-pastels') return 'cat-fast-food';
+    if (catId === 'cat-boissons' || catId === 'cat-drinks') return 'cat-jus-degue';
+    return catId;
+  };
+
   // Filter dishes by category and search
   const filteredDishes = menuItems.filter((dish) => {
-    const matchCat = selectedCategory === 'all' || dish.category === selectedCategory;
+    const normalizedCat = normalizeDishCategory(dish.category);
+    const matchCat = selectedCategory === 'all' || normalizedCat === selectedCategory || dish.category === selectedCategory;
     const matchSearch =
       searchQuery.trim() === '' ||
       dish.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -352,49 +362,70 @@ export default function ClientSpace({
 
       {/* 🍲 CATEGORIES CAROUSEL */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-6 relative z-20">
-        <div className="bg-white p-3 sm:p-4 rounded-2xl sm:rounded-3xl shadow-lg border border-[#E2ECE5] flex items-center gap-2 overflow-x-auto no-scrollbar">
-          <button
-            onClick={() => setSelectedCategory('all')}
-            className={`relative px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-colors flex items-center gap-2 z-10 ${
-              selectedCategory === 'all'
-                ? 'text-white'
-                : 'bg-[#F7FAF7] text-[#07431E] hover:bg-[#EBF7EE]'
-            }`}
-          >
-            {selectedCategory === 'all' && (
-              <motion.div
-                layoutId="activeCategoryPill"
-                className="absolute inset-0 brand-gradient rounded-xl shadow-xs -z-10"
-                transition={{ type: 'spring', stiffness: 500, damping: 35 }}
-              />
-            )}
-            <span>🍽️ Tous les plats</span>
-          </button>
+        <div className="bg-white p-3 sm:p-4 rounded-2xl sm:rounded-3xl shadow-lg border border-[#E2ECE5] space-y-2">
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-0.5">
+            <button
+              onClick={() => setSelectedCategory('all')}
+              className={`relative px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-colors flex items-center gap-2 z-10 ${
+                selectedCategory === 'all'
+                  ? 'text-white'
+                  : 'bg-[#F7FAF7] text-[#07431E] hover:bg-[#EBF7EE]'
+              }`}
+            >
+              {selectedCategory === 'all' && (
+                <motion.div
+                  layoutId="activeCategoryPill"
+                  className="absolute inset-0 brand-gradient rounded-xl shadow-xs -z-10"
+                  transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+                />
+              )}
+              <span>🍽️ Tous les plats</span>
+            </button>
 
-          {CATEGORIES.map((cat) => {
-            const isSelected = selectedCategory === cat.id;
-            return (
+            {CATEGORIES.map((cat) => {
+              const isSelected = selectedCategory === cat.id;
+              return (
+                <button
+                  key={cat.id}
+                  onClick={() => setSelectedCategory(cat.id)}
+                  className={`relative px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-colors flex items-center gap-2 z-10 ${
+                    isSelected
+                      ? 'text-white'
+                      : 'bg-[#F7FAF7] text-[#07431E] hover:bg-[#EBF7EE]'
+                  }`}
+                >
+                  {isSelected && (
+                    <motion.div
+                      layoutId="activeCategoryPill"
+                      className="absolute inset-0 brand-gradient rounded-xl shadow-xs -z-10"
+                      transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+                    />
+                  )}
+                  <span>{cat.icon}</span>
+                  <span>{cat.name}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Tagline explicative du bloc actif */}
+          {selectedCategory !== 'all' && (
+            <motion.div
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="px-2 pt-1 border-t border-[#F0F5F1] flex items-center justify-between text-[11px] text-gray-500 font-medium"
+            >
+              <span>
+                💡 {CATEGORIES.find((c) => c.id === selectedCategory)?.description}
+              </span>
               <button
-                key={cat.id}
-                onClick={() => setSelectedCategory(cat.id)}
-                className={`relative px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-colors flex items-center gap-2 z-10 ${
-                  isSelected
-                    ? 'text-white'
-                    : 'bg-[#F7FAF7] text-[#07431E] hover:bg-[#EBF7EE]'
-                }`}
+                onClick={() => setSelectedCategory('all')}
+                className="text-[#0A6E3B] font-bold hover:underline shrink-0 ml-2 text-[11px]"
               >
-                {isSelected && (
-                  <motion.div
-                    layoutId="activeCategoryPill"
-                    className="absolute inset-0 brand-gradient rounded-xl shadow-xs -z-10"
-                    transition={{ type: 'spring', stiffness: 500, damping: 35 }}
-                  />
-                )}
-                <span>{cat.icon}</span>
-                <span>{cat.name}</span>
+                Tout voir
               </button>
-            );
-          })}
+            </motion.div>
+          )}
         </div>
       </section>
 

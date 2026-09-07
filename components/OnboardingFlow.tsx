@@ -92,12 +92,16 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     loginWithOAuth,
     signUpWithEmail,
     signInWithEmail,
+    resendConfirmationEmail,
     setCurrentRestaurantId,
   } = useApp();
 
   const [step, setStep] = useState<OnboardingStep>('splash');
   const [selectedRole, setSelectedRole] = useState<UserRole | null>('client');
   const [isOAuthLoading, setIsOAuthLoading] = useState<'google' | 'facebook' | null>(null);
+  const [needsEmailConfirmation, setNeedsEmailConfirmation] = useState(false);
+  const [isResendingConfirmation, setIsResendingConfirmation] = useState(false);
+  const [resendConfirmationSent, setResendConfirmationSent] = useState(false);
   const [isSubmittingAuth, setIsSubmittingAuth] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
 
@@ -338,6 +342,8 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   // Connexion réelle : vérifie les identifiants et retrouve le restaurant / livreur du compte
   const handleLoginSubmit = async () => {
     setLoginError(null);
+    setNeedsEmailConfirmation(false);
+    setResendConfirmationSent(false);
     if (!authEmailOrPhone.trim() || !authPassword) {
       setLoginError('Veuillez renseigner votre email et votre mot de passe.');
       return;
@@ -348,6 +354,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
 
     if (!res.success) {
       setLoginError(res.error || 'Connexion impossible.');
+      if (res.needsConfirmation) setNeedsEmailConfirmation(true);
       return;
     }
 
@@ -371,6 +378,18 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
     } else {
       setCurrentRole('client');
       onComplete('client');
+    }
+  };
+
+  const handleResendConfirmation = async () => {
+    if (!authEmailOrPhone.trim()) return;
+    setIsResendingConfirmation(true);
+    const res = await resendConfirmationEmail(authEmailOrPhone.trim());
+    setIsResendingConfirmation(false);
+    if (res.success) {
+      setResendConfirmationSent(true);
+    } else {
+      setLoginError(res.error || 'Impossible de renvoyer l’e-mail.');
     }
   };
 
@@ -729,23 +748,37 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                 </div>
 
                 {loginError && (
-                  <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-[11px] font-bold text-rose-600">
-                    {loginError}
+                  <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-[11px] font-bold text-rose-600 space-y-1.5">
+                    <p>{loginError}</p>
+                    {needsEmailConfirmation && (
+                      resendConfirmationSent ? (
+                        <p className="text-emerald-600">✓ E-mail de confirmation renvoyé, vérifiez votre boîte de réception.</p>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={handleResendConfirmation}
+                          disabled={isResendingConfirmation}
+                          className="text-[11px] font-black text-[#0A6E3B] underline disabled:opacity-60"
+                        >
+                          {isResendingConfirmation ? 'Envoi...' : 'Renvoyer l’e-mail de confirmation'}
+                        </button>
+                      )
+                    )}
                   </div>
                 )}
               </div>
 
               {/* Login Button */}
               <div className="mt-4">
-                <motion.button
-                  whileTap={{ scale: 0.96 }}
-                  onClick={handleLoginSubmit}
-                  disabled={isSubmittingAuth}
-                  className="w-full py-3.5 rounded-2xl bg-[#FF7824] hover:bg-[#E86315] text-white font-bold text-xs shadow-lg shadow-orange-500/20 active:scale-95 transition-all text-center cursor-pointer disabled:opacity-60"
-                >
-                  {isSubmittingAuth ? 'Connexion...' : 'Se connecter'}
-                </motion.button>
-              </div>
+                  <motion.button
+                    whileTap={{ scale: 0.96 }}
+                    onClick={handleLoginSubmit}
+                    disabled={isSubmittingAuth}
+                    className="w-full py-3.5 rounded-2xl bg-[#FF7824] hover:bg-[#E86315] text-white font-bold text-xs shadow-lg shadow-orange-500/20 active:scale-95 transition-all text-center cursor-pointer disabled:opacity-60"
+                  >
+                    {isSubmittingAuth ? 'Connexion...' : 'Se connecter'}
+                  </motion.button>
+                </div>
 
               {/* Social Login Options */}
               <div className="grid grid-cols-2 gap-2 mt-5">

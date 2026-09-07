@@ -47,18 +47,22 @@ CREATE TABLE IF NOT EXISTS public.categories (
 -- Seed Default Categories
 INSERT INTO public.categories (id, name, slug, icon, description)
 VALUES 
-  ('cat-thieb', 'Thiéboudienne', 'thieb', '🍲', 'Le plat national par excellence'),
-  ('cat-yassa', 'Yassa & Mafé', 'yassa-mafe', '🍗', 'Poulet braisé oignons citronnés et mafé crémeux'),
-  ('cat-dibi', 'Dibi & Grillades', 'dibi-grillades', '🥩', 'Agneau braisé et brochettes'),
-  ('cat-street', 'Street Food & Pastels', 'street-food', '🥟', 'Pastels croustillants, fataya et burgers'),
-  ('cat-boissons', 'Jus Locaux & Desserts', 'boissons-desserts', '🍹', 'Bissap frais, Bouye et Thiakry')
-ON CONFLICT (id) DO NOTHING;
+  ('cat-plat-local', 'Plat Local', 'plat-local', '🍲', 'Plats traditionnels sénégalais : Thiéb, Yassa, Dibi, Mafé, Domoda...'),
+  ('cat-restaurant', 'Restaurant', 'restaurant', '🍽️', 'Spécialités de chefs, gastronomie et cartes des restaurants'),
+  ('cat-fast-food', 'Fast Food', 'fast-food', '🍔', 'Burgers gourmets, pizzas croustillantes, chawarmas, tacos, snacks'),
+  ('cat-glacier', 'Glacier', 'glacier', '🍦', 'Glaces artisanales, coupes glacées, sorbets et desserts rafraîchissants'),
+  ('cat-jus-degue', 'Jus & Dégué', 'jus-degue', '🍹', 'Bissap frais, Bouye, Ditakh, Gingembre, Dégué et Thiakry')
+ON CONFLICT (id) DO UPDATE SET 
+  name = EXCLUDED.name,
+  slug = EXCLUDED.slug,
+  icon = EXCLUDED.icon,
+  description = EXCLUDED.description;
 
 -- 4. MENU ITEMS TABLE
 CREATE TABLE IF NOT EXISTS public.menu_items (
   id TEXT PRIMARY KEY,
   restaurant_id TEXT REFERENCES public.restaurants(id) ON DELETE CASCADE NOT NULL,
-  category_id TEXT DEFAULT 'cat-thieb',
+  category_id TEXT DEFAULT 'cat-plat-local',
   name TEXT NOT NULL,
   description TEXT DEFAULT '',
   price INT NOT NULL,

@@ -157,6 +157,16 @@ interface AppContextType {
     restaurant?: Restaurant;
     courier?: Courier;
     fullName?: string;
+    needsConfirmation?: boolean;
+    error?: string;
+  }>;
+  resendConfirmationEmail: (email: string) => Promise<{ success: boolean; error?: string }>;
+  sendPhoneOtp: (phone: string) => Promise<{ success: boolean; error?: string }>;
+  verifyPhoneOtp: (phone: string, code: string) => Promise<{
+    success: boolean;
+    userId?: string;
+    restaurant?: Restaurant;
+    courier?: Courier;
     error?: string;
   }>;
   logoutUser: () => Promise<void>;
@@ -322,7 +332,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             name: m.name,
             description: m.description || '',
             price: Number(m.price) || 0,
-            category: m.category_id || 'cat-thieb',
+            category: m.category_id || 'cat-plat-local',
             image: m.image || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80',
             isAvailable: m.is_available ?? true,
             isPopular: m.is_popular ?? false,
@@ -698,7 +708,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         description: 'Le chef-d’œuvre de la maison au Thiof frais de l’Atlantique, riz rouge aux légumes dorés et piment.',
         price: 4500,
         image: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80',
-        category: 'cat-thieb',
+        category: 'cat-plat-local',
         isAvailable: true,
         preparationTimeMinutes: 25,
         tags: ['Signature', 'Populaire', 'Épicé doux'],
@@ -710,7 +720,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         description: 'Morceaux d’agneau fondants marinés aux épices dakaroises, oignons caramélisés et moutarde.',
         price: 5500,
         image: 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=800&q=80',
-        category: 'cat-dibi',
+        category: 'cat-plat-local',
         isAvailable: true,
         preparationTimeMinutes: 20,
         tags: ['Grillade', 'Best-seller'],
@@ -722,7 +732,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         description: 'Infusion artisanale de fleurs d’hibiscus et gingembre avec une touche de menthe fraîche.',
         price: 1500,
         image: 'https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?auto=format&fit=crop&w=800&q=80',
-        category: 'cat-poisson',
+        category: 'cat-jus-degue',
         isAvailable: true,
         preparationTimeMinutes: 5,
         tags: ['Boisson', 'Bio'],
@@ -860,7 +870,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         name: newItem.name,
         description: newItem.description || '',
         price: newItem.price,
-        category_id: newItem.category || 'cat-thieb',
+        category_id: newItem.category || 'cat-plat-local',
         image: newItem.image || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80',
         is_available: newItem.isAvailable,
         is_popular: newItem.isPopular,
@@ -1326,6 +1336,122 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Recherche le restaurant / livreur réellement lié à ce compte (auth.uid())
+  // et met à jour l'état de l'app en conséquence. Partagé par la connexion
+  // e-mail/mot de passe et la connexion par SMS.
+  const resolveOwnedAccountsByUserId = async (
+    userId: string
+  ): Promise<{ restaurant?: Restaurant; courier?: Courier }> => {
+    const [{ data: restoRows }, { data: courierRows }] = await Promise.all([
+      supabase.from('restaurants').select('*').eq('user_id', userId).limit(1),
+      supabase.from('couriers').select('*').eq('user_id', userId).limit(1),
+    ]);
+
+    let foundRestaurant: Restaurant | undefined;
+    if (restoRows && restoRows.length > 0) {
+      const r: any = restoRows[0];
+      foundRestaurant = {
+        id: r.id,
+        userId: r.user_id,
+        name: r.name,
+        tagline: r.tagline || 'L’Excellence et la Saveur de Dakar',
+        description: r.description || '',
+        coverImage: r.cover_image,
+        logo: r.logo,
+        neighborhood: r.neighborhood,
+        address: r.address,
+        coordinates: { lat: Number(r.latitude) || 14.7431, lng: Number(r.longitude) || -17.5186 },
+        phone: r.phone,
+        ownerName: r.owner_name,
+        rating: Number(r.rating) || 5.0,
+        reviewCount: Number(r.review_count) || 0,
+        priceRange: r.price_range,
+        deliveryTimeEstimate: r.delivery_time_estimate,
+        deliveryFee: Number(r.delivery_fee) || 1500,
+        minOrder: Number(r.min_order) || 3000,
+        isOpen: r.is_open ?? true,
+        featuredTags: r.featured_tags || [],
+        openingHours: r.opening_hours,
+        gallery: r.gallery || [],
+        ambianceTags: r.ambiance_tags || [],
+        amenities: r.amenities || [],
+      };
+      const resolvedResto = foundRestaurant;
+      setRestaurants((prev) => (prev.some((p) => p.id === resolvedResto.id) ? prev.map((p) => (p.id === resolvedResto.id ? resolvedResto : p)) : [resolvedResto, ...prev]));
+      setCurrentRestaurantId(resolvedResto.id);
+      try { localStorage.setItem('thiob_active_restaurant_id', resolvedResto.id); } catch {}
+    }
+
+    let foundCourier: Courier | undefined;
+    if (courierRows && courierRows.length > 0) {
+      const c: any = courierRows[0];
+      foundCourier = {
+        id: c.id,
+        userId: c.user_id,
+        name: c.name,
+        phone: c.phone,
+        photo: c.photo,
+        vehicleType: c.vehicle_type,
+        vehicleName: c.vehicle_name,
+        plateNumber: c.plate_number,
+        isOnline: c.is_online,
+        isAvailable: c.is_available,
+        status: c.status,
+        currentNeighborhood: c.current_neighborhood,
+        coordinates: { lat: Number(c.latitude) || 14.6937, lng: Number(c.longitude) || -17.4441 },
+        rating: Number(c.rating) || 5.0,
+        completedDeliveries: c.completed_deliveries || 0,
+        todayEarnings: c.today_earnings || 0,
+      };
+      const resolvedCourier = foundCourier;
+      setCouriers((prev) => (prev.some((p) => p.id === resolvedCourier.id) ? prev.map((p) => (p.id === resolvedCourier.id ? resolvedCourier : p)) : [resolvedCourier, ...prev]));
+    }
+
+    return { restaurant: foundRestaurant, courier: foundCourier };
+  };
+
+  const normalizePhoneForAuth = (raw: string) => raw.replace(/[\s-]/g, '');
+
+  // Envoie un code de vérification par SMS (Supabase Auth Phone OTP).
+  // Fonctionne aussi bien pour une première inscription que pour une
+  // reconnexion : Supabase crée le compte au premier verifyOtp réussi.
+  const sendPhoneOtp = async (phone: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const { error } = await supabase.auth.signInWithOtp({ phone: normalizePhoneForAuth(phone) });
+      if (error) throw error;
+      return { success: true };
+    } catch (err: any) {
+      console.error('🔴 [Supabase Auth] Échec envoi code SMS :', err);
+      const friendly = err?.code === 'phone_provider_disabled'
+        ? 'La vérification par SMS n’est pas encore activée sur ce projet (configurez un fournisseur SMS dans Supabase → Authentication → Providers → Phone).'
+        : err?.message || 'Erreur lors de l’envoi du code SMS';
+      return { success: false, error: friendly };
+    }
+  };
+
+  // Vérifie le code SMS et récupère le restaurant / livreur associé s'il existe.
+  const verifyPhoneOtp = async (
+    phone: string,
+    code: string
+  ): Promise<{ success: boolean; userId?: string; restaurant?: Restaurant; courier?: Courier; error?: string }> => {
+    try {
+      const { data, error } = await supabase.auth.verifyOtp({
+        phone: normalizePhoneForAuth(phone),
+        token: code.trim(),
+        type: 'sms',
+      });
+      if (error) throw error;
+      const userId = data.user?.id;
+      if (!userId) throw new Error('Vérification impossible, veuillez réessayer.');
+
+      const { restaurant, courier } = await resolveOwnedAccountsByUserId(userId);
+      return { success: true, userId, restaurant, courier };
+    } catch (err: any) {
+      console.error('🔴 [Supabase Auth] Échec vérification code SMS :', err);
+      return { success: false, error: err?.message || 'Code invalide ou expiré, veuillez réessayer.' };
+    }
+  };
+
   // Inscription réelle par e-mail / mot de passe (Supabase Auth)
   const signUpWithEmail = async (
     email: string,
@@ -1358,6 +1484,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     restaurant?: Restaurant;
     courier?: Courier;
     fullName?: string;
+    needsConfirmation?: boolean;
     error?: string;
   }> => {
     try {
@@ -1366,80 +1493,36 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const userId = data.user?.id;
       if (!userId) throw new Error('Connexion impossible, veuillez réessayer.');
 
-      const [{ data: restoRows }, { data: courierRows }] = await Promise.all([
-        supabase.from('restaurants').select('*').eq('user_id', userId).limit(1),
-        supabase.from('couriers').select('*').eq('user_id', userId).limit(1),
-      ]);
-
-      let foundRestaurant: Restaurant | undefined;
-      if (restoRows && restoRows.length > 0) {
-        const r: any = restoRows[0];
-        foundRestaurant = {
-          id: r.id,
-          userId: r.user_id,
-          name: r.name,
-          tagline: r.tagline || 'L’Excellence et la Saveur de Dakar',
-          description: r.description || '',
-          coverImage: r.cover_image,
-          logo: r.logo,
-          neighborhood: r.neighborhood,
-          address: r.address,
-          coordinates: { lat: Number(r.latitude) || 14.7431, lng: Number(r.longitude) || -17.5186 },
-          phone: r.phone,
-          ownerName: r.owner_name,
-          rating: Number(r.rating) || 5.0,
-          reviewCount: Number(r.review_count) || 0,
-          priceRange: r.price_range,
-          deliveryTimeEstimate: r.delivery_time_estimate,
-          deliveryFee: Number(r.delivery_fee) || 1500,
-          minOrder: Number(r.min_order) || 3000,
-          isOpen: r.is_open ?? true,
-          featuredTags: r.featured_tags || [],
-          openingHours: r.opening_hours,
-          gallery: r.gallery || [],
-          ambianceTags: r.ambiance_tags || [],
-          amenities: r.amenities || [],
-        };
-        const resolvedResto = foundRestaurant;
-        setRestaurants((prev) => (prev.some((p) => p.id === resolvedResto.id) ? prev.map((p) => (p.id === resolvedResto.id ? resolvedResto : p)) : [resolvedResto, ...prev]));
-        setCurrentRestaurantId(resolvedResto.id);
-        try { localStorage.setItem('thiob_active_restaurant_id', resolvedResto.id); } catch {}
-      }
-
-      let foundCourier: Courier | undefined;
-      if (courierRows && courierRows.length > 0) {
-        const c: any = courierRows[0];
-        foundCourier = {
-          id: c.id,
-          userId: c.user_id,
-          name: c.name,
-          phone: c.phone,
-          photo: c.photo,
-          vehicleType: c.vehicle_type,
-          vehicleName: c.vehicle_name,
-          plateNumber: c.plate_number,
-          isOnline: c.is_online,
-          isAvailable: c.is_available,
-          status: c.status,
-          currentNeighborhood: c.current_neighborhood,
-          coordinates: { lat: Number(c.latitude) || 14.6937, lng: Number(c.longitude) || -17.4441 },
-          rating: Number(c.rating) || 5.0,
-          completedDeliveries: c.completed_deliveries || 0,
-          todayEarnings: c.today_earnings || 0,
-        };
-        const resolvedCourier = foundCourier;
-        setCouriers((prev) => (prev.some((p) => p.id === resolvedCourier.id) ? prev.map((p) => (p.id === resolvedCourier.id ? resolvedCourier : p)) : [resolvedCourier, ...prev]));
-      }
+      const { restaurant, courier } = await resolveOwnedAccountsByUserId(userId);
 
       const fullName: string | undefined = data.user?.user_metadata?.full_name;
       if (fullName) {
         setClientProfile(fullName, data.user?.phone || '');
       }
 
-      return { success: true, userId, restaurant: foundRestaurant, courier: foundCourier, fullName };
+      return { success: true, userId, restaurant, courier, fullName };
     } catch (err: any) {
       console.error('🔴 [Supabase Auth] Échec connexion :', err);
+      if (err?.code === 'email_not_confirmed') {
+        return {
+          success: false,
+          needsConfirmation: true,
+          error: 'Veuillez confirmer votre e-mail (lien reçu à l’inscription) avant de vous connecter.',
+        };
+      }
       return { success: false, error: err?.message === 'Invalid login credentials' ? 'E-mail ou mot de passe incorrect.' : (err?.message || 'Erreur lors de la connexion') };
+    }
+  };
+
+  // Renvoie l'e-mail de confirmation d'inscription (si le compte n'est pas encore confirmé)
+  const resendConfirmationEmail = async (email: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const { error } = await supabase.auth.resend({ type: 'signup', email });
+      if (error) throw error;
+      return { success: true };
+    } catch (err: any) {
+      console.error('🔴 [Supabase Auth] Échec renvoi e-mail de confirmation :', err);
+      return { success: false, error: err?.message || 'Erreur lors du renvoi de l’e-mail' };
     }
   };
 
@@ -1544,6 +1627,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         loginWithOAuth,
         signUpWithEmail,
         signInWithEmail,
+        resendConfirmationEmail,
+        sendPhoneOtp,
+        verifyPhoneOtp,
         logoutUser,
         transactions,
         recordPaymentTransaction,

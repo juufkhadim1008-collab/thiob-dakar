@@ -272,10 +272,20 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
     );
   };
 
+  // Normalisation des catégories (rétrocompatibilité)
+  const normalizeDishCategory = (catId?: string) => {
+    if (!catId) return 'cat-plat-local';
+    if (catId === 'cat-thieb' || catId === 'cat-yassa' || catId === 'cat-dibi' || catId === 'cat-poisson' || catId === 'cat-fish') return 'cat-plat-local';
+    if (catId === 'cat-street' || catId === 'cat-pastels') return 'cat-fast-food';
+    if (catId === 'cat-boissons' || catId === 'cat-drinks') return 'cat-jus-degue';
+    return catId;
+  };
+
   // Filtered dishes with budget filter and sorting
   const filteredDishes = menuItems
     .filter((dish) => {
-      const matchCat = selectedCat === 'all' || dish.category === selectedCat;
+      const normalizedCat = normalizeDishCategory(dish.category);
+      const matchCat = selectedCat === 'all' || normalizedCat === selectedCat || dish.category === selectedCat;
       const matchSearch = cleanSearchQuery === '' || 
         dish.name.toLowerCase().includes(cleanSearchQuery) || 
         dish.description.toLowerCase().includes(cleanSearchQuery);
@@ -777,13 +787,11 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
                 <div className="flex items-start gap-4 overflow-x-auto no-scrollbar px-4 pb-1">
                   {[
                     { id: 'all', name: 'Tous', image: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=400&q=80' },
-                    { id: 'cat-thieb', name: 'Thiéb', image: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=400&q=80' },
-                    { id: 'cat-yassa', name: 'Yassa', image: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=400&q=80' },
-                    { id: 'cat-dibi', name: 'Dibi', image: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=400&q=80' },
-                    { id: 'cat-street', name: 'Burgers', image: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=400&q=80' },
-                    { id: 'cat-fish', name: 'Poissons', image: 'https://images.unsplash.com/photo-1534422298391-e4f8c172dddb?auto=format&fit=crop&w=400&q=80' },
-                    { id: 'cat-pastels', name: 'Pastels', image: 'https://images.unsplash.com/photo-1550966871-3ed3cdb5ed0c?auto=format&fit=crop&w=400&q=80' },
-                    { id: 'cat-boissons', name: 'Jus & Dégué', image: 'https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?auto=format&fit=crop&w=400&q=80' },
+                    { id: 'cat-plat-local', name: 'Plat Local', image: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=400&q=80' },
+                    { id: 'cat-restaurant', name: 'Restaurant', image: 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=400&q=80' },
+                    { id: 'cat-fast-food', name: 'Fast Food', image: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=400&q=80' },
+                    { id: 'cat-glacier', name: 'Glacier', image: 'https://images.unsplash.com/photo-1501443762994-82bd5dace89a?auto=format&fit=crop&w=400&q=80' },
+                    { id: 'cat-jus-degue', name: 'Jus & Dégué', image: 'https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?auto=format&fit=crop&w=400&q=80' },
                   ].map((catItem) => {
                     const isCatSelected = selectedCat === catItem.id;
                     return (
@@ -3763,7 +3771,7 @@ function MobileRestaurantApp({ onLogout }: { onLogout?: () => void }) {
   // New Dish modal state
   const [isAddDishModalOpen, setIsAddDishModalOpen] = useState(false);
   const [newDishName, setNewDishName] = useState('');
-  const [newDishCategory, setNewDishCategory] = useState('cat-thieb');
+  const [newDishCategory, setNewDishCategory] = useState('cat-plat-local');
   const [newDishPrice, setNewDishPrice] = useState(4000);
   const [newDishDesc, setNewDishDesc] = useState('');
   const [newDishImage, setNewDishImage] = useState('https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80');
@@ -5791,11 +5799,11 @@ function MobileRestaurantApp({ onLogout }: { onLogout?: () => void }) {
                       onChange={(e) => setNewDishCategory(e.target.value)}
                       className="w-full p-2 bg-[#F4F7F4] border border-[#D8EADB] rounded-xl font-bold text-[#081A10]"
                     >
-                      <option value="cat-thieb">Thiéboudienne</option>
-                      <option value="cat-dibi">Dibi & Grillades</option>
-                      <option value="cat-poisson">Poissons & Fruits de mer</option>
-                      <option value="cat-pastels">Pastels & Snacks</option>
-                      <option value="cat-drinks">Jus & Boissons locales</option>
+                      <option value="cat-plat-local">🍲 Plat Local</option>
+                      <option value="cat-restaurant">🍽️ Restaurant</option>
+                      <option value="cat-fast-food">🍔 Fast Food</option>
+                      <option value="cat-glacier">🍦 Glacier</option>
+                      <option value="cat-jus-degue">🍹 Jus & Dégué</option>
                     </select>
                   </div>
 

@@ -44,6 +44,7 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import MiniLocationPicker from '@/components/map/MiniLocationPicker';
+import { CATEGORIES } from '@/lib/mock-data';
 import dynamic from 'next/dynamic';
 
 const ThiobMap = dynamic(() => import('@/components/map/ThiobMap'), { 
@@ -106,8 +107,17 @@ export default function RestaurantSpace() {
   const [newDishName, setNewDishName] = useState('');
   const [newDishDesc, setNewDishDesc] = useState('');
   const [newDishPrice, setNewDishPrice] = useState(4500);
-  const [newDishCategory, setNewDishCategory] = useState('cat-thieb');
+  const [newDishCategory, setNewDishCategory] = useState('cat-plat-local');
   const [newDishImage, setNewDishImage] = useState('https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80');
+
+  // Normalisation des catégories (rétrocompatibilité)
+  const normalizeDishCategory = (catId?: string) => {
+    if (!catId) return 'cat-plat-local';
+    if (catId === 'cat-thieb' || catId === 'cat-yassa' || catId === 'cat-dibi' || catId === 'cat-poisson' || catId === 'cat-fish') return 'cat-plat-local';
+    if (catId === 'cat-street' || catId === 'cat-pastels') return 'cat-fast-food';
+    if (catId === 'cat-boissons' || catId === 'cat-drinks') return 'cat-jus-degue';
+    return catId;
+  };
 
   const currentResto = currentRestaurant;
   const restoOrders = orders.filter((o) => o.restaurantId === currentResto.id);
@@ -126,13 +136,15 @@ export default function RestaurantSpace() {
     .reduce((acc, o) => acc + o.subtotal, 0);
 
   const filteredDishes = restoDishes.filter((dish) => {
-    const matchesCat = selectedCategory === 'all' || dish.category === selectedCategory;
+    const normalizedCat = normalizeDishCategory(dish.category);
+    const matchesCat = selectedCategory === 'all' || normalizedCat === selectedCategory || dish.category === selectedCategory;
     const matchesSearch = dish.name.toLowerCase().includes(searchQuery.toLowerCase()) || dish.description.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesCat && matchesSearch;
   });
 
   const vitrineFilteredDishes = restoDishes.filter((dish) => {
-    return activeMenuCategory === 'all' || dish.category === activeMenuCategory;
+    const normalizedCat = normalizeDishCategory(dish.category);
+    return activeMenuCategory === 'all' || normalizedCat === activeMenuCategory || dish.category === activeMenuCategory;
   });
 
   const handleCreateDish = (e: React.FormEvent) => {
@@ -486,10 +498,7 @@ export default function RestaurantSpace() {
                 <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
                   {[
                     { id: 'all', label: 'Toute la Carte' },
-                    { id: 'cat-thieb', label: 'Thiéboudienne' },
-                    { id: 'cat-dibi', label: 'Dibi & Grillades' },
-                    { id: 'cat-pastels', label: 'Pastels & Snacks' },
-                    { id: 'cat-drinks', label: 'Boissons & Desserts' },
+                    ...CATEGORIES.map((cat) => ({ id: cat.id, label: `${cat.icon} ${cat.name}` })),
                   ].map((cat) => (
                     <button
                       key={cat.id}
@@ -1357,12 +1366,13 @@ export default function RestaurantSpace() {
                     <select
                       value={newDishCategory}
                       onChange={(e) => setNewDishCategory(e.target.value)}
-                      className="w-full px-3 py-2 bg-[#F4F7F4] border border-[#D8EADB] rounded-xl text-xs focus:bg-white focus:border-[#0A6E3B] focus:outline-hidden"
+                      className="w-full px-3 py-2 bg-[#F4F7F4] border border-[#D8EADB] rounded-xl text-xs focus:bg-white focus:border-[#0A6E3B] focus:outline-hidden font-medium"
                     >
-                      <option value="cat-thieb">Thiéboudienne</option>
-                      <option value="cat-dibi">Dibi & Grillades</option>
-                      <option value="cat-pastels">Street Food & Pastels</option>
-                      <option value="cat-drinks">Jus & Desserts</option>
+                      {CATEGORIES.map((cat) => (
+                        <option key={cat.id} value={cat.id}>
+                          {cat.icon} {cat.name}
+                        </option>
+                      ))}
                     </select>
                   </div>
                 </div>
