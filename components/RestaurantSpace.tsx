@@ -69,8 +69,9 @@ export default function RestaurantSpace() {
     createReservation,
     addToCart,
     currentRestaurant,
+    setCurrentRestaurantId,
+    setCurrentRole,
   } = useApp();
-
 
   // Top-level Two Buttons View Switcher: 'vitrine' | 'dashboard'
   const [viewMode, setViewMode] = useState<'vitrine' | 'dashboard'>('vitrine');
@@ -120,6 +121,56 @@ export default function RestaurantSpace() {
   };
 
   const currentResto = currentRestaurant;
+
+  if (!currentResto || !currentResto.id) {
+    return (
+      <div className="max-w-2xl mx-auto my-12 p-8 bg-white/95 backdrop-blur-xl rounded-3xl border border-gray-100 shadow-2xl text-center space-y-6">
+        <div className="w-20 h-20 rounded-3xl bg-amber-100 text-amber-600 flex items-center justify-center text-4xl mx-auto shadow-md border border-amber-200">
+          🔒
+        </div>
+        <div className="space-y-2">
+          <h2 className="text-2xl font-black text-[#081A10]">Accès Restaurateur Restreint</h2>
+          <p className="text-sm text-gray-600 max-w-md mx-auto">
+            Vous n'avez pas de session restaurant active. Pour des raisons strictes de sécurité et de confidentialité, les dashboards et la gestion des plats sont réservés aux propriétaires de restaurant vérifiés.
+          </p>
+        </div>
+
+        {restaurants.length > 0 && (
+          <div className="bg-gray-50 rounded-2xl p-4 border border-gray-200/80 text-left max-w-md mx-auto space-y-2">
+            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+              Tester avec un restaurant existant :
+            </p>
+            <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+              {restaurants.map((r) => (
+                <button
+                  key={r.id}
+                  onClick={() => setCurrentRestaurantId(r.id)}
+                  className="w-full flex items-center gap-3 p-2.5 rounded-xl bg-white border border-gray-200 hover:border-[#0A6E3B] hover:shadow-xs transition-all text-left cursor-pointer"
+                >
+                  <img src={r.logo} alt={r.name} className="w-8 h-8 rounded-lg object-cover bg-gray-100 shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-bold text-gray-900 truncate">{r.name}</p>
+                    <p className="text-[10px] text-gray-500">📍 {r.neighborhood}</p>
+                  </div>
+                  <span className="text-xs text-[#0A6E3B] font-bold">Sélectionner →</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+          <button
+            onClick={() => setCurrentRole('client')}
+            className="w-full sm:w-auto px-6 py-3 bg-[#0A6E3B] hover:bg-[#085a30] text-white font-black text-xs rounded-xl shadow-md transition-all cursor-pointer"
+          >
+            ← Retourner à l'Espace Client
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const restoOrders = orders.filter((o) => o.restaurantId === currentResto.id);
   const restoDishes = menuItems.filter((m) => m.restaurantId === currentResto.id);
   const restoReservations = reservations.filter((res) => res.restaurantId === currentResto.id || res.restaurantName.toLowerCase().includes(currentResto.name.toLowerCase()));

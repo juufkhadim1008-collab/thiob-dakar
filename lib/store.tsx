@@ -109,7 +109,7 @@ interface AppContextType {
   // Restaurant Actions & Active Session
   currentRestaurantId: string;
   setCurrentRestaurantId: (id: string) => void;
-  currentRestaurant: Restaurant;
+  currentRestaurant: Restaurant | null;
   registerNewRestaurant: (data: {
     name: string;
     logo: string;
@@ -124,12 +124,15 @@ interface AppContextType {
   updateCurrentRestaurant: (updates: Partial<Restaurant>) => void;
   updateOrderStatus: (orderId: string, newStatus: OrderStatus) => void;
   toggleMenuItemAvailability: (itemId: string) => void;
-  addMenuItem: (item: Omit<MenuItem, 'id'>) => void;
+  addMenuItem: (item: Omit<MenuItem, 'id'>) => MenuItem | null;
   updateMenuItem: (itemId: string, updates: Partial<MenuItem>) => void;
   deleteMenuItem: (itemId: string) => void;
   updateRestaurantShowcase: (restoId: string, updates: Partial<Restaurant>) => void;
 
-  // Courier Actions
+  // Courier Actions & Active Session
+  currentCourierId: string;
+  setCurrentCourierId: (id: string) => void;
+  currentCourier: Courier | null;
   toggleCourierOnline: (courierId: string) => void;
   setCourierStatus: (courierId: string, status: CourierStatus) => void;
   acceptDeliveryMission: (courierId: string, orderId: string) => void;
@@ -212,7 +215,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [currentRole, setCurrentRole] = useState<UserRole>('client');
   const [restaurants, setRestaurants] = useState<Restaurant[]>(initialRestaurants);
   const [menuItems, setMenuItems] = useState<MenuItem[]>(initialMenuItems);
-  const [currentRestaurantId, setCurrentRestaurantId] = useState<string>('');
+  const [currentRestaurantId, setCurrentRestaurantIdState] = useState<string>('');
+  const [currentCourierId, setCurrentCourierIdState] = useState<string>('');
   const [orders, setOrders] = useState<Order[]>(INITIAL_ORDERS);
   const [couriers, setCouriers] = useState<Courier[]>(INITIAL_COURIERS);
   const [metrics, setMetrics] = useState<PlatformMetrics>(INITIAL_METRICS);
@@ -221,6 +225,28 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [favoriteRestaurantIds, setFavoriteRestaurantIds] = useState<string[]>([]);
   const [clientName, setClientName] = useState<string>('');
   const [clientPhone, setClientPhone] = useState<string>('');
+
+  const setCurrentRestaurantId = (id: string) => {
+    setCurrentRestaurantIdState(id);
+    try {
+      if (id) {
+        localStorage.setItem('thiob_active_restaurant_id', id);
+      } else {
+        localStorage.removeItem('thiob_active_restaurant_id');
+      }
+    } catch {}
+  };
+
+  const setCurrentCourierId = (id: string) => {
+    setCurrentCourierIdState(id);
+    try {
+      if (id) {
+        localStorage.setItem('thiob_active_courier_id', id);
+      } else {
+        localStorage.removeItem('thiob_active_courier_id');
+      }
+    } catch {}
+  };
 
   // Geolocation states
   const [clientCoords, setClientCoords] = useState<GeoPoint | null>(null);
@@ -244,6 +270,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // 1. Local storage fallback
     try {
       const savedRestoId = localStorage.getItem('thiob_active_restaurant_id');
+      const savedCourierId = localStorage.getItem('thiob_active_courier_id');
       const savedRestos = localStorage.getItem('thiob_custom_restaurants');
       const savedCouriers = localStorage.getItem('thiob_custom_couriers');
 
@@ -272,7 +299,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           });
         }
       }
-      if (savedRestoId) setCurrentRestaurantId(savedRestoId);
+      if (savedRestoId) setCurrentRestaurantIdState(savedRestoId);
+      if (savedCourierId) setCurrentCourierIdState(savedCourierId);
       if (savedClientName) setClientName(savedClientName);
       if (savedClientPhone) setClientPhone(savedClientPhone);
       if (savedClientCoords) {
@@ -319,7 +347,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             amenities: r.amenities || ['Wifi', 'Paiement Wave'],
           }));
           setRestaurants(mapped);
-          setCurrentRestaurantId(prevId => (prevId && prevId !== 'resto-empty' ? prevId : mapped[0].id));
         }
 
         const { data: dbItems, error: mErr } = await queryDb('menu_items');
@@ -442,13 +469,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     minOrder: 3000,
     isOpen: true,
     featuredTags: ['Nouveau Resto Dakar'],
-    openingHours: '11h30 - 23h30 (7j/7)',
     gallery: [],
-    ambianceTags: ['Terrasse', 'Fait Maison'],
-    amenities: ['Wifi', 'Paiement Wave'],
+    ambianceTags: [],
+    amenities: [],
+    openingHours: '11h30 - 23h30',
   };
 
-  const currentRestaurant: Restaurant = restaurants.find((r) => r.id === currentRestaurantId) || (restaurants.length > 0 ? restaurants[0] : DEFAULT_EMPTY_RESTO);
+  // 🔒 RESTAURANT & LIVREUR SÉCURISÉS : STRICTEMENT LE COMPTE DE L'UTILISATEUR AUTHENTIFIÉ
+  // NE JAMAIS FAIRE DE FALLBACK SUR RESTAURANTS[0] OU COURIERS[0]
+  const currentRestaurant: Restaurant | null = currentRestaurantId
+    ? (restaurants.find((r) => r.id === currentRestaurantId) || null)
+    : null;
+
+  const currentCourier: Courier | null = currentCourierId
+    ? (couriers.find((c) => c.id === currentCourierId) || null)
+    : null;
 
 
   // Client Geolocation Handler with exact accuracy
@@ -836,6 +871,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
 
   const updateCurrentRestaurant = (updates: Partial<Restaurant>) => {
+    if (!currentRestaurantId) return;
     setRestaurants((prev) => {
       const updated = prev.map((r) => (r.id === currentRestaurantId ? { ...r, ...updates } : r));
       try {
@@ -872,10 +908,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const toggleMenuItemAvailability = (itemId: string) => {
     setMenuItems((prev) =>
       prev.map((m) => {
-        if (m.id === itemId) {
+        if (m.id === itemId && m.restaurantId === currentRestaurantId) {
           const newStatus = !m.isAvailable;
           try {
-            supabase.from('menu_items').update({ is_available: newStatus }).eq('id', itemId).then();
+            supabase.from('menu_items').update({ is_available: newStatus }).eq('id', itemId).eq('restaurant_id', currentRestaurantId).then();
           } catch {}
           return { ...m, isAvailable: newStatus };
         }
@@ -884,7 +920,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     );
   };
 
-  const addMenuItem = (itemData: Omit<MenuItem, 'id'>): MenuItem => {
+  const addMenuItem = (itemData: Omit<MenuItem, 'id'>): MenuItem | null => {
+    // 🔒 VÉRIFICATION DE SÉCURITÉ STRICTE
+    if (!currentRestaurantId || itemData.restaurantId !== currentRestaurantId) {
+      console.error('🔒 [Security] Tentative d’ajout de plat non autorisée.');
+      return null;
+    }
+
     const newId = `dish-${Date.now()}`;
     const newItem: MenuItem = {
       ...itemData,
@@ -920,8 +962,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const updateMenuItem = (itemId: string, updates: Partial<MenuItem>) => {
     setMenuItems((prev) =>
-      prev.map((m) => (m.id === itemId ? { ...m, ...updates } : m))
+      prev.map((m) => (m.id === itemId && m.restaurantId === currentRestaurantId ? { ...m, ...updates } : m))
     );
+    if (!currentRestaurantId) return;
     try {
       supabase.from('menu_items').update({
         name: updates.name,
@@ -931,14 +974,42 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         category_id: updates.category,
         is_available: updates.isAvailable,
         is_popular: updates.isPopular,
-      }).eq('id', itemId).then();
+      }).eq('id', itemId).eq('restaurant_id', currentRestaurantId).then();
     } catch {}
   };
 
   const deleteMenuItem = (itemId: string) => {
-    setMenuItems((prev) => prev.filter((m) => m.id !== itemId));
+    setMenuItems((prev) => prev.filter((m) => m.id !== itemId || m.restaurantId !== currentRestaurantId));
+    if (!currentRestaurantId) return;
     try {
-      supabase.from('menu_items').delete().eq('id', itemId).then();
+      supabase.from('menu_items').delete().eq('id', itemId).eq('restaurant_id', currentRestaurantId).then();
+    } catch {}
+  };
+
+  const updateRestaurantShowcase = (restoId: string, updates: Partial<Restaurant>) => {
+    // 🔒 VÉRIFICATION DE SÉCURITÉ : Un restaurateur ne peut modifier QUE son propre restaurant
+    if (!currentRestaurantId || restoId !== currentRestaurantId) {
+      console.error('🔒 [Security] Tentative de modification non autorisée d’un restaurant tiers.');
+      return;
+    }
+    setRestaurants((prev) =>
+      prev.map((r) => (r.id === restoId ? { ...r, ...updates } : r))
+    );
+    try {
+      supabase.from('restaurants').update({
+        name: updates.name,
+        tagline: updates.tagline,
+        price_range: updates.priceRange,
+        opening_hours: typeof updates.openingHours === 'string' ? updates.openingHours : undefined,
+        address: updates.address,
+        neighborhood: updates.neighborhood,
+        phone: updates.phone,
+        cover_image: updates.coverImage,
+        logo: updates.logo,
+        gallery: updates.gallery,
+        amenities: updates.amenities,
+        ambiance_tags: updates.ambianceTags,
+      }).eq('id', restoId).then();
     } catch {}
   };
 
@@ -1184,12 +1255,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     );
   };
 
-  // Update Restaurant Showcase (for Dashboard)
-  const updateRestaurantShowcase = (restoId: string, updates: Partial<Restaurant>) => {
-    setRestaurants((prev) =>
-      prev.map((r) => (r.id === restoId ? { ...r, ...updates } : r))
-    );
-  };
 
   const updateOrderStatus = (orderId: string, newStatus: OrderStatus) => {
     setOrders((prev) =>
@@ -1642,6 +1707,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         currentRestaurantId,
         setCurrentRestaurantId,
         currentRestaurant,
+        currentCourierId,
+        setCurrentCourierId,
+        currentCourier,
         registerNewRestaurant,
         updateCurrentRestaurant,
         updateOrderStatus,

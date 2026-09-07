@@ -893,16 +893,16 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
                       🍲
                     </div>
                     <div>
-                      <h5 className="text-xs font-black text-[#081A10]">Aucun plat enregistré</h5>
+                      <h5 className="text-xs font-black text-[#081A10]">Aucun plat trouvé</h5>
                       <p className="text-[10px] text-gray-500 mt-0.5 max-w-[200px] mx-auto">
-                        Inscrivez un restaurant pour publier vos premiers plats en direct.
+                        Aucun plat ne correspond à vos filtres actuels. Essayez une autre catégorie.
                       </p>
                     </div>
                     <button
-                      onClick={() => setCurrentRole('restaurant')}
+                      onClick={() => { setSelectedCat('all'); setSearchQuery(''); }}
                       className="px-3 py-1.5 bg-[#0A6E3B] text-white text-[10px] font-black rounded-lg hover:bg-[#085a30] transition-colors cursor-pointer"
                     >
-                      Ajouter un plat ➔
+                      Voir tous les plats ➔
                     </button>
                   </div>
                 ) : (
@@ -3693,6 +3693,7 @@ function MobileRestaurantApp({ onLogout }: { onLogout?: () => void }) {
     deleteMenuItem,
     currentRestaurant,
     registerNewRestaurant,
+    setCurrentRole,
   } = useApp();
 
   const [mobileMode, setMobileMode] = useState<'vitrine' | 'dashboard'>('dashboard');
@@ -3840,6 +3841,7 @@ function MobileRestaurantApp({ onLogout }: { onLogout?: () => void }) {
 
   // Sync edit form on restaurant select or modal open
   const openEditGeneralModal = () => {
+    if (!currentResto) return;
     setEditName(currentResto.name);
     setEditTagline(currentResto.tagline || '');
     setEditPriceRange(currentResto.priceRange || '2 500 - 6 500 FCFA');
@@ -3852,6 +3854,7 @@ function MobileRestaurantApp({ onLogout }: { onLogout?: () => void }) {
 
   const handleSaveGeneralInfo = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!currentResto) return;
     updateRestaurantShowcase(currentResto.id, {
       name: editName,
       tagline: editTagline,
@@ -3893,6 +3896,7 @@ function MobileRestaurantApp({ onLogout }: { onLogout?: () => void }) {
   };
 
   const handleUploadCoverFromPhone = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!currentResto) return;
     handleFileUpload(e, (dataUrl) => {
       updateRestaurantShowcase(currentResto.id, { coverImage: dataUrl });
       setIsEditCoverModalOpen(false);
@@ -3901,6 +3905,7 @@ function MobileRestaurantApp({ onLogout }: { onLogout?: () => void }) {
   };
 
   const handleUploadLogoFromPhone = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!currentResto) return;
     handleFileUpload(e, (dataUrl) => {
       updateRestaurantShowcase(currentResto.id, { logo: dataUrl });
       setIsEditLogoModalOpen(false);
@@ -3909,6 +3914,7 @@ function MobileRestaurantApp({ onLogout }: { onLogout?: () => void }) {
   };
 
   const handleUploadGalleryFromPhone = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!currentResto) return;
     handleFileUpload(e, (dataUrl) => {
       const currentGallery = currentResto.gallery || [];
       updateRestaurantShowcase(currentResto.id, {
@@ -3926,12 +3932,14 @@ function MobileRestaurantApp({ onLogout }: { onLogout?: () => void }) {
   };
 
   const handleSelectCover = (imgUrl: string) => {
+    if (!currentResto) return;
     updateRestaurantShowcase(currentResto.id, { coverImage: imgUrl });
     setIsEditCoverModalOpen(false);
     triggerSuccessFeedback('Photo de couverture mise à jour !');
   };
 
   const handleSelectLogo = (logoUrl: string) => {
+    if (!currentResto) return;
     updateRestaurantShowcase(currentResto.id, { logo: logoUrl });
     setIsEditLogoModalOpen(false);
     triggerSuccessFeedback('Logo du restaurant mis à jour !');
@@ -3939,7 +3947,7 @@ function MobileRestaurantApp({ onLogout }: { onLogout?: () => void }) {
 
   const handleAddGalleryPhoto = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newPhotoUrl) return;
+    if (!newPhotoUrl || !currentResto) return;
     const currentGallery = currentResto.gallery || [];
     updateRestaurantShowcase(currentResto.id, {
       gallery: [newPhotoUrl, ...currentGallery]
@@ -3950,6 +3958,7 @@ function MobileRestaurantApp({ onLogout }: { onLogout?: () => void }) {
   };
 
   const handleDeleteGalleryPhoto = (indexToDelete: number) => {
+    if (!currentResto) return;
     const currentGallery = currentResto.gallery || [];
     const updated = currentGallery.filter((_, i) => i !== indexToDelete);
     updateRestaurantShowcase(currentResto.id, { gallery: updated });
@@ -3957,6 +3966,7 @@ function MobileRestaurantApp({ onLogout }: { onLogout?: () => void }) {
   };
 
   const handleToggleAmenity = (amenity: string) => {
+    if (!currentResto) return;
     const currentAmenities = currentResto.amenities || [];
     let updated: string[];
     if (currentAmenities.includes(amenity)) {
@@ -3968,7 +3978,7 @@ function MobileRestaurantApp({ onLogout }: { onLogout?: () => void }) {
   };
 
   const handleAddTag = (tag: string) => {
-    if (!tag.trim()) return;
+    if (!tag.trim() || !currentResto) return;
     const currentTags = currentResto.ambianceTags || [];
     if (!currentTags.includes(tag.trim())) {
       updateRestaurantShowcase(currentResto.id, {
@@ -3980,6 +3990,7 @@ function MobileRestaurantApp({ onLogout }: { onLogout?: () => void }) {
   };
 
   const handleRemoveTag = (tagToRemove: string) => {
+    if (!currentResto) return;
     const currentTags = currentResto.ambianceTags || [];
     updateRestaurantShowcase(currentResto.id, {
       ambianceTags: currentTags.filter((t) => t !== tagToRemove)
@@ -3998,7 +4009,7 @@ function MobileRestaurantApp({ onLogout }: { onLogout?: () => void }) {
 
   const handleAddDish = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newDishName) return;
+    if (!newDishName || !currentResto) return;
     addMenuItem({
       restaurantId: currentResto.id,
       name: newDishName,
@@ -4056,104 +4067,36 @@ function MobileRestaurantApp({ onLogout }: { onLogout?: () => void }) {
     { id: 'Cocktails & Jus Locaux', icon: '🍹' },
   ];
 
-  if (!currentResto || !currentResto.id || restaurants.length === 0) {
+  if (!currentResto || !currentResto.id) {
     return (
-      <div className="h-full flex flex-col bg-[#F4F7F4] relative overflow-y-auto font-sans p-4 text-[#081A10]">
-        <div className="text-center my-4">
-          <div className="w-14 h-14 rounded-2xl bg-emerald-100 text-[#0A6E3B] flex items-center justify-center text-2xl mx-auto shadow-inner mb-3">
-            👨‍🍳
-          </div>
-          <h2 className="text-lg font-black text-[#081A10]">Espace Restaurateur Dakar</h2>
-          <p className="text-xs text-gray-500 mt-1 max-w-xs mx-auto">
-            Enregistrez votre restaurant en 30 secondes pour commencer à recevoir des commandes et afficher vos plats en direct !
+      <div className="h-full flex flex-col bg-[#F4F7F4] relative overflow-y-auto font-sans p-6 text-[#081A10] justify-center items-center text-center space-y-4">
+        <div className="w-16 h-16 rounded-3xl bg-amber-100 text-amber-600 flex items-center justify-center text-3xl shadow-md border border-amber-200">
+          🔒
+        </div>
+        <div className="space-y-1.5">
+          <h2 className="text-base font-black text-[#081A10]">Espace Restaurateur Sécurisé</h2>
+          <p className="text-xs text-gray-500 max-w-xs">
+            Vous devez être connecté avec votre compte restaurant pour accéder à votre tableau de bord et gérer vos plats.
           </p>
         </div>
-
-        <form onSubmit={handleQuickCreateResto} className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm space-y-3">
-          <div>
-            <label className="block text-[10px] font-black uppercase text-gray-500 mb-1">
-              Nom du Restaurant *
-            </label>
-            <input
-              type="text"
-              required
-              value={initRestoName}
-              onChange={(e) => setInitRestoName(e.target.value)}
-              placeholder="Ex: Le Palais du Thiéb, Chez Awa..."
-              className="w-full px-3 py-2 text-xs rounded-xl bg-gray-50 border border-gray-200 focus:outline-none focus:border-[#0A6E3B] font-medium"
-            />
-          </div>
-
-          <div>
-            <label className="block text-[10px] font-black uppercase text-gray-500 mb-1">
-              Quartier à Dakar *
-            </label>
-            <select
-              value={initRestoNeighborhood}
-              onChange={(e) => setInitRestoNeighborhood(e.target.value)}
-              className="w-full px-3 py-2 text-xs rounded-xl bg-gray-50 border border-gray-200 focus:outline-none focus:border-[#0A6E3B] font-medium"
-            >
-              {['Almadies', 'Ngor', 'Ouakam', 'Mermoz', 'Fann', 'Plateau', 'Point E', 'Yoff', 'Sacré-Cœur', 'Liberté 6', 'Pikine', 'Guédiawaye'].map((q) => (
-                <option key={q} value={q}>{q}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-[10px] font-black uppercase text-gray-500 mb-1">
-              Adresse précise ou repère
-            </label>
-            <input
-              type="text"
-              value={initRestoAddress}
-              onChange={(e) => setInitRestoAddress(e.target.value)}
-              placeholder="Ex: Route des Almadies, en face Pharmacie"
-              className="w-full px-3 py-2 text-xs rounded-xl bg-gray-50 border border-gray-200 focus:outline-none focus:border-[#0A6E3B] font-medium"
-            />
-          </div>
-
-          <div>
-            <label className="block text-[10px] font-black uppercase text-gray-500 mb-1">
-              Téléphone / WhatsApp Réception *
-            </label>
-            <input
-              type="tel"
-              required
-              value={initRestoPhone}
-              onChange={(e) => setInitRestoPhone(e.target.value)}
-              placeholder="+221 77 000 00 00"
-              className="w-full px-3 py-2 text-xs rounded-xl bg-gray-50 border border-gray-200 focus:outline-none focus:border-[#0A6E3B] font-medium"
-            />
-          </div>
-
+        <div className="w-full max-w-xs space-y-2 pt-2">
           <button
-            type="submit"
-            disabled={isRegisteringResto || !initRestoName.trim()}
-            className="w-full py-3 rounded-xl brand-gradient text-white font-black text-xs shadow-md active:scale-95 transition-all flex items-center justify-center gap-2 mt-4 cursor-pointer disabled:opacity-50"
-          >
-            {isRegisteringResto ? (
-              <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-            ) : (
-              <>
-                <span>🚀</span>
-                <span>Activer mon restaurant en ligne</span>
-              </>
-            )}
-          </button>
-        </form>
-
-        {onLogout && (
-          <button
-            type="button"
             onClick={onLogout}
-            className="mt-4 text-center text-xs text-gray-400 hover:text-gray-600 font-bold"
+            className="w-full py-3 bg-[#0A6E3B] hover:bg-[#085a30] text-white font-bold text-xs rounded-xl shadow-md transition-all cursor-pointer"
           >
-            ← Retour à l’accueil client
+            Se connecter / Créer mon restaurant
           </button>
-        )}
+          <button
+            onClick={() => setCurrentRole('client')}
+            className="w-full py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs rounded-xl transition-all cursor-pointer"
+          >
+            ← Retour à l'espace Client
+          </button>
+        </div>
       </div>
     );
   }
+
 
   return (
     <div className="h-full flex flex-col bg-[#F4F7F4] relative overflow-hidden font-sans select-none">
@@ -5947,14 +5890,43 @@ function MobileRestaurantApp({ onLogout }: { onLogout?: () => void }) {
 // 3. MOBILE APP COURIER VIEW (Radar Livreur Dakar)
 // =========================================================================
 function MobileCourierApp({ onLogout }: { onLogout?: () => void }) {
-  const { couriers, orders, restaurants, toggleCourierOnline, acceptDeliveryMission, completeDeliveryMission } = useApp();
-  const currentCourier = couriers[0];
+  const { currentCourier, orders, restaurants, setCurrentRole, toggleCourierOnline, acceptDeliveryMission, completeDeliveryMission } = useApp();
   const isOnline = currentCourier?.isOnline;
 
   const [courierTab, setCourierTab] = useState<'home' | 'client_view' | 'missions' | 'restaurants' | 'profile'>('home');
   const [isCourierNotificationsOpen, setIsCourierNotificationsOpen] = useState(false);
   const activeOrder = orders.find((o) => o.id === currentCourier?.activeOrderId);
   const availableOrders = orders.filter((o) => (o.status === 'ready_for_pickup' || o.status === 'preparing') && !o.courierId);
+
+  if (!currentCourier || !currentCourier.id) {
+    return (
+      <div className="h-full flex flex-col bg-[#F4F7F4] relative overflow-y-auto font-sans p-6 text-[#081A10] justify-center items-center text-center space-y-4">
+        <div className="w-16 h-16 rounded-3xl bg-emerald-100 text-[#0A6E3B] flex items-center justify-center text-3xl shadow-md border border-emerald-200">
+          🛵
+        </div>
+        <div className="space-y-1.5">
+          <h2 className="text-base font-black text-[#081A10]">Espace Livreur Sécurisé</h2>
+          <p className="text-xs text-gray-500 max-w-xs">
+            Vous devez être connecté avec votre compte livreur Tiak-Tiak pour accéder aux missions de livraison.
+          </p>
+        </div>
+        <div className="w-full max-w-xs space-y-2 pt-2">
+          <button
+            onClick={onLogout}
+            className="w-full py-3 bg-[#0A6E3B] hover:bg-[#085a30] text-white font-bold text-xs rounded-xl shadow-md transition-all cursor-pointer"
+          >
+            Se connecter / Créer mon compte livreur
+          </button>
+          <button
+            onClick={() => setCurrentRole('client')}
+            className="w-full py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold text-xs rounded-xl transition-all cursor-pointer"
+          >
+            ← Retour à l'espace Client
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full flex flex-col bg-[#F4F7F4] relative overflow-hidden font-sans">

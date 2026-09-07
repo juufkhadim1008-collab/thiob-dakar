@@ -27,10 +27,12 @@ export default function CourierSpace() {
     setCourierStatus,
     updateCourierLocation,
     acceptDeliveryMission, 
-    completeDeliveryMission 
+    completeDeliveryMission,
+    currentCourier,
+    setCurrentCourierId,
+    setCurrentRole,
   } = useApp();
 
-  const currentCourier = couriers[0] || null;
   const isOnline = currentCourier?.isOnline || false;
   const courierStatus = currentCourier?.status || (isOnline ? 'AVAILABLE' : 'OFFLINE');
 
@@ -69,6 +71,55 @@ export default function CourierSpace() {
       updateCourierLocation(currentCourier.id, { lat: preset.lat, lng: preset.lng }, courierStatus);
     }
   };
+
+  if (!currentCourier || !currentCourier.id) {
+    return (
+      <div className="max-w-2xl mx-auto my-12 p-8 bg-white/95 backdrop-blur-xl rounded-3xl border border-gray-100 shadow-2xl text-center space-y-6 font-sans">
+        <div className="w-20 h-20 rounded-3xl bg-emerald-100 text-[#0A6E3B] flex items-center justify-center text-4xl mx-auto shadow-md border border-emerald-200">
+          🛵
+        </div>
+        <div className="space-y-2">
+          <h2 className="text-2xl font-black text-[#081A10]">Espace Livreur Restreint</h2>
+          <p className="text-sm text-gray-600 max-w-md mx-auto">
+            Vous n'avez pas de session coursier active. L'accès aux missions de livraison, aux commandes clients et au radar GPS est réservé aux livreurs enregistrés.
+          </p>
+        </div>
+
+        {couriers.length > 0 && (
+          <div className="bg-gray-50 rounded-2xl p-4 border border-gray-200/80 text-left max-w-md mx-auto space-y-2">
+            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+              Tester avec un livreur partenaire :
+            </p>
+            <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+              {couriers.map((c) => (
+                <button
+                  key={c.id}
+                  onClick={() => setCurrentCourierId(c.id)}
+                  className="w-full flex items-center gap-3 p-2.5 rounded-xl bg-white border border-gray-200 hover:border-[#0A6E3B] hover:shadow-xs transition-all text-left cursor-pointer"
+                >
+                  <span className="text-2xl">🛵</span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-bold text-gray-900 truncate">{c.name}</p>
+                    <p className="text-[10px] text-gray-500">📍 Zone : {c.currentNeighborhood} • Moto ({c.plateNumber})</p>
+                  </div>
+                  <span className="text-xs text-[#0A6E3B] font-bold">Activer session →</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
+          <button
+            onClick={() => setCurrentRole('client')}
+            className="w-full sm:w-auto px-6 py-3 bg-[#0A6E3B] hover:bg-[#085a30] text-white font-black text-xs rounded-xl shadow-md transition-all cursor-pointer"
+          >
+            ← Retourner à l'Espace Client
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
