@@ -109,10 +109,11 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
     clientAddress,
     isClientGpsActive,
     requestClientGps,
-    setClientLocation,
     clientName: storeClientName,
     clientPhone: storeClientPhone,
     recordPaymentTransaction,
+    unreadNotificationsCount,
+    setIsNotificationCenterOpen,
   } = useApp();
 
 
@@ -498,13 +499,16 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
             <motion.button
               whileHover={{ scale: 1.08, y: -2 }}
               whileTap={{ scale: 0.92 }}
-              onClick={() => setIsNotificationsOpen(true)}
-              className="glass-btn relative w-10 h-10 rounded-2xl flex items-center justify-center text-[#0A6E3B]"
+              onClick={() => setIsNotificationCenterOpen(true)}
+              className="glass-btn relative w-10 h-10 rounded-2xl flex items-center justify-center text-[#0A6E3B] cursor-pointer"
+              title="Centre de notifications & Teranga"
             >
               <Bell className="w-4.5 h-4.5" />
-              <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#FF7824] text-white text-[9px] font-black rounded-full flex items-center justify-center ring-2 ring-white">
-                2
-              </span>
+              {unreadNotificationsCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 bg-[#FF7824] text-white text-[9px] font-black rounded-full flex items-center justify-center ring-2 ring-white">
+                  {unreadNotificationsCount > 9 ? '9+' : unreadNotificationsCount}
+                </span>
+              )}
             </motion.button>
 
             <motion.button

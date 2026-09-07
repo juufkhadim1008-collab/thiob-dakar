@@ -209,3 +209,33 @@ export interface PlatformMetrics {
   satisfactionRate: number;
 }
 
+export type NotificationType = 
+  | 'teranga_daily'      // Message de générosité quotidien de l'équipe Thiob à 10h
+  | 'geo_proximity'      // Suggestion restaurants à proximité selon déplacement GPS
+  | 'new_restaurant'     // Nouveau restaurant inscrit sur la plateforme
+  | 'order_status'       // Suivi & validation de commande en temps réel
+  | 'system_update'      // Mises à jour & nouvelles fonctionnalités déployées
+  | 'promo_teranga';     // Cadeaux & remises de l'équipe
+
+export interface AppNotification {
+  id: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  icon?: string;
+  image?: string;
+  timestamp: string; // ISO or human format
+  createdAt: number; // Date.now()
+  read: boolean;
+  actionUrl?: string;
+  actionRole?: UserRole;
+  actionData?: {
+    restaurantId?: string;
+    neighborhood?: string;
+    orderId?: string;
+    promoCode?: string;
+  };
+  priority?: 'normal' | 'high' | 'urgent';
+}
+
+

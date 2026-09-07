@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { 
   UserRole, 
   Restaurant, 
@@ -14,7 +14,9 @@ import {
   Reservation,
   OutingPlan,
   CourierStatus,
-  PaymentTransaction
+  PaymentTransaction,
+  AppNotification,
+  NotificationType
 } from './types';
 import { 
   RESTAURANTS as initialRestaurants, 
@@ -25,6 +27,11 @@ import {
   INITIAL_RESERVATIONS,
   INITIAL_OUTING_PLANS
 } from './mock-data';
+import { 
+  INITIAL_NOTIFICATIONS, 
+  TERANGA_DAILY_MESSAGES, 
+  UPCOMING_FEATURES_ANNOUNCEMENTS 
+} from './notifications-data';
 import { 
   GeoPoint, 
   calculateDistanceKm, 
@@ -181,6 +188,22 @@ interface AppContextType {
   // Tracking Modal
   activeTrackingOrder: Order | null;
   setActiveTrackingOrder: (order: Order | null) => void;
+
+  // In-App Notifications & Messaging Center
+  notifications: AppNotification[];
+  unreadNotificationsCount: number;
+  activeInAppToast: AppNotification | null;
+  isNotificationCenterOpen: boolean;
+  setIsNotificationCenterOpen: (open: boolean) => void;
+  addNotification: (notif: Omit<AppNotification, 'id' | 'createdAt' | 'read' | 'timestamp'>) => AppNotification;
+  markNotificationAsRead: (id: string) => void;
+  markAllNotificationsAsRead: () => void;
+  deleteNotification: (id: string) => void;
+  clearAllNotifications: () => void;
+  dismissInAppToast: () => void;
+  triggerDailyTerangaMessage: () => void;
+  triggerProximityNotification: (neighborhood: string) => void;
+  triggerSystemUpdateNotification: (title?: string, message?: string) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -225,6 +248,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [favoriteRestaurantIds, setFavoriteRestaurantIds] = useState<string[]>([]);
   const [clientName, setClientName] = useState<string>('');
   const [clientPhone, setClientPhone] = useState<string>('');
+
+  // In-App Notifications & Messaging Center State
+  const [notifications, setNotifications] = useState<AppNotification[]>(INITIAL_NOTIFICATIONS);
+  const [activeInAppToast, setActiveInAppToast] = useState<AppNotification | null>(null);
+  const [isNotificationCenterOpen, setIsNotificationCenterOpen] = useState<boolean>(false);
+  const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const prevClientNeighborhoodRef = useRef<string>('Tous les quartiers');
 
   const setCurrentRestaurantId = (id: string) => {
     setCurrentRestaurantIdState(id);
@@ -273,6 +303,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const savedCourierId = localStorage.getItem('thiob_active_courier_id');
       const savedRestos = localStorage.getItem('thiob_custom_restaurants');
       const savedCouriers = localStorage.getItem('thiob_custom_couriers');
+      const savedNotifs = localStorage.getItem('thiob_app_notifications');
+
+      if (savedNotifs) {
+        try {
+          const parsed = JSON.parse(savedNotifs);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setNotifications(parsed);
+          }
+        } catch {}
+      }
 
       const savedClientName = localStorage.getItem('thiob_client_name');
       const savedClientPhone = localStorage.getItem('thiob_client_phone');
@@ -485,8 +525,172 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     ? (couriers.find((c) => c.id === currentCourierId) || null)
     : null;
 
+  // 🔔 NOTIFICATION ENGINE & AUDIO CHIME
+  const playNotificationChime = () => {
+    if (typeof window === 'undefined') return;
+    try {
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContextClass) return;
+      const audioCtx = new AudioContextClass();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); // C5
+      osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.1); // E5
+      osc.frequency.setValueAtTime(783.99, audioCtx.currentTime + 0.2); // G5
+      gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.65);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.65);
+    } catch {}
+  };
 
-  // Client Geolocation Handler with exact accuracy
+  const addNotification = (notif: Omit<AppNotification, 'id' | 'createdAt' | 'read' | 'timestamp'>): AppNotification => {
+    const now = Date.now();
+    const newNotif: AppNotification = {
+      ...notif,
+      id: `notif-${now}-${Math.random().toString(36).substring(2, 7)}`,
+      createdAt: now,
+      timestamp: 'À l’instant',
+      read: false,
+    };
+
+    setNotifications((prev) => {
+      const updated = [newNotif, ...prev.filter((n) => n.id !== newNotif.id)].slice(0, 50);
+      try {
+        localStorage.setItem('thiob_app_notifications', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+
+    // Display floating in-app banner toast
+    setActiveInAppToast(newNotif);
+    playNotificationChime();
+
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    toastTimeoutRef.current = setTimeout(() => {
+      setActiveInAppToast((current) => (current?.id === newNotif.id ? null : current));
+    }, 6500);
+
+    return newNotif;
+  };
+
+  const markNotificationAsRead = (id: string) => {
+    setNotifications((prev) => {
+      const updated = prev.map((n) => (n.id === id ? { ...n, read: true } : n));
+      try {
+        localStorage.setItem('thiob_app_notifications', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+  };
+
+  const markAllNotificationsAsRead = () => {
+    setNotifications((prev) => {
+      const updated = prev.map((n) => ({ ...n, read: true }));
+      try {
+        localStorage.setItem('thiob_app_notifications', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+  };
+
+  const deleteNotification = (id: string) => {
+    setNotifications((prev) => {
+      const updated = prev.filter((n) => n.id !== id);
+      try {
+        localStorage.setItem('thiob_app_notifications', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+  };
+
+  const clearAllNotifications = () => {
+    setNotifications([]);
+    try {
+      localStorage.removeItem('thiob_app_notifications');
+    } catch {}
+  };
+
+  const dismissInAppToast = () => {
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    setActiveInAppToast(null);
+  };
+
+  const triggerDailyTerangaMessage = () => {
+    const randomIndex = Math.floor(Math.random() * TERANGA_DAILY_MESSAGES.length);
+    const tmpl = TERANGA_DAILY_MESSAGES[randomIndex];
+    addNotification({
+      type: 'teranga_daily',
+      title: tmpl.title,
+      message: tmpl.message,
+      icon: tmpl.icon,
+      priority: 'high',
+      actionRole: 'client',
+    });
+  };
+
+  const triggerProximityNotification = (neighborhood: string) => {
+    if (!neighborhood || neighborhood === 'Tous les quartiers') return;
+    const matchingRestos = restaurants.filter((r) =>
+      r.neighborhood.toLowerCase().includes(neighborhood.toLowerCase())
+    );
+    const restoNames = matchingRestos.slice(0, 2).map((r) => r.name).join(' & ');
+    addNotification({
+      type: 'geo_proximity',
+      title: `📍 Vous êtes à ${neighborhood} !`,
+      message:
+        matchingRestos.length > 0
+          ? `${matchingRestos.length} restaurant(s) réputés sont tout près (${restoNames}...). Découvrez leurs cartes !`
+          : `Découvrez les délicieux plats de Dakar livrés rapidement dans la zone ${neighborhood}.`,
+      icon: '📍',
+      actionRole: 'client',
+      actionData: { neighborhood },
+      priority: 'high',
+    });
+  };
+
+  const triggerSystemUpdateNotification = (title?: string, message?: string) => {
+    const randomIndex = Math.floor(Math.random() * UPCOMING_FEATURES_ANNOUNCEMENTS.length);
+    const tmpl = UPCOMING_FEATURES_ANNOUNCEMENTS[randomIndex];
+    addNotification({
+      type: 'system_update',
+      title: title || tmpl.title,
+      message: message || tmpl.message,
+      icon: tmpl.icon || '🚀',
+      priority: 'normal',
+      actionRole: 'client',
+    });
+  };
+
+  // 🇸🇳 VÉRIFICATION AUTOMATIQUE DU MESSAGE DE TERANGA QUOTIDIEN À 10H
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const check10hTeranga = () => {
+      const now = new Date();
+      const todayDateKey = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
+      const lastSent = localStorage.getItem('thiob_last_teranga_date');
+
+      if (now.getHours() >= 10 && lastSent !== todayDateKey) {
+        localStorage.setItem('thiob_last_teranga_date', todayDateKey);
+        triggerDailyTerangaMessage();
+      }
+    };
+
+    const timer = setTimeout(check10hTeranga, 2000);
+    const interval = setInterval(check10hTeranga, 10 * 60 * 1000);
+    return () => {
+      clearTimeout(timer);
+      clearInterval(interval);
+    };
+  }, []);
+
+  const unreadNotificationsCount = notifications.filter((n) => !n.read).length;
+
+  // Client Geolocation Handler with exact accuracy & proximity alerts
   const setClientLocation = (
     coords: GeoPoint,
     address?: string,
@@ -499,7 +703,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setClientIsApproximate(accuracy > 40);
     setIsClientGpsActive(true);
     if (address) setClientAddress(address);
-    if (neighborhood) setClientNeighborhood(neighborhood);
+    if (neighborhood) {
+      setClientNeighborhood(neighborhood);
+      // Trigger proximity recommendation when user moves to a new neighborhood
+      if (
+        neighborhood !== 'Tous les quartiers' &&
+        neighborhood !== prevClientNeighborhoodRef.current
+      ) {
+        if (prevClientNeighborhoodRef.current !== 'Tous les quartiers') {
+          triggerProximityNotification(neighborhood);
+        }
+        prevClientNeighborhoodRef.current = neighborhood;
+      }
+    }
 
     try {
       localStorage.setItem('thiob_client_coords', JSON.stringify(coords));
@@ -865,6 +1081,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       console.error('🔴 [Supabase] Exception lors de la création du restaurant :', err);
     }
 
+    // 🔔 Notification in-app automatique pour informer les utilisateurs
+    addNotification({
+      type: 'new_restaurant',
+      title: `🎉 Nouveau restaurant : ${newResto.name} !`,
+      message: `Bienvenue à "${newResto.name}" aux ${newResto.neighborhood}. Découvrez dès maintenant leurs plats faits maison en livraison !`,
+      icon: '🍽️',
+      image: newResto.logo || newResto.coverImage,
+      actionRole: 'client',
+      actionData: {
+        restaurantId: newResto.id,
+        neighborhood: newResto.neighborhood,
+      },
+      priority: 'normal',
+    });
 
     return newResto;
   };
@@ -1257,9 +1487,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
 
   const updateOrderStatus = (orderId: string, newStatus: OrderStatus) => {
+    let targetOrder: Order | undefined;
     setOrders((prev) =>
       prev.map((o) => {
         if (o.id === orderId) {
+          targetOrder = o;
           const updated = { ...o, status: newStatus };
           if (activeTrackingOrder?.id === orderId) {
             setActiveTrackingOrder(updated);
@@ -1269,6 +1501,63 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         return o;
       })
     );
+
+    // 🔔 Notifications in-app de suivi en temps réel pour le client
+    if (targetOrder) {
+      const num = targetOrder.orderNumber;
+      const rName = targetOrder.restaurantName;
+      if (newStatus === 'accepted') {
+        addNotification({
+          type: 'order_status',
+          title: `✅ Commande validée par ${rName}`,
+          message: `Votre commande #${num} a été confirmée et entre en préparation en cuisine !`,
+          icon: '👨‍🍳',
+          priority: 'high',
+          actionRole: 'client',
+          actionData: { orderId },
+        });
+      } else if (newStatus === 'preparing') {
+        addNotification({
+          type: 'order_status',
+          title: `🔥 En cuisine chez ${rName}`,
+          message: `Les chefs s'activent pour préparer vos plats frais avec amour.`,
+          icon: '🍲',
+          priority: 'normal',
+          actionRole: 'client',
+          actionData: { orderId },
+        });
+      } else if (newStatus === 'ready_for_pickup') {
+        addNotification({
+          type: 'order_status',
+          title: `📦 Commande #${num} prête !`,
+          message: `Votre commande est emballée et prête pour la prise en charge par le livreur.`,
+          icon: '🛵',
+          priority: 'normal',
+          actionRole: 'client',
+          actionData: { orderId },
+        });
+      } else if (newStatus === 'in_transit') {
+        addNotification({
+          type: 'order_status',
+          title: `🛵 Livreur en route avec votre repas !`,
+          message: `Votre commande #${num} est en route dans les rues de Dakar. Suivez l'arrivée en direct !`,
+          icon: '⚡',
+          priority: 'urgent',
+          actionRole: 'client',
+          actionData: { orderId },
+        });
+      } else if (newStatus === 'delivered') {
+        addNotification({
+          type: 'order_status',
+          title: `🎉 Bon appétit ! Commande livrée`,
+          message: `Votre commande #${num} a été livrée avec succès. Bon appétit et Teranga rek ! ❤️`,
+          icon: '🍽️',
+          priority: 'high',
+          actionRole: 'client',
+          actionData: { orderId },
+        });
+      }
+    }
   };
 
   const toggleCourierOnline = (courierId: string) => {
@@ -1737,6 +2026,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         recordPaymentTransaction,
         activeTrackingOrder,
         setActiveTrackingOrder,
+
+        // In-App Notifications & Messaging Center
+        notifications,
+        unreadNotificationsCount,
+        activeInAppToast,
+        isNotificationCenterOpen,
+        setIsNotificationCenterOpen,
+        addNotification,
+        markNotificationAsRead,
+        markAllNotificationsAsRead,
+        deleteNotification,
+        clearAllNotifications,
+        dismissInAppToast,
+        triggerDailyTerangaMessage,
+        triggerProximityNotification,
+        triggerSystemUpdateNotification,
       }}
     >
       {children}

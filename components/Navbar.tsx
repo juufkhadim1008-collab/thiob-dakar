@@ -13,7 +13,8 @@ import {
   Bike, 
   ShieldCheck, 
   Compass, 
-  Sparkles 
+  Sparkles,
+  Bell
 } from 'lucide-react';
 import { formatFCFA } from '@/lib/utils';
 
@@ -32,7 +33,16 @@ export default function Navbar({
   searchQuery,
   onSearchChange,
 }: NavbarProps) {
-  const { currentRole, setCurrentRole, cartCount, cartTotal, activeTrackingOrder, setActiveTrackingOrder } = useApp();
+  const { 
+    currentRole, 
+    setCurrentRole, 
+    cartCount, 
+    cartTotal, 
+    activeTrackingOrder, 
+    setActiveTrackingOrder,
+    unreadNotificationsCount,
+    setIsNotificationCenterOpen,
+  } = useApp();
 
   const roleConfigs: { role: UserRole; label: string; icon: React.ReactNode; badge?: string }[] = [
     { role: 'client', label: 'Espace Client', icon: <Compass className="w-4 h-4" /> },
@@ -171,13 +181,33 @@ export default function Navbar({
               </motion.button>
             )}
 
+            {/* Notification Center Bell Button with unread badge */}
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setIsNotificationCenterOpen(true)}
+              className="relative p-2.5 rounded-full bg-[#EBF7EE] hover:bg-[#D8EADB] text-[#07431E] border border-[#008235]/20 shadow-xs transition-colors cursor-pointer"
+              title="Centre de notifications & Teranga"
+            >
+              <Bell className="w-4 h-4 text-[#0A6E3B]" />
+              {unreadNotificationsCount > 0 && (
+                <motion.span
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-[#FF7824] text-white text-[10px] font-black flex items-center justify-center shadow-xs border-2 border-white"
+                >
+                  {unreadNotificationsCount > 9 ? '9+' : unreadNotificationsCount}
+                </motion.span>
+              )}
+            </motion.button>
+
             {/* Cart Button (Client mode) with animated badge */}
             {currentRole === 'client' && (
               <motion.button
                 whileHover={{ scale: 1.04 }}
                 whileTap={{ scale: 0.96 }}
                 onClick={onOpenCart}
-                className="relative flex items-center gap-2.5 px-4 py-2.5 rounded-full bg-[#07431E] hover:bg-[#063517] text-white font-medium text-sm shadow-md"
+                className="relative flex items-center gap-2.5 px-4 py-2.5 rounded-full bg-[#07431E] hover:bg-[#063517] text-white font-medium text-sm shadow-md cursor-pointer"
               >
                 <div className="relative">
                   <ShoppingBag className="w-4 h-4" />
