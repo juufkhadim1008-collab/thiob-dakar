@@ -665,9 +665,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     });
   };
 
-  // 🇸🇳 VÉRIFICATION AUTOMATIQUE DU MESSAGE DE TERANGA QUOTIDIEN À 10H
+  // 🇸🇳 VÉRIFICATION AUTOMATIQUE DU MESSAGE DE TERANGA QUOTIDIEN À 10H & BROADCAST
   useEffect(() => {
     if (typeof window === 'undefined') return;
+
+    // Déclencher le toast pop-up du message Teranga diffusé à l'ouverture
+    const broadcastTimer = setTimeout(() => {
+      const topNotif = INITIAL_NOTIFICATIONS[0];
+      if (topNotif) {
+        setActiveInAppToast(topNotif);
+        playNotificationChime();
+        if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+        toastTimeoutRef.current = setTimeout(() => {
+          setActiveInAppToast((cur) => (cur?.id === topNotif.id ? null : cur));
+        }, 7500);
+      }
+    }, 1200);
 
     const check10hTeranga = () => {
       const now = new Date();
@@ -683,6 +696,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const timer = setTimeout(check10hTeranga, 2000);
     const interval = setInterval(check10hTeranga, 10 * 60 * 1000);
     return () => {
+      clearTimeout(broadcastTimer);
       clearTimeout(timer);
       clearInterval(interval);
     };

@@ -56,15 +56,15 @@ export const UPCOMING_FEATURES_ANNOUNCEMENTS = [
 
 export const INITIAL_NOTIFICATIONS: AppNotification[] = [
   {
-    id: 'notif-teranga-today',
+    id: 'notif-broadcast-teranga-marmites',
     type: 'teranga_daily',
-    title: '🇸🇳 Teranga du Matin (10h) • Thiob Dakar',
-    message: 'Salam wa Dakar ! 10h sonné, que votre journée soit douce et fructueuse. N’oubliez pas de vous hydrater et de commander votre Thiéb bien chaud pour midi. Teranga rek ! ❤️',
-    icon: '☀️',
-    timestamp: 'Aujourd’hui à 10:00',
-    createdAt: Date.now() - 1000 * 60 * 60 * 3, // 3h ago
+    title: '🍲 Teranga Dakar • Les marmites frémissent !',
+    message: 'Nangadef Dakar ! C’est l’heure où les marmites commencent à frémir : Thiéboudienne Penda Mbaye, Yassa bien pimenté ou Dibi fumant ? Mangez avec le cœur et partagez la joie !',
+    icon: '🥘',
+    timestamp: 'À l’instant',
+    createdAt: Date.now(),
     read: false,
-    priority: 'normal',
+    priority: 'high',
     actionRole: 'client',
   },
   {
