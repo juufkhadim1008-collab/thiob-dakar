@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
 import { useApp } from '@/lib/store';
 import { CATEGORIES, DAKAR_NEIGHBORHOODS } from '@/lib/mock-data';
@@ -49,6 +49,7 @@ export default function ClientSpace({
     menuItems, 
     addToCart,
     clientCoords,
+    clientAccuracy,
     clientAddress,
     clientNeighborhood,
     isClientGpsActive,
@@ -67,6 +68,13 @@ export default function ClientSpace({
   const [isLocating, setIsLocating] = useState<boolean>(false);
   const [gpsError, setGpsError] = useState<string | null>(null);
   const [isNeighborhoodDropdownOpen, setIsNeighborhoodDropdownOpen] = useState<boolean>(false);
+
+  // Détection GPS automatique dès l'ouverture de l'application
+  useEffect(() => {
+    if (!isClientGpsActive && typeof window !== 'undefined' && navigator.geolocation) {
+      requestClientGps().catch(() => {});
+    }
+  }, [isClientGpsActive, requestClientGps]);
 
   const activeOrigin = clientCoords || (selectedNeighborhood !== 'Tous les quartiers' && DAKAR_GEO_PRESETS[selectedNeighborhood] ? { lat: DAKAR_GEO_PRESETS[selectedNeighborhood].lat, lng: DAKAR_GEO_PRESETS[selectedNeighborhood].lng } : DAKAR_DEFAULT_COORDS);
 
@@ -199,19 +207,22 @@ export default function ClientSpace({
           
           {/* Location info or request prompt */}
           <div className="flex items-center gap-2.5 flex-wrap">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#FA8038] animate-ping shrink-0" />
+            <span className={`w-2.5 h-2.5 rounded-full ${isClientGpsActive ? 'bg-emerald-400 animate-ping' : 'bg-[#FA8038] animate-ping'} shrink-0`} />
             {isClientGpsActive ? (
-              <div className="flex items-center gap-1.5 font-bold">
-                <span className="text-emerald-300">📍 Vous êtes à :</span>
-                <span className="text-white bg-white/15 px-2.5 py-0.5 rounded-full border border-white/20">
+              <div className="flex items-center gap-2 font-bold flex-wrap">
+                <span className="text-emerald-300">📍 Position exacte :</span>
+                <span className="text-white bg-white/15 px-2.5 py-0.5 rounded-full border border-white/20 text-xs shadow-xs">
                   {clientNeighborhood}
                 </span>
-                <span className="text-gray-300 text-[11px] hidden md:inline">({clientAddress})</span>
+                <span className="text-emerald-200 text-[10px] bg-emerald-950/60 px-2 py-0.5 rounded-md border border-emerald-500/30 font-semibold hidden md:inline">
+                  ⚡ En direct (±{Math.round(clientAccuracy)}m)
+                </span>
+                <span className="text-gray-300 text-[11px] hidden lg:inline max-w-md truncate">({clientAddress})</span>
               </div>
             ) : (
               <div className="flex items-center gap-2">
-                <span className="font-extrabold text-[#FA8038]">Activez votre localisation :</span>
-                <span className="text-white/80">Pour afficher les restaurants les plus proches de vous à Dakar.</span>
+                <span className="font-extrabold text-[#FA8038]">Localisation en direct :</span>
+                <span className="text-white/80">Activez le GPS pour détecter automatiquement votre position exacte (ex: Gare BRT, Quartier, Rue).</span>
               </div>
             )}
           </div>

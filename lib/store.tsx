@@ -474,9 +474,43 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } catch {}
   };
 
+  // 📡 Démarrage automatique & suivi GPS ultra-précis en temps réel lors de chaque déplacement
+  useEffect(() => {
+    if (typeof window === 'undefined' || !navigator.geolocation) return;
+
+    let isMounted = true;
+    let watcher: any = null;
+
+    const startLiveTracking = async () => {
+      try {
+        const { ClientLiveLocationWatcher } = await import('./geolocation');
+        watcher = new ClientLiveLocationWatcher(
+          async (loc) => {
+            if (!isMounted) return;
+            const coords = { lat: loc.lat, lng: loc.lng };
+            const geo = await reverseGeocodeDakar(loc.lat, loc.lng);
+            if (!isMounted) return;
+            setClientLocation(coords, geo.fullAddress, geo.neighborhood, loc.accuracy);
+          },
+          (err) => {
+            console.warn('[Live GPS Watcher] Notification :', err.message);
+          }
+        );
+        watcher.start();
+      } catch {}
+    };
+
+    startLiveTracking();
+
+    return () => {
+      isMounted = false;
+      if (watcher) watcher.stop();
+    };
+  }, []);
+
   const requestClientGps = async (): Promise<{ coords: GeoPoint; accuracy: number }> => {
     const { getHighAccuracyLocation } = await import('./geolocation');
-    const exact = await getHighAccuracyLocation(6000, 10);
+    const exact = await getHighAccuracyLocation(6000, 8);
     const coords = { lat: exact.lat, lng: exact.lng };
     const geo = await reverseGeocodeDakar(coords.lat, coords.lng);
     setClientLocation(coords, geo.fullAddress, geo.neighborhood, exact.accuracy);
