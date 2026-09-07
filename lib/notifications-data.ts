@@ -30,7 +30,32 @@ export const TERANGA_DAILY_MESSAGES = [
     title: '☕ Ataya & Motivation • Thiob Dakar',
     message: '10h : l’heure idéale pour une pause constructive. Respirez un grand coup, la réussite vous attend au bout de l’effort. On est ensemble ! 🛵✨',
     icon: '☕',
-  }
+  },
+  {
+    title: '🙏 Merci d’être des nôtres • Thiob Dakar',
+    message: 'Chaque commande que vous passez fait vivre un restaurateur, un livreur, une famille à Dakar. Merci de faire grandir la Teranga avec nous, un plat à la fois. 🇸🇳',
+    icon: '🙏',
+  },
+  {
+    title: '🌤️ Beau Réveil sur Dakar',
+    message: 'Djiko ! Le soleil est déjà haut sur la Corniche. Où que vous soyez — Ouakam, Médina ou Guédiawaye — on espère que votre matinée est aussi douce que notre Bouye glacé.',
+    icon: '🌤️',
+  },
+  {
+    title: '💚 La Teranga, c’est vous',
+    message: 'On le dit souvent mais on ne le répétera jamais assez : Thiob existe grâce à vous, nos clients, nos restaurateurs et nos livreurs. Que votre journée soit belle et généreuse !',
+    icon: '💚',
+  },
+  {
+    title: '🥭 Fraîcheur de 10h • Équipe Thiob',
+    message: 'Un jus de bissap bien frais, un sourire échangé au marché, une bonne nouvelle qui arrive : que 2026 continue de vous apporter tout ça. Bon courage pour la suite de la journée !',
+    icon: '🥭',
+  },
+  {
+    title: '🕌 Baraka & Réussite',
+    message: 'Que la baraka accompagne votre journée. Prenez soin de vous, de vos proches, et n’oubliez pas : à midi, Thiob est là pour vous régaler sans effort. Jërejëf !',
+    icon: '🕌',
+  },
 ];
 
 export const UPCOMING_FEATURES_ANNOUNCEMENTS = [
@@ -51,7 +76,19 @@ export const UPCOMING_FEATURES_ANNOUNCEMENTS = [
     message: 'Votre validation Wave est désormais instantanée grâce à notre nouvelle passerelle sécurisée temps réel.',
     icon: '⚡',
     type: 'system_update' as NotificationType,
-  }
+  },
+  {
+    title: '🔔 Bientôt : Suivi Live du Livreur sur Carte',
+    message: 'Voyez votre livreur se déplacer en temps réel sur une carte, comme si vous étiez à côté de lui, jusqu’à votre porte.',
+    icon: '🛵',
+    type: 'system_update' as NotificationType,
+  },
+  {
+    title: '⭐ Bientôt : Programme Fidélité Teranga',
+    message: 'Cumulez des points à chaque commande et échangez-les contre des plats offerts par vos restaurants préférés.',
+    icon: '⭐',
+    type: 'system_update' as NotificationType,
+  },
 ];
 
 export const INITIAL_NOTIFICATIONS: AppNotification[] = [

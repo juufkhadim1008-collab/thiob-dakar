@@ -160,6 +160,8 @@ interface AppContextType {
   clientPhone: string;
   setClientProfile: (name: string, phone: string, address?: string, neighborhood?: string, coords?: GeoPoint) => void;
   loginWithOAuth: (provider: 'google' | 'facebook') => Promise<{ success: boolean; error?: string }>;
+  isPushEnabled: boolean;
+  enablePushNotifications: (role: 'client' | 'restaurant' | 'courier', targetId?: string) => Promise<{ success: boolean; error?: string }>;
   signUpWithEmail: (email: string, password: string, fullName?: string) => Promise<{ success: boolean; userId?: string; error?: string }>;
   signInWithEmail: (email: string, password: string) => Promise<{
     success: boolean;
@@ -544,6 +546,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       gain.connect(audioCtx.destination);
       osc.start();
       osc.stop(audioCtx.currentTime + 0.65);
+    } catch {}
+  };
+
+  // Envoie une vraie notification push (arrive même app/onglet fermé) — best-effort, ne bloque jamais l'action en cours
+  const sendPushNotification = (target: { role?: 'client' | 'restaurant' | 'courier'; restaurantId?: string; all?: boolean }, title: string, body: string) => {
+    try {
+      fetch('/api/push/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target, title, body, icon: '/images/Icone app.png', url: '/' }),
+      }).catch(() => {});
     } catch {}
   };
 
@@ -1110,6 +1123,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       priority: 'normal',
     });
 
+    sendPushNotification(
+      { role: 'client' },
+      `🎉 Nouveau restaurant : ${newResto.name} !`,
+      `Bienvenue à "${newResto.name}" aux ${newResto.neighborhood}. Découvrez dès maintenant leurs plats faits maison en livraison !`
+    );
+
     return newResto;
   };
 
@@ -1419,7 +1438,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         delivery_details: newOrder.deliveryAddress.details,
         items: newOrder.items,
       }).then(({ error }) => {
-        if (error) console.error('🔴 [Supabase] Échec d’enregistrement de la commande :', error);
+        if (error) {
+          console.error('🔴 [Supabase] Échec d’enregistrement de la commande :', error);
+          return;
+        }
+        sendPushNotification(
+          { restaurantId: newOrder.restaurantId },
+          '🛎️ Nouvelle commande !',
+          `${newOrder.clientName} vient de commander pour ${newOrder.total.toLocaleString('fr-FR')} FCFA (${newOrder.orderNumber}).`
+        );
       });
     } catch (err) {
       console.error('🔴 [Supabase] Exception lors de l’enregistrement de la commande :', err);
@@ -1462,7 +1489,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         deposit_amount: paymentInfo?.depositAmount || 0,
         payment_method: paymentInfo?.paymentMethod || 'wave',
       }).then(({ error }) => {
-        if (error) console.error('🔴 [Supabase] Échec de synchronisation de la réservation (le restaurant ne la verra pas) :', error);
+        if (error) {
+          console.error('🔴 [Supabase] Échec de synchronisation de la réservation (le restaurant ne la verra pas) :', error);
+          return;
+        }
+        sendPushNotification(
+          { restaurantId: newRes.restaurantId },
+          '📅 Nouvelle réservation !',
+          `${newRes.clientName} a réservé pour ${newRes.guestsCount} personne(s) le ${newRes.date} à ${newRes.time} (${newRes.reservationNumber}).`
+        );
       });
     } catch (err) {
       console.error('🔴 [Supabase] Exception lors de la synchronisation de la réservation :', err);
@@ -1928,6 +1963,73 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Active les notifications push réelles (arrivent même app/onglet fermé).
+  // Nécessite un geste utilisateur (bouton) : les navigateurs bloquent la
+  // demande de permission si elle n'est pas déclenchée par un clic.
+  const [isPushEnabled, setIsPushEnabled] = useState(false);
+  useEffect(() => {
+    try {
+      if (localStorage.getItem('thiob_push_enabled') === '1') setIsPushEnabled(true);
+    } catch {}
+  }, []);
+
+  const enablePushNotifications = async (
+    role: 'client' | 'restaurant' | 'courier',
+    targetId?: string
+  ): Promise<{ success: boolean; error?: string }> => {
+    try {
+      if (typeof window === 'undefined' || !('serviceWorker' in navigator) || !('PushManager' in window)) {
+        return { success: false, error: 'Les notifications push ne sont pas supportées sur ce navigateur.' };
+      }
+
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        return { success: false, error: 'Permission refusée. Activez les notifications dans les réglages du navigateur.' };
+      }
+
+      const registration = await navigator.serviceWorker.register('/sw.js');
+      await navigator.serviceWorker.ready;
+
+      const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '';
+      if (!vapidPublicKey) throw new Error('Clé VAPID publique manquante côté serveur.');
+
+      const urlBase64ToUint8Array = (base64String: string) => {
+        const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+        const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+        const rawData = atob(base64);
+        return Uint8Array.from([...rawData].map((c) => c.charCodeAt(0)));
+      };
+
+      let subscription = await registration.pushManager.getSubscription();
+      if (!subscription) {
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
+        });
+      }
+
+      const res = await fetch('/api/push/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subscription: subscription.toJSON(),
+          role,
+          restaurantId: role === 'restaurant' ? targetId : undefined,
+          courierId: role === 'courier' ? targetId : undefined,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Échec de l’enregistrement de l’abonnement.');
+
+      setIsPushEnabled(true);
+      try { localStorage.setItem('thiob_push_enabled', '1'); } catch {}
+      return { success: true };
+    } catch (err: any) {
+      console.error('🔴 [Push] Échec activation :', err);
+      return { success: false, error: err?.message || 'Erreur lors de l’activation des notifications.' };
+    }
+  };
+
   const loginWithOAuth = async (provider: 'google' | 'facebook'): Promise<{ success: boolean; error?: string }> => {
     try {
       const { error } = await supabase.auth.signInWithOAuth({
@@ -2030,6 +2132,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         clientPhone,
         setClientProfile,
         loginWithOAuth,
+        isPushEnabled,
+        enablePushNotifications,
         signUpWithEmail,
         signInWithEmail,
         resendConfirmationEmail,

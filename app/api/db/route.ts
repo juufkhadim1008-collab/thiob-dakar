@@ -2,9 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://uyflqpwvchawiynooaia.supabase.co';
-const B64 = 'c2Jfc2VjcmV0X1BLMTVuVmhIWTU5UUdERDFjdmh2bGdfZFFLd2R4N2k=';
-const FALLBACK = Buffer.from(B64, 'base64').toString('utf-8');
-const SUPABASE_SECRET = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || FALLBACK;
+const SUPABASE_SECRET = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
 const supabaseServer = createClient(SUPABASE_URL, SUPABASE_SECRET);
 

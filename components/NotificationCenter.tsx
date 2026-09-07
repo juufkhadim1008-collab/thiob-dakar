@@ -5,16 +5,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useApp } from '@/lib/store';
 import { AppNotification, NotificationType } from '@/lib/types';
 import { 
-  Bell, 
-  X, 
-  CheckCheck, 
-  Trash2, 
-  Sparkles, 
-  MapPin, 
-  Utensils, 
-  Clock, 
-  Package, 
-  ChevronRight,
+  Bell,
+  X,
+  CheckCheck,
+  Trash2,
+  MapPin,
+  Utensils,
+  Clock,
+  Package,
   Heart,
   Volume2,
   Send,
@@ -24,6 +22,19 @@ import {
 
 interface NotificationCenterProps {
   // Can be embedded or used standalone
+}
+
+// Format à la manière des notifications natives (iOS/Android) : "à l'instant", "il y a 32 min", "il y a 2 h", "hier"
+function formatNativeRelativeTime(createdAt: number): string {
+  const diffMs = Date.now() - createdAt;
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 1) return 'à l’instant';
+  if (diffMin < 60) return `il y a ${diffMin} min`;
+  const diffH = Math.floor(diffMin / 60);
+  if (diffH < 24) return `il y a ${diffH} h`;
+  const diffD = Math.floor(diffH / 24);
+  if (diffD === 1) return 'hier';
+  return `il y a ${diffD} j`;
 }
 
 export default function NotificationCenter() {
@@ -45,9 +56,25 @@ export default function NotificationCenter() {
     setCurrentRole,
     setActiveTrackingOrder,
     orders,
+    currentRole,
+    currentRestaurantId,
+    currentCourierId,
+    isPushEnabled,
+    enablePushNotifications,
   } = useApp();
 
   const [activeFilter, setActiveFilter] = useState<'all' | NotificationType>('all');
+  const [isEnablingPush, setIsEnablingPush] = useState(false);
+  const [pushError, setPushError] = useState<string | null>(null);
+
+  const handleEnablePush = async () => {
+    setIsEnablingPush(true);
+    setPushError(null);
+    const targetId = currentRole === 'restaurant' ? currentRestaurantId : currentRole === 'courier' ? currentCourierId : undefined;
+    const res = await enablePushNotifications(currentRole === 'admin' ? 'client' : currentRole, targetId);
+    setIsEnablingPush(false);
+    if (!res.success) setPushError(res.error || 'Erreur inconnue');
+  };
 
   const filteredNotifications = notifications.filter((notif) => {
     if (activeFilter === 'all') return true;
@@ -122,29 +149,26 @@ export default function NotificationCenter() {
                 setIsNotificationCenterOpen(true);
                 dismissInAppToast();
               }}
-              className="relative p-4 rounded-2xl bg-white/95 backdrop-blur-xl border border-[#0A6E3B]/20 shadow-2xl hover:shadow-emerald-500/10 transition-all cursor-pointer overflow-hidden group ring-1 ring-black/5"
+              className="relative p-3 rounded-[22px] bg-white/80 backdrop-blur-2xl border border-white/60 shadow-2xl hover:bg-white/90 transition-all cursor-pointer overflow-hidden group ring-1 ring-black/[0.04]"
             >
-              {/* Subtle top indicator bar */}
-              <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#0A6E3B] via-[#FF7824] to-[#10B981]" />
-
-              <div className="flex items-start gap-3">
-                {/* Icon box */}
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-[#064E2B] to-[#10B981] text-white flex items-center justify-center text-xl shrink-0 shadow-md">
-                  {activeInAppToast.icon || '🔔'}
+              <div className="flex items-start gap-2.5">
+                {/* Icône app (badge carré arrondi, façon icône iOS) */}
+                <div className="relative w-11 h-11 rounded-[13px] overflow-hidden shrink-0 shadow-sm">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src="/images/Icone app.png" alt="Thiob" className="w-full h-full object-cover" />
+                  <span className="absolute -bottom-0.5 -right-0.5 text-sm leading-none">{activeInAppToast.icon || '🔔'}</span>
                 </div>
 
                 {/* Content */}
                 <div className="flex-1 min-w-0 pr-4">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border ${getBadgeStyle(activeInAppToast.type)}`}>
-                      {getCategoryLabel(activeInAppToast.type)}
-                    </span>
-                    <span className="text-[10px] text-gray-400 font-semibold">• {activeInAppToast.timestamp}</span>
+                  <div className="flex items-center gap-1 mb-0.5">
+                    <span className="text-[11px] font-black text-[#081A10]/70">Thiob</span>
+                    <span className="text-[11px] text-gray-400">· {formatNativeRelativeTime(activeInAppToast.createdAt)}</span>
                   </div>
-                  <h4 className="text-xs font-black text-[#081A10] leading-snug truncate">
+                  <h4 className="text-[13px] font-bold text-[#081A10] leading-snug truncate">
                     {activeInAppToast.title}
                   </h4>
-                  <p className="text-[11px] text-gray-600 mt-1 line-clamp-2 leading-relaxed">
+                  <p className="text-[12px] text-gray-600 mt-0.5 line-clamp-2 leading-snug">
                     {activeInAppToast.message}
                   </p>
                 </div>
@@ -155,18 +179,10 @@ export default function NotificationCenter() {
                     e.stopPropagation();
                     dismissInAppToast();
                   }}
-                  className="w-6 h-6 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-700 flex items-center justify-center text-xs transition-colors shrink-0"
+                  className="w-6 h-6 rounded-full hover:bg-black/5 text-gray-400 hover:text-gray-700 flex items-center justify-center text-xs transition-colors shrink-0"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
-              </div>
-
-              <div className="mt-2.5 pt-2 border-t border-gray-100 flex items-center justify-between text-[10px] font-bold text-[#0A6E3B]">
-                <span className="flex items-center gap-1">
-                  <Sparkles className="w-3 h-3" />
-                  Appuyez pour voir les détails
-                </span>
-                <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
               </div>
             </div>
           </motion.div>
@@ -225,6 +241,26 @@ export default function NotificationCenter() {
                     <X className="w-4 h-4" />
                   </button>
                 </div>
+
+                {/* Activation des notifications push réelles (même app fermée) */}
+                {!isPushEnabled ? (
+                  <button
+                    onClick={handleEnablePush}
+                    disabled={isEnablingPush}
+                    className="mt-3.5 w-full py-2.5 px-3 rounded-xl bg-[#081A10] hover:bg-black text-white text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer disabled:opacity-60"
+                  >
+                    <Bell className="w-3.5 h-3.5" />
+                    <span>{isEnablingPush ? 'Activation...' : 'Activer les notifications même app fermée'}</span>
+                  </button>
+                ) : (
+                  <div className="mt-3.5 py-2 px-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-[11px] font-bold flex items-center gap-1.5">
+                    <CheckCheck className="w-3.5 h-3.5" />
+                    <span>Notifications push activées sur cet appareil</span>
+                  </div>
+                )}
+                {pushError && (
+                  <p className="mt-1.5 text-[10px] font-bold text-rose-600">{pushError}</p>
+                )}
 
                 {/* Quick Simulation Bar for User Test */}
                 <div className="mt-3.5 p-2.5 bg-gradient-to-r from-[#E6F5EC] to-[#FFF3E8] rounded-xl border border-emerald-200/60 flex flex-wrap items-center justify-between gap-2">
@@ -329,37 +365,31 @@ export default function NotificationCenter() {
                         )}
 
                         <div className="flex items-start gap-3">
-                          {/* Icon */}
-                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0 ${
-                            notif.type === 'teranga_daily'
-                              ? 'bg-amber-100 text-amber-700'
-                              : notif.type === 'geo_proximity'
-                              ? 'bg-emerald-100 text-[#0A6E3B]'
-                              : notif.type === 'order_status'
-                              ? 'bg-orange-100 text-orange-700'
-                              : 'bg-blue-100 text-blue-700'
-                          }`}>
-                            {notif.icon || '🔔'}
+                          {/* Icône app (badge carré arrondi, façon icône iOS) */}
+                          <div className="relative w-10 h-10 rounded-[12px] overflow-hidden shrink-0 shadow-sm">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src="/images/Icone app.png" alt="Thiob" className="w-full h-full object-cover" />
+                            <span className="absolute -bottom-1 -right-1 text-xs leading-none">{notif.icon || '🔔'}</span>
                           </div>
 
                           {/* Text */}
                           <div className="flex-1 min-w-0 pr-6">
-                            <div className="flex items-center gap-1.5 mb-1 flex-wrap">
-                              <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full border ${getBadgeStyle(notif.type)}`}>
-                                {getCategoryLabel(notif.type)}
-                              </span>
-                              <span className="text-[10px] text-gray-400 font-semibold">
-                                {notif.timestamp}
-                              </span>
+                            <div className="flex items-center gap-1 mb-0.5">
+                              <span className="text-[11px] font-black text-[#081A10]/70">Thiob</span>
+                              <span className="text-[11px] text-gray-400">· {formatNativeRelativeTime(notif.createdAt)}</span>
                             </div>
 
-                            <h4 className="text-xs font-black text-[#081A10] leading-snug">
+                            <h4 className="text-[13px] font-bold text-[#081A10] leading-snug">
                               {notif.title}
                             </h4>
 
-                            <p className="text-xs text-gray-600 mt-1 leading-relaxed whitespace-pre-line">
+                            <p className="text-[12px] text-gray-600 mt-0.5 leading-snug whitespace-pre-line">
                               {notif.message}
                             </p>
+
+                            <span className={`inline-block mt-1.5 text-[9px] font-black uppercase px-2 py-0.5 rounded-full border ${getBadgeStyle(notif.type)}`}>
+                              {getCategoryLabel(notif.type)}
+                            </span>
 
                             {/* Action footer */}
                             {notif.actionData?.neighborhood && (
