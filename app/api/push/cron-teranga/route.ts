@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
       title: tmpl.title,
       body: tmpl.message,
       icon: '/images/Icone app.png',
-      url: '/',
+      url: '/?entry=push',
       tag: 'teranga-daily',
     }
   );

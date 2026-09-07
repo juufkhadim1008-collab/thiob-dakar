@@ -6688,7 +6688,23 @@ export default function MobileDeviceShowcase() {
           setShowOnboarding(true);
         }
       } else {
-        setShowOnboarding(true);
+        // Arrivée via une notification (ou un lien partagé) sans compte existant :
+        // on entre directement en mode invité pour voir les restaurants tout de
+        // suite, plutôt que de bloquer sur l'écran de création de compte.
+        const cameFromNotification = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('entry') === 'push';
+        if (cameFromNotification) {
+          setCurrentRole('client');
+          setShowOnboarding(false);
+          try {
+            localStorage.setItem('thiob_user_session', JSON.stringify({
+              isRegistered: true,
+              role: 'client',
+              timestamp: Date.now(),
+            }));
+          } catch {}
+        } else {
+          setShowOnboarding(true);
+        }
       }
     } catch {
       setShowOnboarding(true);

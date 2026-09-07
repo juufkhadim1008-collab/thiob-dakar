@@ -555,7 +555,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       fetch('/api/push/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ target, title, body, icon: '/images/Icone app.png', url: '/' }),
+        body: JSON.stringify({ target, title, body, icon: '/images/Icone app.png', url: '/?entry=push' }),
       }).catch(() => {});
     } catch {}
   };
