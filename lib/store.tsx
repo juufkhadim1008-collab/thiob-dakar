@@ -1890,17 +1890,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   // Inscription réelle par e-mail / mot de passe (Supabase Auth)
+  // Détecte si l'identifiant saisi est un email ou un numéro de téléphone,
+  // et normalise le téléphone au format international attendu par Supabase.
+  const buildAuthIdentifier = (identifier: string): { email: string } | { phone: string } => {
+    const trimmed = identifier.trim();
+    if (trimmed.includes('@')) return { email: trimmed };
+    return { phone: trimmed.replace(/[\s-]/g, '') };
+  };
+
   const signUpWithEmail = async (
-    email: string,
+    identifier: string,
     password: string,
     fullName?: string
   ): Promise<{ success: boolean; userId?: string; error?: string }> => {
     try {
       const { data, error } = await supabase.auth.signUp({
-        email,
+        ...buildAuthIdentifier(identifier),
         password,
         options: fullName ? { data: { full_name: fullName } } : undefined,
-      });
+      } as any);
       if (error) throw error;
       if (!data.user) throw new Error('Compte non créé, veuillez réessayer.');
       return { success: true, userId: data.user.id };
@@ -1910,10 +1918,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Connexion réelle par e-mail / mot de passe (Supabase Auth) + récupération
-  // du restaurant ou du livreur réellement associé à ce compte (auth.uid()).
+  // Connexion réelle par e-mail/téléphone + mot de passe (Supabase Auth) et
+  // récupération du restaurant ou du livreur réellement associé à ce compte (auth.uid()).
   const signInWithEmail = async (
-    email: string,
+    identifier: string,
     password: string
   ): Promise<{
     success: boolean;
@@ -1925,7 +1933,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     error?: string;
   }> => {
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } = await supabase.auth.signInWithPassword({
+        ...buildAuthIdentifier(identifier),
+        password,
+      } as any);
       if (error) throw error;
       const userId = data.user?.id;
       if (!userId) throw new Error('Connexion impossible, veuillez réessayer.');

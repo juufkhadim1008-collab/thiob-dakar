@@ -263,12 +263,13 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
 
   const finishOnboarding = async (role: UserRole) => {
     if (role === 'restaurant') {
-      if (!restoEmail.trim() || !authPassword || authPassword.length < 6) {
-        alert('Veuillez renseigner un email et un mot de passe (6 caractères minimum) pour créer votre compte.');
+      const restoIdentifier = restoEmail.trim() || restoPhone.trim();
+      if (!restoIdentifier || !authPassword || authPassword.length < 6) {
+        alert('Veuillez renseigner un email ou un téléphone, et un mot de passe (6 caractères minimum) pour créer votre compte.');
         return;
       }
       setIsSubmittingAuth(true);
-      const auth = await signUpWithEmail(restoEmail.trim(), authPassword, restoName.trim() || 'Mon Restaurant Dakar');
+      const auth = await signUpWithEmail(restoIdentifier, authPassword, restoName.trim() || 'Mon Restaurant Dakar');
       setIsSubmittingAuth(false);
       if (!auth.success) {
         alert(`Impossible de créer votre compte : ${auth.error || 'veuillez réessayer.'}`);
@@ -288,12 +289,13 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
       });
       setCurrentRole('restaurant');
     } else if (role === 'courier') {
-      if (!courierEmail.trim() || !authPassword || authPassword.length < 6) {
-        alert('Veuillez renseigner un email et un mot de passe (6 caractères minimum) pour créer votre compte.');
+      const courierIdentifier = courierEmail.trim() || courierPhone.trim();
+      if (!courierIdentifier || !authPassword || authPassword.length < 6) {
+        alert('Veuillez renseigner un email ou un téléphone, et un mot de passe (6 caractères minimum) pour créer votre compte.');
         return;
       }
       setIsSubmittingAuth(true);
-      const auth = await signUpWithEmail(courierEmail.trim(), authPassword, `${courierFirstName.trim()} ${courierLastName.trim()}`.trim());
+      const auth = await signUpWithEmail(courierIdentifier, authPassword, `${courierFirstName.trim()} ${courierLastName.trim()}`.trim());
       setIsSubmittingAuth(false);
       if (!auth.success) {
         alert(`Impossible de créer votre compte : ${auth.error || 'veuillez réessayer.'}`);
@@ -949,7 +951,7 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[11px] font-black text-[#081A10]">Email de connexion *</label>
+                  <label className="text-[11px] font-black text-[#081A10]">Email de connexion (optionnel — sinon connexion par téléphone)</label>
                   <input
                     type="email"
                     placeholder="contact@resto.sn"
@@ -1247,9 +1249,9 @@ export default function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
                 />
               </div>
 
-              {/* Email de connexion */}
+              {/* Email de connexion (optionnel — sinon connexion par téléphone) */}
               <div className="space-y-1">
-                <label className="text-[11px] font-black text-[#081A10]">Email de connexion *</label>
+                <label className="text-[11px] font-black text-[#081A10]">Email de connexion (optionnel — sinon connexion par téléphone)</label>
                 <input
                   type="email"
                   placeholder="votre@email.com"
