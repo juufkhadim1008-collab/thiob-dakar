@@ -261,6 +261,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const prevClientNeighborhoodRef = useRef<string>('Tous les quartiers');
   const isInitialLocationLoadedRef = useRef<boolean>(false);
+  const pendingDwellZoneRef = useRef<{ neighborhood: string; startTime: number; timer: NodeJS.Timeout | null } | null>(null);
 
   const setCurrentRestaurantId = (id: string) => {
     setCurrentRestaurantIdState(id);
@@ -869,19 +870,43 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (address) setClientAddress(address);
     if (neighborhood) {
       setClientNeighborhood(neighborhood);
-      // Ne jamais envoyer de notification à l'ouverture initiale de l'application
+      
+      // 1. Initialisation silencieuse au lancement de l'application
       if (!isInitialLocationLoadedRef.current) {
         isInitialLocationLoadedRef.current = true;
         prevClientNeighborhoodRef.current = neighborhood;
       } else {
-        // Déclencher uniquement si l'utilisateur s'est réellement déplacé dans un nouveau quartier
+        // 2. Détection de changement de zone avec temporisation de 3 minutes (filtre transit BRT / TER / Voiture)
         if (
           neighborhood !== 'Tous les quartiers' &&
           neighborhood !== prevClientNeighborhoodRef.current &&
           prevClientNeighborhoodRef.current !== 'Tous les quartiers'
         ) {
-          prevClientNeighborhoodRef.current = neighborhood;
-          triggerProximityNotification(neighborhood);
+          // Si l'utilisateur change encore de quartier avant 3 minutes (en plein trajet BRT), on annule la zone précédente
+          if (pendingDwellZoneRef.current) {
+            if (pendingDwellZoneRef.current.neighborhood === neighborhood) {
+              // Même nouvelle zone en cours de stabilisation, on laisse tourner le timer
+              return;
+            }
+            if (pendingDwellZoneRef.current.timer) {
+              clearTimeout(pendingDwellZoneRef.current.timer);
+            }
+          }
+
+          // Lancer le chronomètre de stabilisation de 3 minutes (180 secondes)
+          const targetZone = neighborhood;
+          const dwellTimer = setTimeout(() => {
+            // L'utilisateur est resté au moins 3 minutes dans cette nouvelle zone (destination confirmée)
+            prevClientNeighborhoodRef.current = targetZone;
+            triggerProximityNotification(targetZone);
+            pendingDwellZoneRef.current = null;
+          }, 3 * 60 * 1000); // 3 minutes
+
+          pendingDwellZoneRef.current = {
+            neighborhood: targetZone,
+            startTime: Date.now(),
+            timer: dwellTimer,
+          };
         }
       }
     }
