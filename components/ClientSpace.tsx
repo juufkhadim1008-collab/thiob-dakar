@@ -25,6 +25,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { MapMarkerItem } from './map/ThiobMap';
+import DakarProximityRadar from './DakarProximityRadar';
 
 const ThiobMap = dynamic(() => import('./map/ThiobMap'), { 
   ssr: false,
@@ -499,8 +500,13 @@ export default function ClientSpace({
         )}
       </AnimatePresence>
 
+      {/* 📡 DAKAR PROXIMITY RADAR & LIVE GEOLOCATION ENGINE */}
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8">
+        <DakarProximityRadar onOpenMap={() => setShowMapViewModal(!showMapViewModal)} />
+      </section>
+
       {/* 🏪 SECTION : RESTAURANTS À PROXIMITÉ (POSTGIS GÉOLOCALISÉS) */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-10">
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
             <div className="flex items-center gap-2">

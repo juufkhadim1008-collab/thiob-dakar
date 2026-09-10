@@ -694,12 +694,33 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const matchingRestos = restaurants.filter((r) =>
       r.neighborhood.toLowerCase().includes(neighborhood.toLowerCase())
     );
-    const restoNames = matchingRestos.slice(0, 2).map((r) => r.name).join(' & ');
-    const title = `📍 Vous êtes à ${neighborhood} !`;
+    const restoCount = matchingRestos.length;
+    const topRestoNames = matchingRestos.slice(0, 2).map((r) => r.name).join(' & ');
+
+    // Suggestion contextuelle selon l'heure de la journée à Dakar
+    const currentHour = new Date().getHours();
+    let timeGreeting = 'Délices du quartier';
+    let foodSuggestion = 'Thiéboudienne chaud, Yassa Poulet ou Dibi braisé';
+
+    if (currentHour >= 6 && currentHour < 11) {
+      timeGreeting = 'Petit-déjeuner & Café Touba';
+      foodSuggestion = 'Café Touba revigorant, beignets chauds et jus de bissap frais';
+    } else if (currentHour >= 11 && currentHour < 15) {
+      timeGreeting = 'C’est l’heure du déjeuner !';
+      foodSuggestion = 'Thiéboudienne Penda Mbaye, Yassa Poulet aux oignons ou Mafé onctueux';
+    } else if (currentHour >= 15 && currentHour < 18) {
+      timeGreeting = 'Pause Gourmande / Goûter';
+      foodSuggestion = 'Pastels croustillants au poisson, Fataya et jus de Bouye';
+    } else {
+      timeGreeting = 'Dîner & Dibiterie du soir';
+      foodSuggestion = 'Dibi d’agneau braisé au feu de bois, brochettes fumantes et grillades';
+    }
+
+    const title = `📍 Vous êtes à ${neighborhood} (${timeGreeting})`;
     const message =
-      matchingRestos.length > 0
-        ? `${matchingRestos.length} restaurant(s) réputés sont tout près (${restoNames}...). Découvrez leurs spécialités !`
-        : `Découvrez les délicieux plats de Dakar livrés rapidement dans la zone ${neighborhood}.`;
+      restoCount > 0
+        ? `${restoCount} restaurant(s) à proximité (${topRestoNames}...). Envie de ${foodSuggestion} ? Livraison express en 20 min !`
+        : `Bienvenue à ${neighborhood} ! Découvrez les meilleures adresses de Dakar prêtes à vous livrer : ${foodSuggestion}.`;
 
     addNotification({
       type: 'geo_proximity',
@@ -711,7 +732,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       priority: 'high',
     });
 
-    // 📡 Envoi de la notification push serveur pour réveiller les appareils hors de l'application
+    // 📡 1. Alerte native du système de l'appareil (écran de veille / notification banner)
+    dispatchNativeSystemNotification(
+      title,
+      message,
+      '/images/Icone app.png',
+      `/?entry=proximity&neighborhood=${encodeURIComponent(neighborhood)}`
+    );
+
+    // 📡 2. Envoi de la notification push serveur WebPush pour réveiller les appareils distants
     sendPushNotification({ role: 'client', all: true }, title, message);
   };
 
