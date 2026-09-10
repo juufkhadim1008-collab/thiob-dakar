@@ -283,37 +283,6 @@ export default function NotificationCenter() {
                   <p className="mt-1.5 text-[10px] font-bold text-rose-600 bg-rose-50 p-2 rounded-lg border border-rose-200">{pushError}</p>
                 )}
 
-                {/* Quick Simulation Bar for User Test */}
-                <div className="mt-3.5 p-2.5 bg-gradient-to-r from-[#E6F5EC] to-[#FFF3E8] rounded-xl border border-emerald-200/60 flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-[11px] font-black text-[#0A6E3B] flex items-center gap-1">
-                    <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500" />
-                    Tester les notifications :
-                  </span>
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <button
-                      onClick={() => triggerDailyTerangaMessage()}
-                      className="px-2.5 py-1 bg-white hover:bg-amber-50 text-amber-900 border border-amber-200 font-bold text-[10px] rounded-lg shadow-2xs transition-all cursor-pointer flex items-center gap-1"
-                    >
-                      <span>☀️</span>
-                      <span>Message 10h</span>
-                    </button>
-                    <button
-                      onClick={() => triggerProximityNotification(clientNeighborhood || 'Almadies')}
-                      className="px-2.5 py-1 bg-white hover:bg-emerald-50 text-[#0A6E3B] border border-emerald-200 font-bold text-[10px] rounded-lg shadow-2xs transition-all cursor-pointer flex items-center gap-1"
-                    >
-                      <span>📍</span>
-                      <span>GPS Proximité</span>
-                    </button>
-                    <button
-                      onClick={() => triggerSystemUpdateNotification()}
-                      className="px-2.5 py-1 bg-white hover:bg-blue-50 text-blue-800 border border-blue-200 font-bold text-[10px] rounded-lg shadow-2xs transition-all cursor-pointer flex items-center gap-1"
-                    >
-                      <span>🚀</span>
-                      <span>Mise à jour</span>
-                    </button>
-                  </div>
-                </div>
-
                 {/* Filter Pills */}
                 <div className="flex items-center gap-1.5 mt-3 overflow-x-auto pb-1 scrollbar-none">
                   {[

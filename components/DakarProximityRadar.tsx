@@ -51,9 +51,6 @@ export default function DakarProximityRadar({ onOpenMap }: DakarProximityRadarPr
     radiusFilterKm,
   } = useApp();
 
-  const [isSimulatingZone, setIsSimulatingZone] = useState(false);
-  const [selectedSimulatedZone, setSelectedSimulatedZone] = useState<string | null>(null);
-
   const activeZoneName = clientNeighborhood || 'Almadies';
 
   // Calculate nearest restaurants in real-time
@@ -69,28 +66,6 @@ export default function DakarProximityRadar({ onOpenMap }: DakarProximityRadarPr
   const totalInZone = restaurants.filter(
     (r) => r.neighborhood.toLowerCase().includes(activeZoneName.toLowerCase())
   ).length;
-
-  const handleSimulateMove = (zoneName: string) => {
-    const preset = DAKAR_GEO_PRESETS[zoneName];
-    if (!preset) return;
-
-    setIsSimulatingZone(true);
-    setSelectedSimulatedZone(zoneName);
-
-    setClientLocation(
-      { lat: preset.lat, lng: preset.lng },
-      `${preset.name}, Dakar`,
-      zoneName,
-      4.5
-    );
-
-    // Déclenche l'alerte de proximité enrichie avec push natif
-    triggerProximityNotification(zoneName);
-
-    setTimeout(() => {
-      setIsSimulatingZone(false);
-    }, 1000);
-  };
 
   return (
     <div className="relative overflow-hidden rounded-3xl bg-[#081A10] border border-[#0A6E3B]/30 text-white p-5 sm:p-6 shadow-xl mb-6">
@@ -196,41 +171,6 @@ export default function DakarProximityRadar({ onOpenMap }: DakarProximityRadarPr
               {closestResto?.deliveryTimeEstimate || '15 - 25 min'}
             </p>
           </div>
-        </div>
-      </div>
-
-      {/* Neighborhood Simulator Bar (Test de déplacement à travers Dakar) */}
-      <div className="relative z-10 mt-4 pt-3.5 border-t border-white/10">
-        <div className="flex items-center justify-between gap-2 mb-2.5">
-          <p className="text-xs font-black text-gray-200 flex items-center gap-1.5">
-            <span>🇸🇳</span>
-            <span>Simuler un déplacement dans Dakar & déclencher les alertes :</span>
-          </p>
-          <span className="text-[10px] text-emerald-400 font-bold hidden sm:inline-block">
-            {isSimulatingZone ? '⚡ Notification envoyée...' : 'Cliquez sur un quartier'}
-          </span>
-        </div>
-
-        {/* Horizontal Scrolling Chips */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
-          {POPULAR_NEIGHBORHOOD_PRESETS.map((item) => {
-            const isCurrent = activeZoneName.toLowerCase() === item.name.toLowerCase();
-            return (
-              <button
-                key={item.name}
-                onClick={() => handleSimulateMove(item.name)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap flex items-center gap-1.5 transition-all cursor-pointer shrink-0 border active:scale-95 ${
-                  isCurrent
-                    ? 'bg-gradient-to-r from-[#FF7824] to-amber-500 text-white border-amber-300 shadow-md scale-105'
-                    : 'bg-white/10 hover:bg-white/20 text-gray-200 border-white/10'
-                }`}
-              >
-                <span>{item.icon}</span>
-                <span>{item.name}</span>
-                {isCurrent && <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />}
-              </button>
-            );
-          })}
         </div>
       </div>
     </div>
