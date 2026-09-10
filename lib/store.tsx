@@ -260,6 +260,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [isNotificationCenterOpen, setIsNotificationCenterOpen] = useState<boolean>(false);
   const toastTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const prevClientNeighborhoodRef = useRef<string>('Tous les quartiers');
+  const isInitialLocationLoadedRef = useRef<boolean>(false);
 
   const setCurrentRestaurantId = (id: string) => {
     setCurrentRestaurantIdState(id);
@@ -691,6 +692,38 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const triggerProximityNotification = (neighborhood: string) => {
     if (!neighborhood || neighborhood === 'Tous les quartiers') return;
+
+    // 🛡️ FILTRE ANTI-BOMBARDEMENT RATIONNEL
+    try {
+      const now = Date.now();
+      const todayDateKey = new Date().toISOString().slice(0, 10);
+
+      // 1. Limite globale : maximum 1 alerte de proximité toutes les 45 minutes
+      const lastGlobalNotifTime = parseInt(localStorage.getItem('thiob_last_geo_notif_time') || '0', 10);
+      if (now - lastGlobalNotifTime < 45 * 60 * 1000) {
+        return; // Trop récent, on ne bombarde pas
+      }
+
+      // 2. Limite par quartier : au moins 4 heures avant de ré-alerter sur le même quartier
+      const zoneKey = `thiob_last_geo_${neighborhood.toLowerCase().replace(/\s+/g, '_')}`;
+      const lastZoneNotifTime = parseInt(localStorage.getItem(zoneKey) || '0', 10);
+      if (now - lastZoneNotifTime < 4 * 60 * 60 * 1000) {
+        return; // Même quartier visité récemment
+      }
+
+      // 3. Limite journalière : maximum 2 alertes de proximité par jour
+      const dailyKey = `thiob_geo_count_${todayDateKey}`;
+      const dailyCount = parseInt(localStorage.getItem(dailyKey) || '0', 10);
+      if (dailyCount >= 2) {
+        return; // Quota quotidien de proximité atteint
+      }
+
+      // Enregistrer les nouveaux horodatages
+      localStorage.setItem('thiob_last_geo_notif_time', now.toString());
+      localStorage.setItem(zoneKey, now.toString());
+      localStorage.setItem(dailyKey, (dailyCount + 1).toString());
+    } catch {}
+
     const matchingRestos = restaurants.filter((r) =>
       r.neighborhood.toLowerCase().includes(neighborhood.toLowerCase())
     );
@@ -732,16 +765,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       priority: 'high',
     });
 
-    // 📡 1. Alerte native du système de l'appareil (écran de veille / notification banner)
+    // 📡 Alerte native ciblée uniquement sur l'appareil de cet utilisateur (hors de l'application)
     dispatchNativeSystemNotification(
       title,
       message,
       '/images/Icone app.png',
       `/?entry=proximity&neighborhood=${encodeURIComponent(neighborhood)}`
     );
-
-    // 📡 2. Envoi de la notification push serveur WebPush pour réveiller les appareils distants
-    sendPushNotification({ role: 'client', all: true }, title, message);
   };
 
   const triggerSystemUpdateNotification = (title?: string, message?: string) => {
@@ -854,15 +884,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (address) setClientAddress(address);
     if (neighborhood) {
       setClientNeighborhood(neighborhood);
-      // Trigger proximity recommendation when user moves to a new neighborhood
-      if (
-        neighborhood !== 'Tous les quartiers' &&
-        neighborhood !== prevClientNeighborhoodRef.current
-      ) {
-        if (prevClientNeighborhoodRef.current !== 'Tous les quartiers') {
+      // Ne jamais envoyer de notification à l'ouverture initiale de l'application
+      if (!isInitialLocationLoadedRef.current) {
+        isInitialLocationLoadedRef.current = true;
+        prevClientNeighborhoodRef.current = neighborhood;
+      } else {
+        // Déclencher uniquement si l'utilisateur s'est réellement déplacé dans un nouveau quartier
+        if (
+          neighborhood !== 'Tous les quartiers' &&
+          neighborhood !== prevClientNeighborhoodRef.current &&
+          prevClientNeighborhoodRef.current !== 'Tous les quartiers'
+        ) {
+          prevClientNeighborhoodRef.current = neighborhood;
           triggerProximityNotification(neighborhood);
         }
-        prevClientNeighborhoodRef.current = neighborhood;
       }
     }
 
