@@ -1030,28 +1030,117 @@ export default function RestaurantSpace() {
                 {/* 2. FLUX KDS & ORDER QUEUES */}
                 {dashboardTab === 'kds' && (
                   <div className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {/* Alerte Sonore & Visuelle Commande Rush */}
+                    {restoOrders.filter((o) => o.status === 'pending').length > 0 && (
+                      <div className="p-4 rounded-3xl bg-gradient-to-r from-rose-600 via-[#FF7824] to-amber-500 text-white shadow-xl flex flex-col sm:flex-row items-center justify-between gap-3 animate-pulse">
+                        <div className="flex items-center gap-3">
+                          <span className="text-2xl animate-bounce">🚨</span>
+                          <div>
+                            <h4 className="font-black text-sm uppercase tracking-wider">
+                              {restoOrders.filter((o) => o.status === 'pending').length} Nouvelle(s) Commande(s) en attente !
+                            </h4>
+                            <p className="text-xs text-white/90">
+                              Validez immédiatement pour lancer la préparation en cuisine et notifier le livreur.
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => {
+                            const pendingOrd = restoOrders.find((o) => o.status === 'pending');
+                            if (pendingOrd) updateOrderStatus(pendingOrd.id, 'preparing');
+                          }}
+                          className="px-5 py-2.5 rounded-2xl bg-white text-rose-700 hover:bg-rose-50 font-black text-xs shadow-md transition-all cursor-pointer shrink-0"
+                        >
+                          ⚡ Accepter en Cuisine
+                        </button>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                       {restoOrders.map((ord) => (
                         <div
                           key={ord.id}
-                          onClick={() => setSelectedOrderForPos(ord.id)}
-                          className="p-4 rounded-3xl border border-[#D8EADB] bg-white shadow-xs space-y-3 cursor-pointer"
+                          className="p-4 rounded-3xl border border-[#D8EADB] bg-white shadow-xs space-y-3 relative hover:shadow-md transition-all"
                         >
                           <div className="flex items-center justify-between">
                             <span className="font-black text-xs text-[#081A10]">{ord.orderNumber}</span>
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-gray-100 text-gray-700">
-                              {ord.deliveryAddress.neighborhood}
+                            <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full ${
+                              ord.paymentMethod === 'cash' ? 'bg-amber-100 text-amber-900 border border-amber-300' : 'bg-emerald-100 text-emerald-900 border border-emerald-300'
+                            }`}>
+                              {ord.paymentMethod === 'cash' ? '💵 Cash à la livraison' : `💳 ${ord.paymentMethod.toUpperCase()} Payé ✓`}
                             </span>
                           </div>
+
                           <div>
-                            <h4 className="font-bold text-xs text-[#081A10]">{ord.clientName}</h4>
+                            <div className="flex items-center justify-between">
+                              <h4 className="font-bold text-xs text-[#081A10]">{ord.clientName}</h4>
+                              <span className="text-[10px] text-gray-500 font-medium">📍 {ord.deliveryAddress.neighborhood}</span>
+                            </div>
                             <p className="text-[10px] text-gray-400">{ord.clientPhone}</p>
+                            {(ord.deliveryLandmark || ord.deliveryAddress.landmark) && (
+                              <p className="text-[10px] text-amber-800 font-bold bg-amber-50 p-1.5 rounded-lg mt-1 border border-amber-200">
+                                🏠 Repère : {ord.deliveryLandmark || ord.deliveryAddress.landmark}
+                              </p>
+                            )}
                           </div>
+
+                          {/* Order Items Preview */}
+                          <div className="p-2.5 rounded-2xl bg-[#F7FAF7] border border-[#E2ECE5] text-[11px] space-y-1">
+                            {ord.items.map((it, idx) => (
+                              <div key={idx} className="flex justify-between font-medium text-gray-700">
+                                <span>{it.quantity}x {it.name}</span>
+                                <span className="font-bold text-[#0A6E3B]">{formatFCFA(it.price * it.quantity)}</span>
+                              </div>
+                            ))}
+                          </div>
+
                           <div className="flex items-center justify-between pt-2 border-t border-gray-100 text-xs">
                             <span className="font-black text-[#0A6E3B]">{formatFCFA(ord.subtotal)}</span>
-                            <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-md">
-                              {ord.status}
-                            </span>
+                            
+                            <div className="flex items-center gap-1.5">
+                              {/* 1-Click WhatsApp to Client */}
+                              <a
+                                href={`https://wa.me/${ord.clientPhone.replace(/\D/g, '')}?text=${encodeURIComponent(`Salam ${ord.clientName} ! Votre commande ${ord.orderNumber} est en préparation chez ${currentResto.name}. Nous préparons vos plats avec soin !`)}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="p-1.5 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-800 text-[11px] font-bold"
+                                title="Envoyer message WhatsApp au client"
+                              >
+                                💬
+                              </a>
+
+                              {ord.status === 'pending' && (
+                                <button
+                                  onClick={() => updateOrderStatus(ord.id, 'preparing')}
+                                  className="px-2.5 py-1 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-bold text-[10px]"
+                                >
+                                  Accepter
+                                </button>
+                              )}
+                              {ord.status === 'preparing' && (
+                                <button
+                                  onClick={() => updateOrderStatus(ord.id, 'ready_for_pickup')}
+                                  className="px-2.5 py-1 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-[10px]"
+                                >
+                                  Prête (Livreur)
+                                </button>
+                              )}
+                              {ord.status === 'ready_for_pickup' && (
+                                <span className="text-[10px] font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded-md">
+                                  En attente coursier
+                                </span>
+                              )}
+                              {ord.status === 'in_transit' && (
+                                <span className="text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md">
+                                  En livraison 🛵
+                                </span>
+                              )}
+                              {ord.status === 'delivered' && (
+                                <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
+                                  Livrée ✓
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
                       ))}

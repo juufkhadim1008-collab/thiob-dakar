@@ -346,17 +346,63 @@ export default function CourierSpace() {
               );
             })()}
 
-            {/* Action buttons */}
+            {/* Payment & Cash Collection Box */}
+            <div className={`p-3.5 rounded-2xl border ${
+              activeOrder.paymentMethod === 'cash'
+                ? 'bg-amber-50/80 border-amber-300 text-amber-950'
+                : 'bg-emerald-50/80 border-emerald-300 text-emerald-950'
+            }`}>
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <span className="text-base">
+                    {activeOrder.paymentMethod === 'cash' ? '💵' : '💳'}
+                  </span>
+                  <div>
+                    <p className="text-xs font-black">
+                      {activeOrder.paymentMethod === 'cash'
+                        ? `À ENCAISSER EN ESPÈCES : ${formatFCFA(activeOrder.total)}`
+                        : `DÉJÀ PAYÉ EN LIGNE (${activeOrder.paymentMethod.toUpperCase()})`}
+                    </p>
+                    <p className="text-[11px] font-medium opacity-90">
+                      {activeOrder.paymentMethod === 'cash'
+                        ? activeOrder.cashBill
+                          ? `Billet client : ${formatFCFA(activeOrder.cashBill)} • Rendre impérativement : ${formatFCFA(activeOrder.cashChangeToReturn || 0)}`
+                          : 'Encaisser le montant exact de la commande auprès du client.'
+                        : 'Ne demandez aucun paiement en espèces au client.'}
+                    </p>
+                  </div>
+                </div>
+
+                <span className={`px-2.5 py-1 rounded-xl text-[10px] font-black uppercase ${
+                  activeOrder.paymentMethod === 'cash'
+                    ? 'bg-amber-200 text-amber-900'
+                    : 'bg-emerald-200 text-emerald-900'
+                }`}>
+                  {activeOrder.paymentMethod === 'cash' ? 'Encaissement Cash' : 'Déjà Payé ✓'}
+                </span>
+              </div>
+            </div>
+
+            {/* Action buttons with 1-Click WhatsApp */}
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
               <div>
                 <span className="text-[10px] text-gray-400 block font-semibold">Votre gain pour cette course</span>
                 <span className="text-lg font-black text-[#008235]">+{formatFCFA(activeOrder.deliveryFee)}</span>
               </div>
 
-              <div className="flex items-center gap-2 w-full sm:w-auto">
+              <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
+                <a
+                  href={`https://wa.me/${activeOrder.clientPhone.replace(/\D/g, '')}?text=${encodeURIComponent(`Salam ${activeOrder.clientName} ! Je suis votre livreur Thiob Dakar pour la commande ${activeOrder.orderNumber}. Je suis en bas avec votre plat chaud !`)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3.5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer"
+                >
+                  <span>💬 WhatsApp</span>
+                </a>
+
                 <a
                   href={`tel:${activeOrder.clientPhone}`}
-                  className="px-4 py-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold flex items-center gap-1.5"
+                  className="px-3.5 py-2.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 text-xs font-bold flex items-center gap-1.5"
                 >
                   <Phone className="w-4 h-4" />
                   <span>Appeler</span>
@@ -366,7 +412,7 @@ export default function CourierSpace() {
                   whileHover={{ scale: 1.03 }}
                   whileTap={{ scale: 0.95 }}
                   onClick={() => completeDeliveryMission(currentCourier.id, activeOrder.id)}
-                  className="flex-1 sm:flex-initial px-6 py-2.5 rounded-xl brand-gradient text-white text-xs font-bold shadow-lg flex items-center justify-center gap-1.5"
+                  className="flex-1 sm:flex-initial px-5 py-2.5 rounded-xl brand-gradient text-white text-xs font-bold shadow-lg flex items-center justify-center gap-1.5"
                 >
                   <CheckCircle2 className="w-4 h-4" />
                   <span>Confirmer la Livraison</span>

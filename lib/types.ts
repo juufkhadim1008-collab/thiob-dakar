@@ -46,6 +46,7 @@ export interface MenuItem {
   image: string;
   isAvailable: boolean;
   isPopular?: boolean;
+  isOutOfStockToday?: boolean;
   preparationTimeMinutes: number;
   tags?: string[];
 }
@@ -155,6 +156,8 @@ export interface Order {
   total: number;
   paymentMethod: PaymentMethod;
   paymentStatus: 'paid' | 'pending' | 'failed';
+  cashBill?: number; // Ex: 10000 ou 5000 FCFA
+  cashChangeToReturn?: number; // Ex: 3500 FCFA
   deliveryAddress: {
     neighborhood: string;
     street: string;

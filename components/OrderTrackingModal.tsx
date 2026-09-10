@@ -206,40 +206,63 @@ export default function OrderTrackingModal() {
               })}
             </div>
 
-            {/* Courier Card */}
-            <div className="p-4 rounded-2xl bg-[#F7FAF7] border border-[#E2ECE5] flex items-center justify-between">
+            {/* Courier Card with Direct Call & WhatsApp */}
+            <div className="p-4 rounded-2xl bg-[#F7FAF7] border border-[#E2ECE5] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-full brand-gradient text-white flex items-center justify-center font-black text-sm">
+                <div className="w-12 h-12 rounded-2xl brand-gradient text-white flex items-center justify-center font-black text-lg shadow-md shrink-0">
                   🛵
                 </div>
                 <div>
-                  <span className="text-[11px] font-bold uppercase text-[#008235] tracking-wider">
-                    Votre Livreur Partenaire
+                  <span className="text-[10px] font-black uppercase text-[#008235] tracking-wider">
+                    Votre Livreur Express Dakar
                   </span>
                   <h5 className="font-bold text-sm text-[#07431E]">
-                    {activeTrackingOrder.courierName || matchedCourier?.name || 'Livreur Partenaire (Moto Dakar)'}
+                    {activeTrackingOrder.courierName || matchedCourier?.name || 'Livreur Partenaire (Tiak-Tiak)'}
                   </h5>
                   <p className="text-xs text-gray-500">
-                    {activeTrackingOrder.courierPhone || matchedCourier?.phone || '+221 70 812 34 56'}
+                    {activeTrackingOrder.courierPhone || matchedCourier?.phone || '+221 77 654 32 10'}
                   </p>
                 </div>
               </div>
 
-              <a
-                href={`tel:${activeTrackingOrder.courierPhone || matchedCourier?.phone || '+221708123456'}`}
-                className="px-3.5 py-2 rounded-xl bg-white border border-[#008235]/30 text-[#008235] hover:bg-[#008235] hover:text-white transition-colors text-xs font-bold flex items-center gap-1.5 shadow-xs"
-              >
-                <Phone className="w-3.5 h-3.5" />
-                <span>Appeler</span>
-              </a>
+              <div className="flex items-center gap-2 self-end sm:self-auto">
+                <a
+                  href={`https://wa.me/${(activeTrackingOrder.courierPhone || matchedCourier?.phone || '221776543210').replace(/\D/g, '')}?text=${encodeURIComponent(`Salam ! Je suis ${activeTrackingOrder.clientName}, client de la commande ${activeTrackingOrder.orderNumber} (Thiob Dakar). Où en êtes-vous ?`)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white transition-all text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer"
+                >
+                  <span>💬 WhatsApp</span>
+                </a>
+                <a
+                  href={`tel:${activeTrackingOrder.courierPhone || matchedCourier?.phone || '+221776543210'}`}
+                  className="px-3 py-2 rounded-xl bg-white border border-[#008235]/30 text-[#008235] hover:bg-[#008235] hover:text-white transition-colors text-xs font-bold flex items-center gap-1.5 shadow-xs"
+                >
+                  <Phone className="w-3.5 h-3.5" />
+                  <span>Appeler</span>
+                </a>
+              </div>
             </div>
 
-            {/* Ordered Items Summary */}
+            {/* Landmark & Delivery Instructions Callout */}
+            {(activeTrackingOrder.deliveryLandmark || activeTrackingOrder.deliveryAddress.landmark || activeTrackingOrder.deliveryAddress.details) && (
+              <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-900 flex items-start gap-2.5">
+                <span className="text-base">📍</span>
+                <div>
+                  <p className="font-black text-amber-950">Point de repère pour le livreur :</p>
+                  <p className="text-amber-900 mt-0.5 font-medium">
+                    {activeTrackingOrder.deliveryLandmark || activeTrackingOrder.deliveryAddress.landmark || activeTrackingOrder.deliveryAddress.details}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Ordered Items Summary & Cash Change Alert */}
             <div className="space-y-2 pt-2">
               <h5 className="font-bold text-xs uppercase tracking-wider text-gray-500">
                 Détail des plats commandés
               </h5>
-              <div className="divide-y divide-[#E2ECE5] bg-[#F7FAF7] p-3 rounded-2xl border border-[#E2ECE5]">
+              <div className="divide-y divide-[#E2ECE5] bg-[#F7FAF7] p-3.5 rounded-2xl border border-[#E2ECE5]">
                 {activeTrackingOrder.items.map((it, idx) => (
                   <div key={idx} className="py-2 flex justify-between text-xs first:pt-0 last:pb-0">
                     <span className="text-[#0D1C12] font-medium">
@@ -251,9 +274,15 @@ export default function OrderTrackingModal() {
                   </div>
                 ))}
                 <div className="pt-2 flex justify-between text-xs font-extrabold text-[#07431E]">
-                  <span>Total réglé ({activeTrackingOrder.paymentMethod.toUpperCase()})</span>
+                  <span>Total ({activeTrackingOrder.paymentMethod.toUpperCase()})</span>
                   <span className="text-[#FA8038]">{formatFCFA(activeTrackingOrder.total)}</span>
                 </div>
+                {activeTrackingOrder.paymentMethod === 'cash' && activeTrackingOrder.cashBill && (
+                  <div className="pt-2 flex justify-between text-[11px] font-bold text-amber-800">
+                    <span>💵 Billet client : {formatFCFA(activeTrackingOrder.cashBill)}</span>
+                    <span className="text-emerald-700">Monnaie à rendre : {formatFCFA(activeTrackingOrder.cashChangeToReturn || 0)}</span>
+                  </div>
+                )}
               </div>
             </div>
           </div>
