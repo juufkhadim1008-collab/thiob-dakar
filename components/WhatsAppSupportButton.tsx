@@ -24,14 +24,14 @@ export default function WhatsAppSupportButton() {
   };
 
   return (
-    <div className="fixed bottom-6 left-6 z-40 font-sans">
+    <div className="fixed bottom-24 right-4 z-40 font-sans">
       <AnimatePresence>
         {isOpen && (
           <motion.div
             initial={{ opacity: 0, y: 20, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.9 }}
-            className="mb-3 w-80 bg-white rounded-3xl p-4 shadow-2xl border border-[#D8EADB] text-[#081A10]"
+            className="mb-3 w-76 sm:w-80 bg-white rounded-3xl p-4 shadow-2xl border border-[#D8EADB] text-[#081A10]"
           >
             <div className="flex items-center justify-between border-b border-gray-100 pb-2.5 mb-3">
               <div className="flex items-center gap-2">
@@ -39,16 +39,16 @@ export default function WhatsAppSupportButton() {
                   💬
                 </div>
                 <div>
-                  <h4 className="font-black text-xs text-[#081A10]">Conciergerie Thiob Dakar</h4>
+                  <h4 className="font-black text-xs text-[#081A10]">Support WhatsApp Thiob</h4>
                   <p className="text-[10px] text-emerald-600 font-bold flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
-                    En direct sur WhatsApp
+                    En direct avec l'équipe
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setIsOpen(false)}
-                className="w-6 h-6 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 flex items-center justify-center text-xs"
+                className="w-6 h-6 rounded-full bg-gray-100 text-gray-500 hover:bg-gray-200 flex items-center justify-center text-xs cursor-pointer"
               >
                 ✕
               </button>
