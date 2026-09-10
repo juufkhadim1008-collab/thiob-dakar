@@ -2096,13 +2096,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Enregistrement automatique du Service Worker au démarrage
-  useEffect(() => {
-    if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch(() => {});
-    }
-  }, []);
-
   const requestNotificationPermission = async (): Promise<boolean> => {
     if (typeof window === 'undefined' || !('Notification' in window)) return false;
     try {
@@ -2116,6 +2109,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
         setIsPushEnabled(true);
         try { localStorage.setItem('thiob_push_enabled', '1'); } catch {}
+        // Auto-abonnement push serveur
+        const targetId = currentRole === 'restaurant' ? currentRestaurantId : currentRole === 'courier' ? currentCourierId : undefined;
+        enablePushNotifications(currentRole === 'admin' ? 'client' : currentRole, targetId).catch(() => {});
         return true;
       }
       return false;
@@ -2123,6 +2119,44 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       return false;
     }
   };
+
+  // Activation et abonnement 100% automatiques pour tout utilisateur dès l'ouverture de l'application
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const autoActivate = async () => {
+      // 1. Enregistrement immédiat du Service Worker
+      if ('serviceWorker' in navigator) {
+        try {
+          await navigator.serviceWorker.register('/sw.js');
+          await navigator.serviceWorker.ready;
+        } catch {}
+      }
+
+      // 2. Vérification / Demande de permission native
+      if ('Notification' in window) {
+        if (Notification.permission === 'granted') {
+          setIsPushEnabled(true);
+          const targetId = currentRole === 'restaurant' ? currentRestaurantId : currentRole === 'courier' ? currentCourierId : undefined;
+          enablePushNotifications(currentRole === 'admin' ? 'client' : currentRole, targetId).catch(() => {});
+        } else if (Notification.permission === 'default') {
+          // Tentative immédiate
+          requestNotificationPermission().catch(() => {});
+
+          // Au cas où le navigateur requiert un geste utilisateur (tap/clic), déclenchement au premier toucher de l'écran
+          const triggerOnFirstInteraction = () => {
+            if (Notification.permission === 'default') {
+              requestNotificationPermission().catch(() => {});
+            }
+          };
+          window.addEventListener('click', triggerOnFirstInteraction, { once: true });
+          window.addEventListener('touchstart', triggerOnFirstInteraction, { once: true });
+        }
+      }
+    };
+
+    autoActivate();
+  }, [currentRole, currentRestaurantId, currentCourierId]);
 
   const loginWithOAuth = async (provider: 'google' | 'facebook'): Promise<{ success: boolean; error?: string }> => {
     try {

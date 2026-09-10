@@ -242,8 +242,19 @@ export default function NotificationCenter() {
                   </button>
                 </div>
 
-                {/* Activation des notifications push & alertes GPS hors de l'application */}
-                {!isPushEnabled ? (
+                {/* Statut des alertes automatiques GPS & hors de l'application */}
+                {isPushEnabled ? (
+                  <div className="mt-3.5 py-2.5 px-3 rounded-xl bg-gradient-to-r from-emerald-50 to-emerald-100/70 border border-emerald-300 text-[#0A6E3B] text-xs font-bold flex items-center justify-between gap-2 shadow-2xs">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#0A6E3B] animate-pulse" />
+                      <div>
+                        <p className="text-xs font-black text-[#081A10]">Alertes actives en arrière-plan</p>
+                        <p className="text-[10px] text-emerald-800 font-medium">GPS, restaurants & Teranga reçus même app fermée</p>
+                      </div>
+                    </div>
+                    <CheckCheck className="w-4 h-4 text-[#0A6E3B] shrink-0" />
+                  </div>
+                ) : (
                   <div className="mt-3.5 p-3 rounded-2xl bg-gradient-to-br from-[#081A10] to-[#0A6E3B] text-white shadow-lg space-y-2">
                     <div className="flex items-start gap-2.5">
                       <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center shrink-0 text-base">
@@ -251,29 +262,21 @@ export default function NotificationCenter() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-xs font-black text-white leading-tight">
-                          Alertes GPS & Restaurants (Hors de l'App)
+                          Alertes automatiques hors de l'App
                         </p>
                         <p className="text-[10px] text-white/80 mt-0.5 leading-snug">
-                          Recevez les suggestions de restaurants et messages Teranga dès que vous changez de quartier, même téléphone verrouillé !
+                          Activées automatiquement pour recevoir les suggestions de restaurants par quartier et messages 10h sur votre écran.
                         </p>
                       </div>
                     </div>
                     <button
                       onClick={handleEnablePush}
                       disabled={isEnablingPush}
-                      className="w-full py-2.5 px-3 rounded-xl bg-[#FF7824] hover:bg-[#e0661a] text-white text-xs font-black flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition-all cursor-pointer disabled:opacity-60"
+                      className="w-full py-2 px-3 rounded-xl bg-[#FF7824] hover:bg-[#e0661a] text-white text-xs font-black flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition-all cursor-pointer disabled:opacity-60"
                     >
                       <Bell className="w-3.5 h-3.5" />
-                      <span>{isEnablingPush ? 'Activation en cours...' : 'Activer les alertes hors de l’application'}</span>
+                      <span>{isEnablingPush ? 'Activation automatique...' : 'Autoriser les alertes système'}</span>
                     </button>
-                  </div>
-                ) : (
-                  <div className="mt-3.5 py-2.5 px-3 rounded-xl bg-emerald-50 border border-emerald-300/80 text-[#0A6E3B] text-xs font-bold flex items-center justify-between gap-2 shadow-2xs">
-                    <div className="flex items-center gap-1.5">
-                      <CheckCheck className="w-4 h-4 text-[#0A6E3B]" />
-                      <span>Alertes GPS & Teranga actives hors de l'application</span>
-                    </div>
-                    <span className="w-2 h-2 rounded-full bg-[#0A6E3B] animate-ping" />
                   </div>
                 )}
                 {pushError && (
