@@ -693,35 +693,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const triggerProximityNotification = (neighborhood: string) => {
     if (!neighborhood || neighborhood === 'Tous les quartiers') return;
 
-    // 🛡️ FILTRE ANTI-BOMBARDEMENT RATIONNEL
+    // 📍 Déclenchement fluide basé sur chaque changement réel de lieu (sans limite quotidienne artificielle)
     try {
       const now = Date.now();
-      const todayDateKey = new Date().toISOString().slice(0, 10);
-
-      // 1. Limite globale : maximum 1 alerte de proximité toutes les 45 minutes
-      const lastGlobalNotifTime = parseInt(localStorage.getItem('thiob_last_geo_notif_time') || '0', 10);
-      if (now - lastGlobalNotifTime < 45 * 60 * 1000) {
-        return; // Trop récent, on ne bombarde pas
-      }
-
-      // 2. Limite par quartier : au moins 4 heures avant de ré-alerter sur le même quartier
       const zoneKey = `thiob_last_geo_${neighborhood.toLowerCase().replace(/\s+/g, '_')}`;
       const lastZoneNotifTime = parseInt(localStorage.getItem(zoneKey) || '0', 10);
-      if (now - lastZoneNotifTime < 4 * 60 * 60 * 1000) {
-        return; // Même quartier visité récemment
+
+      // Évite simplement les micro-rebonds GPS sur la même frontière dans les 45 minutes
+      if (now - lastZoneNotifTime < 45 * 60 * 1000) {
+        return;
       }
 
-      // 3. Limite journalière : maximum 2 alertes de proximité par jour
-      const dailyKey = `thiob_geo_count_${todayDateKey}`;
-      const dailyCount = parseInt(localStorage.getItem(dailyKey) || '0', 10);
-      if (dailyCount >= 2) {
-        return; // Quota quotidien de proximité atteint
-      }
-
-      // Enregistrer les nouveaux horodatages
+      // Enregistrer le passage dans ce nouveau lieu
       localStorage.setItem('thiob_last_geo_notif_time', now.toString());
       localStorage.setItem(zoneKey, now.toString());
-      localStorage.setItem(dailyKey, (dailyCount + 1).toString());
     } catch {}
 
     const matchingRestos = restaurants.filter((r) =>
