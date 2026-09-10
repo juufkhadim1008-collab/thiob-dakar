@@ -29,6 +29,7 @@ interface ThiobMapProps {
     to: GeoPoint;
     courierPos?: GeoPoint;
   };
+  routePath?: GeoPoint[];
   onMarkerDragEnd?: (markerId: string, newPos: GeoPoint) => void;
   onMapClick?: (pos: GeoPoint) => void;
   className?: string;
@@ -43,6 +44,7 @@ export default function ThiobMap({
   radiusMeters,
   radiusCenter,
   showRouteLine,
+  routePath,
   onMarkerDragEnd,
   onMapClick,
   className = '',
@@ -123,6 +125,22 @@ export default function ThiobMap({
       overlayGroupRef.current.addLayer(circle);
     }
 
+    // 2b. Vrai tracé routier (suit les routes, via OSRM)
+    if (routePath && routePath.length > 1) {
+      const roadPoints: [number, number][] = routePath.map((p) => [p.lat, p.lng]);
+      const roadPolyline = L.polyline(roadPoints, {
+        color: '#0A6E3B',
+        weight: 5,
+        opacity: 0.9,
+        lineCap: 'round',
+        lineJoin: 'round',
+      });
+      overlayGroupRef.current.addLayer(roadPolyline);
+      // Cadre la carte pour voir l'itinéraire en entier plutôt que de rester
+      // centrée/zoomée uniquement sur le point de départ ou d'arrivée.
+      map.fitBounds(roadPolyline.getBounds(), { padding: [32, 32] });
+    }
+
     // 2. Route Line
     if (showRouteLine) {
       const points: [number, number][] = [
@@ -170,7 +188,7 @@ export default function ThiobMap({
 
       markersGroupRef.current?.addLayer(marker);
     });
-  }, [markers, radiusMeters, radiusCenter, showRouteLine, onMarkerDragEnd]);
+  }, [markers, radiusMeters, radiusCenter, showRouteLine, routePath, onMarkerDragEnd]);
 
   return (
     <div

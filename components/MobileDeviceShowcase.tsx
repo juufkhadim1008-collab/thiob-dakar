@@ -56,7 +56,7 @@ import { CATEGORIES, DAKAR_NEIGHBORHOODS, DAKAR_ZONES } from '@/lib/mock-data';
 import { MenuItem, Restaurant, Order, OrderStatus, PaymentMethod, Reservation, OutingPlan, PaymentTransaction } from '@/lib/types';
 import { formatFCFA, getStatusBadge } from '@/lib/utils';
 import confetti from 'canvas-confetti';
-import { calculateDistanceKm, formatDistanceString, DAKAR_DEFAULT_COORDS, DAKAR_GEO_PRESETS } from '@/lib/geolocation';
+import { calculateDistanceKm, formatDistanceString, DAKAR_DEFAULT_COORDS, DAKAR_GEO_PRESETS, fetchRoadRoute, GeoPoint } from '@/lib/geolocation';
 import MiniLocationPicker from '@/components/map/MiniLocationPicker';
 import CourierLiveRadar from '@/components/map/CourierLiveRadar';
 import OnboardingFlow from './OnboardingFlow';
@@ -169,6 +169,27 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
   const [showcaseSubTab, setShowcaseSubTab] = useState<'menu' | 'gallery' | 'location' | 'reviews' | 'hours'>('menu');
   const [selectedGalleryImage, setSelectedGalleryImage] = useState<string | null>(null);
   const [isFullScreenLocationOpen, setIsFullScreenLocationOpen] = useState(false);
+  const [showcaseRoutePath, setShowcaseRoutePath] = useState<GeoPoint[] | null>(null);
+
+  // Récupère le vrai tracé routier (qui suit les routes) dès que l'onglet
+  // localisation d'un resto est ouvert et que la position GPS du client est connue.
+  useEffect(() => {
+    const isLocationScreenOpen = showcaseSubTab === 'location' || isFullScreenLocationOpen;
+    if (!isLocationScreenOpen || !selectedShowcaseResto || !clientCoords) {
+      setShowcaseRoutePath(null);
+      return;
+    }
+    const restoCoords: GeoPoint = selectedShowcaseResto.coordinates
+      || (selectedShowcaseResto.latitude && selectedShowcaseResto.longitude
+        ? { lat: selectedShowcaseResto.latitude, lng: selectedShowcaseResto.longitude }
+        : DAKAR_GEO_PRESETS[selectedShowcaseResto.neighborhood] || DAKAR_DEFAULT_COORDS);
+
+    let cancelled = false;
+    fetchRoadRoute(clientCoords, restoCoords).then((route) => {
+      if (!cancelled) setShowcaseRoutePath(route);
+    });
+    return () => { cancelled = true; };
+  }, [showcaseSubTab, isFullScreenLocationOpen, selectedShowcaseResto, clientCoords]);
 
 
   // 📅 Réservation de Table
@@ -3039,8 +3060,14 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
                           center={restoCoords}
                           zoom={14}
                           markers={showcaseMarkers}
+                          routePath={showcaseRoutePath || undefined}
                           height="180px"
                         />
+                        {!clientCoords && (
+                          <div className="absolute top-2 left-2 right-2 z-10 bg-black/70 backdrop-blur-xs text-white text-[10px] font-bold px-2.5 py-1.5 rounded-lg text-center">
+                            📍 Activez votre position pour voir l'itinéraire jusqu'ici
+                          </div>
+                        )}
                       </div>
 
                       {/* Action Buttons: Full Screen Map & Navigation GPS */}
@@ -3643,6 +3670,7 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
                     center={restoCoords}
                     zoom={15}
                     markers={fullScreenMarkers}
+                    routePath={showcaseRoutePath || undefined}
                     height="100%"
                   />
                 </div>
@@ -6691,7 +6719,9 @@ export default function MobileDeviceShowcase() {
         // Arrivée via une notification (ou un lien partagé) sans compte existant :
         // on entre directement en mode invité pour voir les restaurants tout de
         // suite, plutôt que de bloquer sur l'écran de création de compte.
-        const cameFromNotification = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('entry') === 'push';
+        // Générique : n'importe quelle valeur de "entry" (push, daily_push, native_push,
+        // proximity, lunch_daily, dinner_daily, ...) signale une arrivée via notification.
+        const cameFromNotification = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('entry');
         if (cameFromNotification) {
           setCurrentRole('client');
           setShowOnboarding(false);

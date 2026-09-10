@@ -1133,16 +1133,38 @@ export function getNavigationUrl(
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 
   if (isIOS) {
+    // Lien universel https (pas le schéma maps:// qui échoue silencieusement si Apple Maps
+    // n'est pas enregistré dans le contexte courant). Pas de "q=" en même temps que
+    // saddr/daddr : Apple Maps l'interprète comme une recherche et ignore l'itinéraire.
     if (originLat && originLng) {
-      return `maps://maps.apple.com/?saddr=${originLat},${originLng}&daddr=${destLat},${destLng}&q=${encodeURIComponent(label)}`;
+      return `https://maps.apple.com/?saddr=${originLat},${originLng}&daddr=${destLat},${destLng}&dirflg=d`;
     }
-    return `maps://maps.apple.com/?daddr=${destLat},${destLng}&q=${encodeURIComponent(label)}`;
+    return `https://maps.apple.com/?daddr=${destLat},${destLng}&q=${encodeURIComponent(label)}&dirflg=d`;
   }
 
   if (originLat && originLng) {
     return `https://www.google.com/maps/dir/?api=1&origin=${originLat},${originLng}&destination=${destLat},${destLng}&travelmode=driving`;
   }
   return `https://www.google.com/maps/dir/?api=1&destination=${destLat},${destLng}&travelmode=driving`;
+}
+
+/**
+ * Récupère un vrai tracé routier (qui suit les routes, pas une ligne droite)
+ * entre deux points via OSRM (service public gratuit, sans clé API,
+ * qui utilise les mêmes données OpenStreetMap que la carte de l'app).
+ */
+export async function fetchRoadRoute(from: GeoPoint, to: GeoPoint): Promise<GeoPoint[] | null> {
+  try {
+    const url = `https://router.project-osrm.org/route/v1/driving/${from.lng},${from.lat};${to.lng},${to.lat}?overview=full&geometries=geojson`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const coords = data?.routes?.[0]?.geometry?.coordinates;
+    if (!Array.isArray(coords) || coords.length === 0) return null;
+    return coords.map(([lng, lat]: [number, number]) => ({ lat, lng }));
+  } catch {
+    return null;
+  }
 }
 
 /**
