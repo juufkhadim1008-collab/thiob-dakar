@@ -206,6 +206,9 @@ interface AppContextType {
   triggerDailyTerangaMessage: () => void;
   triggerProximityNotification: (neighborhood: string) => void;
   triggerSystemUpdateNotification: (title?: string, message?: string) => void;
+
+  // Web Push & Native Background Notifications (hors de l'application)
+  requestNotificationPermission: () => Promise<boolean>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -560,6 +563,41 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     } catch {}
   };
 
+  // Déclenche une notification native système de l'appareil (Desktop / Android / iOS PWA) hors de l'application
+  const dispatchNativeSystemNotification = (title: string, message: string, icon?: string, url?: string) => {
+    if (typeof window === 'undefined' || !('Notification' in window)) return;
+    if (Notification.permission === 'granted') {
+      try {
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.ready.then((reg) => {
+            reg.showNotification(title, {
+              body: message,
+              icon: '/images/Icone app.png',
+              badge: '/images/Icone app.png',
+              vibrate: [200, 100, 200],
+              tag: `thiob-native-${Date.now()}`,
+              data: { url: url || '/?entry=native_push' },
+            } as any);
+          }).catch(() => {
+            try {
+              new Notification(title, {
+                body: message,
+                icon: '/images/Icone app.png',
+              } as any);
+            } catch {}
+          });
+        } else {
+          new Notification(title, {
+            body: message,
+            icon: '/images/Icone app.png',
+          } as any);
+        }
+      } catch (e) {
+        console.warn('[Native Notification] Exception :', e);
+      }
+    }
+  };
+
   const addNotification = (notif: Omit<AppNotification, 'id' | 'createdAt' | 'read' | 'timestamp'>): AppNotification => {
     const now = Date.now();
     const newNotif: AppNotification = {
@@ -581,6 +619,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // Display floating in-app banner toast
     setActiveInAppToast(newNotif);
     playNotificationChime();
+
+    // 📱 Déclencher aussi la notification native sur l'appareil (visible hors de l'application)
+    dispatchNativeSystemNotification(newNotif.title, newNotif.message, newNotif.icon, newNotif.actionUrl);
 
     if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
     toastTimeoutRef.current = setTimeout(() => {
@@ -643,6 +684,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       priority: 'high',
       actionRole: 'client',
     });
+
+    // 📡 Diffuser le message de 10h aux appareils même hors de l'application
+    sendPushNotification({ role: 'client', all: true }, tmpl.title, tmpl.message);
   };
 
   const triggerProximityNotification = (neighborhood: string) => {
@@ -651,31 +695,42 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       r.neighborhood.toLowerCase().includes(neighborhood.toLowerCase())
     );
     const restoNames = matchingRestos.slice(0, 2).map((r) => r.name).join(' & ');
+    const title = `📍 Vous êtes à ${neighborhood} !`;
+    const message =
+      matchingRestos.length > 0
+        ? `${matchingRestos.length} restaurant(s) réputés sont tout près (${restoNames}...). Découvrez leurs spécialités !`
+        : `Découvrez les délicieux plats de Dakar livrés rapidement dans la zone ${neighborhood}.`;
+
     addNotification({
       type: 'geo_proximity',
-      title: `📍 Vous êtes à ${neighborhood} !`,
-      message:
-        matchingRestos.length > 0
-          ? `${matchingRestos.length} restaurant(s) réputés sont tout près (${restoNames}...). Découvrez leurs cartes !`
-          : `Découvrez les délicieux plats de Dakar livrés rapidement dans la zone ${neighborhood}.`,
+      title,
+      message,
       icon: '📍',
       actionRole: 'client',
       actionData: { neighborhood },
       priority: 'high',
     });
+
+    // 📡 Envoi de la notification push serveur pour réveiller les appareils hors de l'application
+    sendPushNotification({ role: 'client', all: true }, title, message);
   };
 
   const triggerSystemUpdateNotification = (title?: string, message?: string) => {
     const randomIndex = Math.floor(Math.random() * UPCOMING_FEATURES_ANNOUNCEMENTS.length);
     const tmpl = UPCOMING_FEATURES_ANNOUNCEMENTS[randomIndex];
+    const notifTitle = title || tmpl.title;
+    const notifMessage = message || tmpl.message;
+
     addNotification({
       type: 'system_update',
-      title: title || tmpl.title,
-      message: message || tmpl.message,
+      title: notifTitle,
+      message: notifMessage,
       icon: tmpl.icon || '🚀',
       priority: 'normal',
       actionRole: 'client',
     });
+
+    sendPushNotification({ role: 'client', all: true }, notifTitle, notifMessage);
   };
 
   // 🇸🇳 VÉRIFICATION AUTOMATIQUE DU MESSAGE DE TERANGA QUOTIDIEN À 10H & BROADCAST
@@ -2041,6 +2096,34 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Enregistrement automatique du Service Worker au démarrage
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    }
+  }, []);
+
+  const requestNotificationPermission = async (): Promise<boolean> => {
+    if (typeof window === 'undefined' || !('Notification' in window)) return false;
+    try {
+      const perm = await Notification.requestPermission();
+      if (perm === 'granted') {
+        if ('serviceWorker' in navigator) {
+          try {
+            await navigator.serviceWorker.register('/sw.js');
+            await navigator.serviceWorker.ready;
+          } catch {}
+        }
+        setIsPushEnabled(true);
+        try { localStorage.setItem('thiob_push_enabled', '1'); } catch {}
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  };
+
   const loginWithOAuth = async (provider: 'google' | 'facebook'): Promise<{ success: boolean; error?: string }> => {
     try {
       const { error } = await supabase.auth.signInWithOAuth({
@@ -2145,6 +2228,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         loginWithOAuth,
         isPushEnabled,
         enablePushNotifications,
+        requestNotificationPermission,
         signUpWithEmail,
         signInWithEmail,
         resendConfirmationEmail,

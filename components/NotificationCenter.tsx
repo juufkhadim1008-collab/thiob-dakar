@@ -242,24 +242,42 @@ export default function NotificationCenter() {
                   </button>
                 </div>
 
-                {/* Activation des notifications push réelles (même app fermée) */}
+                {/* Activation des notifications push & alertes GPS hors de l'application */}
                 {!isPushEnabled ? (
-                  <button
-                    onClick={handleEnablePush}
-                    disabled={isEnablingPush}
-                    className="mt-3.5 w-full py-2.5 px-3 rounded-xl bg-[#081A10] hover:bg-black text-white text-xs font-bold flex items-center justify-center gap-2 transition-colors cursor-pointer disabled:opacity-60"
-                  >
-                    <Bell className="w-3.5 h-3.5" />
-                    <span>{isEnablingPush ? 'Activation...' : 'Activer les notifications même app fermée'}</span>
-                  </button>
+                  <div className="mt-3.5 p-3 rounded-2xl bg-gradient-to-br from-[#081A10] to-[#0A6E3B] text-white shadow-lg space-y-2">
+                    <div className="flex items-start gap-2.5">
+                      <div className="w-8 h-8 rounded-xl bg-white/10 flex items-center justify-center shrink-0 text-base">
+                        📍
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-black text-white leading-tight">
+                          Alertes GPS & Restaurants (Hors de l'App)
+                        </p>
+                        <p className="text-[10px] text-white/80 mt-0.5 leading-snug">
+                          Recevez les suggestions de restaurants et messages Teranga dès que vous changez de quartier, même téléphone verrouillé !
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={handleEnablePush}
+                      disabled={isEnablingPush}
+                      className="w-full py-2.5 px-3 rounded-xl bg-[#FF7824] hover:bg-[#e0661a] text-white text-xs font-black flex items-center justify-center gap-1.5 shadow-md active:scale-95 transition-all cursor-pointer disabled:opacity-60"
+                    >
+                      <Bell className="w-3.5 h-3.5" />
+                      <span>{isEnablingPush ? 'Activation en cours...' : 'Activer les alertes hors de l’application'}</span>
+                    </button>
+                  </div>
                 ) : (
-                  <div className="mt-3.5 py-2 px-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-[11px] font-bold flex items-center gap-1.5">
-                    <CheckCheck className="w-3.5 h-3.5" />
-                    <span>Notifications push activées sur cet appareil</span>
+                  <div className="mt-3.5 py-2.5 px-3 rounded-xl bg-emerald-50 border border-emerald-300/80 text-[#0A6E3B] text-xs font-bold flex items-center justify-between gap-2 shadow-2xs">
+                    <div className="flex items-center gap-1.5">
+                      <CheckCheck className="w-4 h-4 text-[#0A6E3B]" />
+                      <span>Alertes GPS & Teranga actives hors de l'application</span>
+                    </div>
+                    <span className="w-2 h-2 rounded-full bg-[#0A6E3B] animate-ping" />
                   </div>
                 )}
                 {pushError && (
-                  <p className="mt-1.5 text-[10px] font-bold text-rose-600">{pushError}</p>
+                  <p className="mt-1.5 text-[10px] font-bold text-rose-600 bg-rose-50 p-2 rounded-lg border border-rose-200">{pushError}</p>
                 )}
 
                 {/* Quick Simulation Bar for User Test */}
