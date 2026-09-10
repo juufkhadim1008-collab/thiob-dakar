@@ -779,19 +779,57 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     }, 1200);
 
-    const check10hTeranga = () => {
+    const checkDailyBroadcasts = () => {
       const now = new Date();
       const todayDateKey = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
-      const lastSent = localStorage.getItem('thiob_last_teranga_date');
+      const hour = now.getHours();
 
-      if (now.getHours() >= 10 && lastSent !== todayDateKey) {
+      // 1. Message 10h (Teranga du matin)
+      const lastSentTeranga = localStorage.getItem('thiob_last_teranga_date');
+      if (hour >= 10 && lastSentTeranga !== todayDateKey) {
         localStorage.setItem('thiob_last_teranga_date', todayDateKey);
         triggerDailyTerangaMessage();
       }
+
+      // 2. Message 12h - 14h (Déjeuner Thiéboudienne de midi)
+      const lastSentLunch = localStorage.getItem('thiob_last_lunch_date');
+      if (hour >= 12 && hour < 15 && lastSentLunch !== todayDateKey) {
+        localStorage.setItem('thiob_last_lunch_date', todayDateKey);
+        const lunchTitle = "📍 Dakar Déjeuner : C'est l'heure du Thiéboudienne ! 🍲";
+        const lunchMsg = "🇸🇳 Les marmites de Dakar sont prêtes ! Thiéboudienne Penda Mbaye, Yassa Poulet braisé et Mafé onctueux préparés tout près de vous. Livraison express en 20 min !";
+        addNotification({
+          type: 'geo_proximity',
+          title: lunchTitle,
+          message: lunchMsg,
+          icon: '🍲',
+          priority: 'high',
+          actionRole: 'client',
+        });
+        dispatchNativeSystemNotification(lunchTitle, lunchMsg, '/images/Icone app.png', '/?entry=lunch_daily');
+        sendPushNotification({ role: 'client', all: true }, lunchTitle, lunchMsg);
+      }
+
+      // 3. Message 19h - 22h (Dîner Dibiterie du soir)
+      const lastSentDinner = localStorage.getItem('thiob_last_dinner_date');
+      if (hour >= 19 && hour <= 22 && lastSentDinner !== todayDateKey) {
+        localStorage.setItem('thiob_last_dinner_date', todayDateKey);
+        const dinnerTitle = "🥩 Soirée Dakar : Dibiterie Chaude & Dibi d'Agneau ! 🔥";
+        const dinnerMsg = "Le parfum du feu de bois et de la viande grillée avec piment et oignons croquants. Vos dibiteries de quartier sont prêtes à vous livrer !";
+        addNotification({
+          type: 'geo_proximity',
+          title: dinnerTitle,
+          message: dinnerMsg,
+          icon: '🔥',
+          priority: 'high',
+          actionRole: 'client',
+        });
+        dispatchNativeSystemNotification(dinnerTitle, dinnerMsg, '/images/Icone app.png', '/?entry=dinner_daily');
+        sendPushNotification({ role: 'client', all: true }, dinnerTitle, dinnerMsg);
+      }
     };
 
-    const timer = setTimeout(check10hTeranga, 2000);
-    const interval = setInterval(check10hTeranga, 10 * 60 * 1000);
+    const timer = setTimeout(checkDailyBroadcasts, 2000);
+    const interval = setInterval(checkDailyBroadcasts, 10 * 60 * 1000);
     return () => {
       clearTimeout(broadcastTimer);
       clearTimeout(timer);

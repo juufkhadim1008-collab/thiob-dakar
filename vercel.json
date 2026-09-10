@@ -1,8 +1,16 @@
 {
   "crons": [
     {
-      "path": "/api/push/cron-teranga",
+      "path": "/api/push/cron-teranga?type=teranga",
       "schedule": "0 10 * * *"
+    },
+    {
+      "path": "/api/push/cron-teranga?type=lunch",
+      "schedule": "30 12 * * *"
+    },
+    {
+      "path": "/api/push/cron-teranga?type=dinner",
+      "schedule": "30 19 * * *"
     }
   ]
 }
