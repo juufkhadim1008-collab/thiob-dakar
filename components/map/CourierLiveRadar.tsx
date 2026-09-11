@@ -24,6 +24,7 @@ interface CourierLiveRadarProps {
   destinationAddress?: string;
   orderNumber?: string;
   isSimulatingLiveMove?: boolean;
+  hideRouteSummary?: boolean;
 }
 
 export default function CourierLiveRadar({
@@ -35,6 +36,7 @@ export default function CourierLiveRadar({
   destinationAddress = 'Dakar Plateau',
   orderNumber = 'DKR-8942',
   isSimulatingLiveMove = true,
+  hideRouteSummary = false,
 }: CourierLiveRadarProps) {
   // Current animated position for smooth rendering
   const [currentCourierPos, setCurrentCourierPos] = useState<GeoPoint>(courierPos);
@@ -157,23 +159,25 @@ export default function CourierLiveRadar({
       </div>
 
       {/* Trajectory Steps Summary */}
-      <div className="grid grid-cols-2 gap-2 text-xs">
-        <div className="p-3 rounded-2xl bg-[#F0F5F2] border border-[#D0E2D6] flex items-center gap-2">
-          <span className="text-base">👨‍🍳</span>
-          <div>
-            <span className="text-[10px] uppercase text-gray-500 font-bold block">Collecte</span>
-            <span className="font-extrabold text-[#07431E] line-clamp-1">{restaurantName}</span>
+      {!hideRouteSummary && (
+        <div className="grid grid-cols-2 gap-2 text-xs">
+          <div className="p-3 rounded-2xl bg-[#F0F5F2] border border-[#D0E2D6] flex items-center gap-2">
+            <span className="text-base">👨‍🍳</span>
+            <div>
+              <span className="text-[10px] uppercase text-gray-500 font-bold block">Collecte</span>
+              <span className="font-extrabold text-[#07431E] line-clamp-1">{restaurantName}</span>
+            </div>
           </div>
-        </div>
 
-        <div className="p-3 rounded-2xl bg-[#EBF7EE] border border-[#C5E4CE] flex items-center gap-2">
-          <span className="text-base">📍</span>
-          <div>
-            <span className="text-[10px] uppercase text-[#008235] font-bold block">Livraison</span>
-            <span className="font-extrabold text-[#07431E] line-clamp-1">{destinationAddress}</span>
+          <div className="p-3 rounded-2xl bg-[#EBF7EE] border border-[#C5E4CE] flex items-center gap-2">
+            <span className="text-base">📍</span>
+            <div>
+              <span className="text-[10px] uppercase text-[#008235] font-bold block">Livraison</span>
+              <span className="font-extrabold text-[#07431E] line-clamp-1">{destinationAddress}</span>
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
