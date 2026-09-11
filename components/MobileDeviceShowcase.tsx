@@ -1187,60 +1187,71 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
         {/* =====================================================================
             TAB 2: DÉCOUVERTE RESTAURANTS & SORTIES À DAKAR (SHOWCASE HUB)
            ===================================================================== */}
+        {/* =====================================================================
+            TAB 2: DÉCOUVERTE RESTAURANTS & SORTIES À DAKAR (SHOWCASE HUB)
+           ===================================================================== */}
         {activeTab === 'menu' && (
-          <div className="p-4 space-y-4 pb-12">
+          <div className="relative z-10 pb-8 space-y-0 flex-1 flex flex-col">
 
+            {/* Upper Cream Canvas Container with Header & Filter Pills */}
+            <div className="bg-[#F2EFE7] pt-2 px-4 pb-3 space-y-3 shrink-0">
+              {/* Header with search context & live counter */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-black text-sm text-[#081A10]">
+                    {selectedNeighborhood !== 'Tous les quartiers'
+                      ? `Restaurants à ${selectedNeighborhood}`
+                      : 'Explorer Dakar & ses Restaurants'}
+                  </h3>
+                  <p className="text-[10px] text-gray-500 font-medium">
+                    {userLiveLocation ? `Depuis ${userLiveLocation} • ` : ''}
+                    {activeRestaurants.length} établissement{activeRestaurants.length > 1 ? 's' : ''} trouvé{activeRestaurants.length > 1 ? 's' : ''}
+                  </p>
+                </div>
 
-            {/* Header with search context & live counter */}
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-black text-sm text-white">
-                  {selectedNeighborhood !== 'Tous les quartiers'
-                    ? `Restaurants à ${selectedNeighborhood}`
-                    : 'Explorer Dakar & ses Restaurants'}
-                </h3>
-                <p className="text-[10px] text-white/80">
-                  {userLiveLocation ? `Depuis ${userLiveLocation} • ` : ''}
-                  {activeRestaurants.length} établissement{activeRestaurants.length > 1 ? 's' : ''} trouvé{activeRestaurants.length > 1 ? 's' : ''}
-                </p>
+                {selectedNeighborhood !== 'Tous les quartiers' && (
+                  <button
+                    onClick={() => setSelectedNeighborhood('Tous les quartiers')}
+                    className="px-2.5 py-1 rounded-lg bg-white border border-[#0A6E3B]/30 text-[10px] font-bold text-[#0A6E3B] hover:bg-emerald-50 transition-colors shadow-2xs"
+                  >
+                    Tout Dakar ✕
+                  </button>
+                )}
               </div>
 
-              {selectedNeighborhood !== 'Tous les quartiers' && (
-                <button
-                  onClick={() => setSelectedNeighborhood('Tous les quartiers')}
-                  className="px-2.5 py-1 rounded-lg bg-white/20 text-[10px] font-bold text-white hover:bg-white/30 transition-colors"
-                >
-                  Tout Dakar ✕
-                </button>
-              )}
+              {/* Ambiance & Lifestyle Discovery Filter Pills */}
+              <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1">
+                {[
+                  { id: 'all', label: 'Tous' },
+                  { id: 'rated', label: '⭐ Mieux Notés (4.8+)' },
+                  { id: 'ocean', label: '🌊 Vue Mer & Plage' },
+                  { id: 'couple', label: '❤️ Sortie Couple & Romantique' },
+                  { id: 'grill', label: '🔥 Grillades & Dibi' },
+                  { id: 'budget', label: '💰 Prix Doux' },
+                ].map((flt) => {
+                  const isSel = restoDiscoveryFilter === flt.id;
+                  return (
+                    <button
+                      key={flt.id}
+                      onClick={() => setRestoDiscoveryFilter(flt.id as any)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-bold shrink-0 transition-all border ${
+                        isSel
+                          ? 'bg-[#0A6E3B] text-white border-[#0A6E3B] shadow-xs'
+                          : 'bg-white text-[#081A10] border-black/10 hover:border-[#0A6E3B]/30 hover:bg-white shadow-2xs'
+                      }`}
+                    >
+                      {flt.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
-            {/* Ambiance & Lifestyle Discovery Filter Pills */}
-            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1">
-              {[
-                { id: 'all', label: 'Tous' },
-                { id: 'rated', label: '⭐ Mieux Notés (4.8+)' },
-                { id: 'ocean', label: '🌊 Vue Mer & Plage' },
-                { id: 'couple', label: '❤️ Sortie Couple & Romantique' },
-                { id: 'grill', label: '🔥 Grillades & Dibi' },
-                { id: 'budget', label: '💰 Prix Doux' },
-              ].map((flt) => {
-                const isSel = restoDiscoveryFilter === flt.id;
-                return (
-                  <button
-                    key={flt.id}
-                    onClick={() => setRestoDiscoveryFilter(flt.id as any)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-bold shrink-0 transition-all border ${
-                      isSel
-                        ? 'bg-emerald-500 text-white border-emerald-400 shadow-xs'
-                        : 'bg-white/15 text-white border-white/20 hover:bg-white/25 backdrop-blur-md'
-                    }`}
-                  >
-                    {flt.label}
-                  </button>
-                );
-              })}
-            </div>
+            {/* =================================================================
+                🌿 FORME VERTE (DESIGN ILLUSTRATOR) + LISTE DES RESTAURANTS
+               ================================================================= */}
+            <div className="relative z-10 -mt-2 pt-8 pb-32 -mb-28 px-3.5 space-y-4 flex-1 flex flex-col">
+              <GreenShapeBackground uid="menu" />
 
 
             {/* Restaurant Cards List */}
@@ -1381,6 +1392,7 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
               </div>
             )}
 
+            </div>
           </div>
         )}
 
