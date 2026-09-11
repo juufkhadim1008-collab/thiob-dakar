@@ -596,13 +596,13 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
       {/* =========================================================================
           2. MAIN TAB CONTENT AREA
          ========================================================================= */}
-      <div className="flex-1 overflow-y-auto no-scrollbar pb-28 relative z-10">
-        
+      <div className="flex-1 overflow-y-auto no-scrollbar pb-28 relative z-10 flex flex-col">
+
         {/* =====================================================================
             TAB 1: HOME (ACCUEIL & DIAPORAMA 2 SECONDES)
            ===================================================================== */}
         {activeTab === 'home' && (
-          <div className="relative z-10 pb-8 space-y-0">
+          <div className="relative z-10 pb-8 space-y-0 flex-1 flex flex-col">
             
             {/* Upper Cream Canvas Container with Slideshow & Categories */}
             <div className="bg-[#F2EFE7] pt-2 space-y-4">
@@ -1676,29 +1676,29 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
               </div>
             </div>
 
-            {/* Carte de Connexion & Sécurité WhatsApp Direct */}
+            {/* Carte de Connexion & Mon Compte Thiob */}
             <div 
               onClick={() => setIsWhatsAppModalOpen(true)}
-              className="bg-gradient-to-r from-[#25D366]/15 via-emerald-50 to-[#25D366]/10 border border-[#25D366]/30 p-3.5 rounded-3xl flex items-center justify-between cursor-pointer hover:border-[#25D366] transition-all shadow-xs group"
+              className="bg-white border border-[#D8EADB] p-3.5 rounded-3xl flex items-center justify-between cursor-pointer hover:border-[#0A6E3B] transition-all shadow-xs group"
             >
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-[#25D366] text-white flex items-center justify-center shadow-md group-hover:scale-105 transition-transform">
-                  <MessageCircle className="w-5 h-5 fill-current" />
+                <div className="w-10 h-10 rounded-2xl brand-gradient text-white flex items-center justify-center shadow-md group-hover:scale-105 transition-transform text-base">
+                  📱
                 </div>
                 <div>
                   <div className="flex items-center gap-1.5">
                     <span className="font-black text-xs text-[#081A10]">
-                      {storeClientPhone ? 'Compte WhatsApp Connecté' : 'Se connecter avec WhatsApp'}
+                      {storeClientPhone ? 'Mon Compte Thiob' : 'Connexion à votre compte'}
                     </span>
-                    <span className="w-2 h-2 rounded-full bg-[#25D366] animate-pulse"></span>
+                    <span className="w-2 h-2 rounded-full bg-[#0A6E3B] animate-pulse"></span>
                   </div>
                   <span className="text-[10px] text-gray-500 block mt-0.5">
-                    {storeClientPhone ? `${storeClientPhone} • Sécurisé par code OTP 🇸🇳` : 'Recevez votre code de sécurité instantané sur WhatsApp'}
+                    {storeClientPhone ? `${storeClientPhone} • Profil vérifié 🇸🇳` : 'Validation rapide par code de sécurité sur votre téléphone'}
                   </span>
                 </div>
               </div>
-              <span className="px-2.5 py-1 bg-[#25D366] text-white text-[10px] font-black rounded-xl shadow-xs shrink-0 group-hover:bg-[#20bd5a] transition-colors">
-                {storeClientPhone ? 'Modifier' : 'Connexion ➔'}
+              <span className="px-3 py-1.5 brand-gradient text-white text-[10px] font-black rounded-xl shadow-xs shrink-0 group-hover:brightness-110 transition-all">
+                {storeClientPhone ? 'Gérer' : 'Se connecter ➔'}
               </span>
             </div>
 

@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
         expiresAt,
       });
 
-      const messageText = `🇸🇳 *THIOB DAKAR*\n\nVotre code de connexion sécurisé est : *${generatedCode}*\n\nCe code est valable pendant 5 minutes. Ne le partagez avec personne.`;
+      const messageText = `🇸🇳 *THIOB DAKAR — LIVRAISON GASTRONOMIQUE*\n\nBonjour ${fullName && fullName !== 'Client Thiob' ? fullName : ''} 👋\n\nVoici votre code de validation sécurisé : *${generatedCode}*\n\nCe code est valable pendant 5 minutes. Ne le communiquez à personne.\n\n_L'équipe Thiob Dakar vous souhaite un excellent appétit !_`;
 
       // Vérifier si les identifiants officiels Meta WhatsApp Cloud API sont configurés
       const metaToken = process.env.META_WHATSAPP_TOKEN;

@@ -3,17 +3,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  MessageCircle, 
   ShieldCheck, 
-  Smartphone, 
   ArrowRight, 
   CheckCircle2, 
   RefreshCw, 
   X, 
   Lock,
-  Sparkles,
-  ExternalLink,
-  ChevronLeft
+  ChevronLeft,
+  Smartphone
 } from 'lucide-react';
 import { useApp } from '@/lib/store';
 
@@ -74,7 +71,7 @@ export default function WhatsAppAuthModal({
     return () => clearInterval(timer);
   }, [step, countdown]);
 
-  // Envoi du code WhatsApp
+  // Envoi du code
   const handleSendCode = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setErrorMsg(null);
@@ -100,7 +97,7 @@ export default function WhatsAppAuthModal({
 
       const data = await res.json();
       if (!data.success) {
-        throw new Error(data.error || 'Impossible d’envoyer le code sur WhatsApp.');
+        throw new Error(data.error || 'Impossible d’envoyer le code de validation.');
       }
 
       setDirectWaLink(data.directWhatsAppLink || null);
@@ -168,7 +165,7 @@ export default function WhatsAppAuthModal({
 
       const data = await res.json();
       if (!data.success) {
-        throw new Error(data.error || 'Code de sécurité incorrect.');
+        throw new Error(data.error || 'Code de validation incorrect.');
       }
 
       // Succès : Enregistrement du profil dans le store
@@ -185,7 +182,7 @@ export default function WhatsAppAuthModal({
         onClose();
       }, 1800);
     } catch (err: any) {
-      setErrorMsg(err?.message || 'Code de sécurité invalide.');
+      setErrorMsg(err?.message || 'Code de validation invalide.');
     } finally {
       setIsLoading(false);
     }
@@ -194,7 +191,7 @@ export default function WhatsAppAuthModal({
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/65 backdrop-blur-sm">
           {/* Overlay click to close */}
           <motion.div
             initial={{ opacity: 0 }}
@@ -209,29 +206,28 @@ export default function WhatsAppAuthModal({
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden border border-[#D8EADB] z-10"
+            className="relative w-full max-w-sm bg-white rounded-[28px] shadow-2xl overflow-hidden border border-[#D8EADB] z-10"
           >
-            {/* Header Vert Thiob avec Dégradé */}
+            {/* Header Thiob Dakar */}
             <div className="bg-gradient-to-r from-[#004b1b] via-[#024213] to-[#008625] text-white p-5 relative">
               <button
                 onClick={onClose}
-                className="absolute top-4 right-4 w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
+                className="absolute top-4 right-4 w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors"
                 aria-label="Fermer"
               >
-                <X className="w-4 h-4" />
+                <X className="w-3.5 h-3.5" />
               </button>
 
-              <div className="flex items-center gap-2.5 mb-1.5">
-                <div className="w-9 h-9 rounded-2xl bg-[#25D366] text-white flex items-center justify-center shadow-md">
-                  <MessageCircle className="w-5 h-5 fill-current" />
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-2xl bg-white/15 border border-white/20 text-white flex items-center justify-center font-black text-sm shadow-xs">
+                  🍲
                 </div>
                 <div>
-                  <h3 className="text-base font-black leading-tight text-white flex items-center gap-1.5">
-                    Connexion WhatsApp
-                    <Sparkles className="w-3.5 h-3.5 text-[#FF7824]" />
+                  <h3 className="text-sm font-black leading-tight text-white">
+                    Connexion Thiob Dakar
                   </h3>
                   <p className="text-[11px] text-white/80">
-                    Sécurisé & instantané à Dakar
+                    Livraison & Gastronomie à Dakar 🇸🇳
                   </p>
                 </div>
               </div>
@@ -240,13 +236,13 @@ export default function WhatsAppAuthModal({
             {/* Corps du Modal */}
             <div className="p-5">
               {/* =============================================================
-                  ÉTAPE 1 : SAISIE DU NUMÉRO SÉNÉGALAIS
+                  ÉTAPE 1 : SAISIE DU NUMÉRO DE TÉLÉPHONE
                  ============================================================= */}
               {step === 'phone' && (
                 <form onSubmit={handleSendCode} className="space-y-4">
                   <div className="text-center space-y-1">
                     <p className="text-xs text-gray-600">
-                      Entrez votre numéro pour recevoir votre code de sécurité directement sur votre <strong>WhatsApp</strong>.
+                      Entrez votre numéro pour vous connecter à votre compte.
                     </p>
                   </div>
 
@@ -273,7 +269,7 @@ export default function WhatsAppAuthModal({
 
                     <div>
                       <label className="block text-[11px] font-bold text-gray-700 mb-1">
-                        Numéro WhatsApp 🇸🇳
+                        Numéro de téléphone 🇸🇳
                       </label>
                       <div className="flex items-center gap-2">
                         <div className="px-3 py-2.5 bg-gray-100 border border-gray-200 rounded-xl text-xs font-bold text-gray-700 flex items-center gap-1.5 shrink-0 select-none">
@@ -291,7 +287,7 @@ export default function WhatsAppAuthModal({
                         />
                       </div>
                       <p className="text-[10px] text-gray-400 mt-1">
-                        Compatible Orange, Wave, Free, Expresso, Promobile.
+                        Orange, Wave, Free, Expresso, Promobile.
                       </p>
                     </div>
                   </div>
@@ -299,14 +295,13 @@ export default function WhatsAppAuthModal({
                   <button
                     type="submit"
                     disabled={isLoading || !phoneNumber.trim()}
-                    className="w-full py-3 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] active:scale-[0.98] text-white font-black text-xs shadow-md flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full py-3 rounded-xl brand-gradient hover:brightness-110 active:scale-[0.98] text-white font-black text-xs shadow-md flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isLoading ? (
                       <RefreshCw className="w-4 h-4 animate-spin" />
                     ) : (
                       <>
-                        <MessageCircle className="w-4 h-4 fill-current" />
-                        <span>Recevoir mon code sur WhatsApp</span>
+                        <span>Continuer</span>
                         <ArrowRight className="w-3.5 h-3.5" />
                       </>
                     )}
@@ -315,7 +310,7 @@ export default function WhatsAppAuthModal({
               )}
 
               {/* =============================================================
-                  ÉTAPE 2 : SAISIE DU CODE OTP À 6 CHIFFRES
+                  ÉTAPE 2 : CODE DE VALIDATION ENVOYÉ SUR WHATSAPP
                  ============================================================= */}
               {step === 'otp' && (
                 <div className="space-y-4">
@@ -327,24 +322,28 @@ export default function WhatsAppAuthModal({
                       <ChevronLeft className="w-3.5 h-3.5" />
                       Modifier le numéro
                     </button>
-                    <span className="text-[10px] bg-emerald-100 text-[#0A6E3B] px-2 py-0.5 rounded-full font-bold">
-                      WhatsApp 💬
+                    <span className="text-[10px] bg-emerald-100 text-[#0A6E3B] px-2.5 py-0.5 rounded-full font-bold">
+                      +221 {phoneNumber}
                     </span>
                   </div>
 
-                  <div className="text-center space-y-1">
-                    <h4 className="text-xs font-black text-[#081A10]">
-                      Entrez le code de sécurité reçu sur WhatsApp
+                  {/* Message clé demandé par l'utilisateur */}
+                  <div className="p-3.5 bg-[#E6F5EC] border border-[#0A6E3B]/20 rounded-2xl text-center space-y-1 shadow-2xs">
+                    <div className="w-8 h-8 mx-auto rounded-full bg-[#25D366] text-white flex items-center justify-center text-sm shadow-xs">
+                      💬
+                    </div>
+                    <h4 className="text-xs font-black text-[#081A10] leading-snug pt-0.5">
+                      Votre code de validation a été envoyé sur WhatsApp
                     </h4>
-                    <p className="text-[11px] text-gray-500">
-                      Envoyé au <strong>+221 {phoneNumber}</strong>
+                    <p className="text-[11px] text-gray-600">
+                      Consultez vos messages WhatsApp pour obtenir le code à 6 chiffres envoyé par <strong>Thiob Dakar</strong>.
                     </p>
                   </div>
 
-                  {/* Bandeau d'aide / Code de démo en dev local */}
+                  {/* Bandeau de test local */}
                   {debugOtp && (
                     <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-[11px] flex items-center justify-between">
-                      <span>💡 Code de test : <strong>{debugOtp}</strong></span>
+                      <span>💡 Code reçu : <strong>{debugOtp}</strong></span>
                       <button
                         onClick={() => {
                           const digits = debugOtp.split('').slice(0, 6);
@@ -353,7 +352,7 @@ export default function WhatsAppAuthModal({
                         }}
                         className="text-[10px] font-black underline hover:text-amber-900 cursor-pointer"
                       >
-                        Auto-remplir
+                        Remplir
                       </button>
                     </div>
                   )}
@@ -377,12 +376,12 @@ export default function WhatsAppAuthModal({
                         value={digit}
                         onChange={(e) => handleOtpChange(idx, e.target.value)}
                         onKeyDown={(e) => handleKeyDown(idx, e)}
-                        className="w-11 h-12 text-center text-lg font-black bg-gray-50 border-2 border-gray-200 rounded-xl focus:bg-white focus:border-[#0A6E3B] focus:ring-2 focus:ring-[#0A6E3B]/20 outline-none transition-all"
+                        className="w-10 h-11 text-center text-lg font-black bg-gray-50 border-2 border-gray-200 rounded-xl focus:bg-white focus:border-[#0A6E3B] focus:ring-2 focus:ring-[#0A6E3B]/20 outline-none transition-all"
                       />
                     ))}
                   </div>
 
-                  {/* Bouton de vérification manuel si besoin */}
+                  {/* Bouton de validation */}
                   <button
                     onClick={() => verifyOtp(otpCode.join(''))}
                     disabled={isLoading || otpCode.some((c) => c === '')}
@@ -393,34 +392,22 @@ export default function WhatsAppAuthModal({
                     ) : (
                       <>
                         <ShieldCheck className="w-4 h-4" />
-                        <span>Valider le code de sécurité</span>
+                        <span>Valider mon code</span>
                       </>
                     )}
                   </button>
 
-                  {/* Bouton de renvoi & Lien direct */}
-                  <div className="flex items-center justify-between text-[11px] pt-1 border-t border-gray-100">
+                  {/* Renvoi de code */}
+                  <div className="text-center pt-1 border-t border-gray-100">
                     <button
                       onClick={() => canResend && handleSendCode()}
                       disabled={!canResend || isLoading}
-                      className={`font-bold transition-colors cursor-pointer ${
+                      className={`text-[11px] font-bold transition-colors cursor-pointer ${
                         canResend ? 'text-[#0A6E3B] hover:underline' : 'text-gray-400 cursor-not-allowed'
                       }`}
                     >
-                      {canResend ? '🔄 Renvoyer le code' : `Renvoyer dans ${countdown}s`}
+                      {canResend ? '🔄 Renvoyer le code sur WhatsApp' : `Renvoyer un nouveau code dans ${countdown}s`}
                     </button>
-
-                    {directWaLink && (
-                      <a
-                        href={directWaLink}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-[#25D366] font-bold inline-flex items-center gap-1 hover:underline"
-                      >
-                        <span>Ouvrir WhatsApp</span>
-                        <ExternalLink className="w-3 h-3" />
-                      </a>
-                    )}
                   </div>
                 </div>
               )}
@@ -434,9 +421,9 @@ export default function WhatsAppAuthModal({
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
                     transition={{ type: 'spring', stiffness: 260, damping: 20 }}
-                    className="w-16 h-16 rounded-full bg-[#E6F5EC] text-[#0A6E3B] flex items-center justify-center mx-auto shadow-sm"
+                    className="w-14 h-14 rounded-full bg-[#E6F5EC] text-[#0A6E3B] flex items-center justify-center mx-auto shadow-sm"
                   >
-                    <CheckCircle2 className="w-10 h-10" />
+                    <CheckCircle2 className="w-9 h-9" />
                   </motion.div>
                   <div>
                     <h4 className="text-base font-black text-[#081A10]">
@@ -446,8 +433,8 @@ export default function WhatsAppAuthModal({
                       Bienvenue sur Thiob Dakar, <strong>{fullName || 'Cher Client'}</strong> 🇸🇳
                     </p>
                   </div>
-                  <span className="inline-block px-3 py-1 rounded-full bg-[#25D366]/10 text-[#004b1b] text-[10px] font-black">
-                    Compte vérifié sur WhatsApp ✅
+                  <span className="inline-block px-3 py-1 rounded-full bg-[#0A6E3B]/10 text-[#004b1b] text-[10px] font-black">
+                    Compte vérifié avec succès ✅
                   </span>
                 </div>
               )}
@@ -457,9 +444,9 @@ export default function WhatsAppAuthModal({
             <div className="px-5 py-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between text-[10px] text-gray-400">
               <span className="flex items-center gap-1">
                 <Lock className="w-3 h-3 text-emerald-600" />
-                Chiffrement de bout en bout
+                Sécurité Thiob Téranga
               </span>
-              <span className="font-bold text-[#0A6E3B]">Thiob Téranga Auth</span>
+              <span className="font-bold text-[#0A6E3B]">Dakar, Sénégal</span>
             </div>
           </motion.div>
         </div>
