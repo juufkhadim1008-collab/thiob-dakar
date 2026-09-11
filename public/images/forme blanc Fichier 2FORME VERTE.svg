@@ -4,9 +4,6 @@
     <style>
       .cls-1 {
         fill: url(#Dégradé_sans_nom_8);
-        stroke: url(#Dégradé_sans_nom_9);
-        stroke-miterlimit: 10;
-        stroke-width: 5px;
       }
     </style>
     <radialGradient id="Dégradé_sans_nom_8" data-name="Dégradé sans nom 8" cx="1734.04" cy="2509.06" fx="1734.04" fy="2509.06" r="2941.72" gradientUnits="userSpaceOnUse">

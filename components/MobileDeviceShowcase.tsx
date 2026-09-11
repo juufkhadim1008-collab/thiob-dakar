@@ -91,9 +91,6 @@ function GreenShapeBackground({ uid }: { uid: string }) {
         </defs>
         <path
           fill={`url(#greenShapeRadial-${uid})`}
-          stroke={`url(#greenShapeLinear-${uid})`}
-          strokeMiterlimit="10"
-          strokeWidth="5"
           d="M1180.98,2289.28H2.5s0-2149.53,0-2149.53c0-86.68,79.37-151.64,164.34-134.5l143.26,28.9c185.89,37.5,377.39,37.5,563.28,0l143.26-28.9c84.97-17.14,164.34,47.82,164.34,134.5v2149.53Z"
         />
       </svg>
@@ -927,9 +924,6 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
                   </defs>
                   <path
                     fill="url(#greenShapeRadialCust)"
-                    stroke="url(#greenShapeLinearCust)"
-                    strokeMiterlimit="10"
-                    strokeWidth="5"
                     d="M1180.98,2289.28H2.5s0-2149.53,0-2149.53c0-86.68,79.37-151.64,164.34-134.5l143.26,28.9c185.89,37.5,377.39,37.5,563.28,0l143.26-28.9c84.97-17.14,164.34,47.82,164.34,134.5v2149.53Z"
                   />
                 </svg>
@@ -1129,50 +1123,44 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
               ) : (
                 couriers
                   .filter((c) => selectedNeighborhood === 'Tous les quartiers' || c.currentNeighborhood.toLowerCase() === selectedNeighborhood.toLowerCase())
-                  .map((courier) => (
+                  .map((courier, idx) => (
                     <motion.div
                       key={courier.id}
                       whileHover={{ y: -3, scale: 1.01 }}
-                      className="glass-panel-light p-3.5 rounded-2xl flex items-center justify-between gap-3 shadow-[0_8px_24px_rgba(6,56,29,0.12)] border border-white/90 hover:border-white transition-all"
+                      className="relative flex items-stretch"
                     >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="relative shrink-0">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={courier.photo || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80'}
-                            alt={courier.name}
-                            className="w-12 h-12 rounded-full object-cover ring-2 ring-[#0A6E3B]/40 shadow-xs"
-                          />
-                          <span className={`absolute bottom-0 right-0 w-3 h-3 rounded-full ${courier.isOnline ? 'bg-emerald-500 animate-pulse' : 'bg-gray-400'} ring-2 ring-white`} />
-                        </div>
-
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-1.5">
-                            <h4 className="font-black text-xs text-[#081A10] truncate">
-                              {courier.name}
-                            </h4>
-                            <span className="text-[9px] bg-emerald-100/90 text-emerald-800 font-black px-2 py-0.5 rounded-full backdrop-blur-xs border border-emerald-300/50 shrink-0">
-                              ⚡ Certifié
-                            </span>
-                          </div>
-                          <p className="text-[10px] text-gray-600 font-medium mt-0.5">
-                            🏍️ {courier.vehicleType || 'Moto'} • <span className="font-mono text-[9px] font-bold text-gray-500">{courier.plateNumber || 'Dakar'}</span>
-                          </p>
-                          <div className="flex items-center gap-1.5 text-[10px] font-bold mt-1 flex-wrap">
-                            <span className="text-[#0A6E3B]">📍 {courier.currentNeighborhood}</span>
-                            <span className="text-gray-300">•</span>
-                            <span className="text-gray-700">⭐ {courier.rating || 5.0} ({courier.completedDeliveries || 0} courses)</span>
-                          </div>
-                        </div>
+                      {/* Photo en forme organique, fond orange, chevauche la pilule */}
+                      <div className="relative z-10 w-24 shrink-0 -mr-7 rounded-[28px] overflow-hidden bg-[#FF7824] shadow-lg">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={courier.photo || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80'}
+                          alt={courier.name}
+                          className="w-full h-full object-cover"
+                        />
+                        <span className={`absolute top-2 right-2 w-2.5 h-2.5 rounded-full ${courier.isOnline ? 'bg-emerald-400 animate-pulse' : 'bg-gray-300'} ring-2 ring-white/80`} />
                       </div>
 
-                      <div className="flex items-center gap-1.5 shrink-0">
+                      {/* Pilule verte : nom, véhicule, ETA + bouton Appeler */}
+                      <div className="flex-1 flex items-center justify-between gap-3 pl-9 pr-3 py-3.5 rounded-full bg-gradient-to-r from-[#0A6E3B] to-[#064E2B] shadow-md min-w-0">
+                        <div className="min-w-0">
+                          <h4 className="font-black text-white text-base leading-tight truncate">
+                            {courier.name}
+                          </h4>
+                          <p className="text-white/70 text-[11px] truncate">
+                            {courier.vehicleName || (courier.vehicleType ? courier.vehicleType.charAt(0).toUpperCase() + courier.vehicleType.slice(1) : 'Moto')} - {courier.plateNumber || 'Dakar'}
+                          </p>
+                          <p className="text-[#F5B738] text-[11px] font-black mt-0.5">
+                            Dans {5 + idx * 3} min
+                          </p>
+                        </div>
+
                         <a
                           href={`tel:${courier.phone}`}
-                          className="glass-btn w-10 h-10 rounded-xl flex items-center justify-center text-[#0A6E3B] hover:scale-105 transition-all text-sm"
+                          className="shrink-0 flex items-center gap-1.5 bg-white/15 backdrop-blur-md border border-white/25 hover:bg-white/25 text-white text-xs font-bold px-3.5 py-2 rounded-full transition-all"
                           title="Appeler le livreur"
                         >
-                          📞
+                          <Phone className="w-3.5 h-3.5" />
+                          <span>Appelé</span>
                         </a>
                       </div>
                     </motion.div>
@@ -1693,118 +1681,122 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
         {/* =====================================================================
             TAB 5: PROFIL
            ===================================================================== */}
+        {/* =====================================================================
+            TAB 5: PROFIL (NOUVEAU DESIGN THIOB DAKAR)
+           ===================================================================== */}
         {activeTab === 'profile' && (
-          <div className="relative flex-1 flex flex-col p-4 pb-32 -mb-28 space-y-4">
+          <div className="relative flex-1 flex flex-col px-4 pt-10 pb-32 -mb-28 space-y-4 z-10">
             <GreenShapeBackground uid="profile" />
-            <div className="bg-white p-4 rounded-3xl border border-[#D8EADB] text-center space-y-2 shadow-2xs">
-              <div className="w-14 h-14 rounded-full brand-gradient text-white flex items-center justify-center font-black text-lg mx-auto shadow-sm uppercase">
-                {clientName ? clientName.split(' ').map((w: string) => w[0]).join('').slice(0, 2) : 'TD'}
-              </div>
-              <div>
-                <h4 className="font-bold text-sm text-[#081A10]">{clientName || 'Client Thiob'}</h4>
-                <p className="text-xs text-gray-500">{clientPhone || '+221 77 123 45 67'}</p>
-              </div>
-              <div className="flex justify-center gap-2 pt-1">
-                <span className="px-2.5 py-0.5 rounded-full bg-[#E6F5EC] text-[#0A6E3B] text-[10px] font-bold">
-                  🇸🇳 {clientNeighborhood || 'Dakar, Sénégal'}
+
+            {/* 1. Carte Avatar Organique & Identité Client */}
+            <div className="relative pt-10">
+              {/* Cercle Avatar "CT" au sommet */}
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 z-20 w-20 h-20 rounded-full bg-white shadow-[0_8px_20px_rgba(0,0,0,0.12)] border-2 border-white flex items-center justify-center">
+                <span className="font-black text-2xl text-[#004B1B] tracking-tight">
+                  {clientName ? clientName.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase() : 'CT'}
                 </span>
-                <span className="px-2.5 py-0.5 rounded-full bg-[#FF7824]/10 text-[#FF7824] text-[10px] font-bold">
-                  Membre VIP Téranga
-                </span>
+              </div>
+
+              {/* Conteneur Carte Crème avec encoche courbe supérieure */}
+              <div className="relative bg-[#FAF8F5] rounded-[32px] pt-13 pb-5 px-5 text-center shadow-[0_10px_25px_rgba(0,0,0,0.08)] border border-white/60 overflow-hidden">
+                {/* Courbe douce au sommet derrière l'avatar */}
+                <div className="absolute top-0 left-0 right-0 h-10 bg-transparent flex justify-center pointer-events-none">
+                  <div className="w-28 h-10 bg-[#004B1B]/10 rounded-b-[40px] blur-xs -mt-3" />
+                </div>
+
+                <h3 className="font-black text-base text-[#081A10] tracking-tight">
+                  {clientName || 'Client Thiob'}
+                </h3>
+                <p className="text-xs text-gray-600 font-semibold mt-0.5">
+                  {storeClientPhone || clientPhone || '+221 78 780 20 56'}
+                </p>
+                <p className="text-[11px] font-bold text-[#B8860B] mt-2">
+                  Client fidèle de Thiob Dakar
+                </p>
               </div>
             </div>
 
-            {/* Carte de Connexion & Mon Compte Thiob */}
+            {/* 2. Pilule : Mon compte Thiob + Bouton Gérer */}
             <div 
               onClick={() => setIsWhatsAppModalOpen(true)}
-              className="bg-white border border-[#D8EADB] p-3.5 rounded-3xl flex items-center justify-between cursor-pointer hover:border-[#0A6E3B] transition-all shadow-xs group"
+              className="bg-[#FAF8F5] rounded-2xl p-3.5 px-4 flex items-center justify-between shadow-[0_6px_18px_rgba(0,0,0,0.06)] border border-white/60 cursor-pointer hover:bg-white transition-all group"
             >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-[#0A6E3B]/70 backdrop-blur-md border border-white/30 text-white flex items-center justify-center shadow-md group-hover:scale-105 transition-transform text-base">
-                  📱
-                </div>
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="font-black text-xs text-[#081A10]">
-                      {storeClientPhone ? 'Mon Compte Thiob' : 'Connexion à votre compte'}
-                    </span>
-                    <span className="w-2 h-2 rounded-full bg-[#0A6E3B] animate-pulse"></span>
-                  </div>
-                  <span className="text-[10px] text-gray-500 block mt-0.5">
-                    {storeClientPhone ? `${storeClientPhone} • Profil vérifié 🇸🇳` : 'Validation rapide par code de sécurité sur votre téléphone'}
-                  </span>
-                </div>
+              <div className="min-w-0 pr-2">
+                <h4 className="font-black text-xs text-[#081A10] leading-tight">
+                  Mon compte Thiob
+                </h4>
+                <p className="text-[10px] text-gray-500 font-medium truncate mt-0.5">
+                  {storeClientPhone || clientPhone || '+221 78 780 20 56'} - Profil vérifier
+                </p>
               </div>
-              <span className="px-3 py-1.5 bg-[#0A6E3B]/60 backdrop-blur-md border border-white/25 text-white text-[10px] font-black rounded-xl shadow-xs shrink-0 group-hover:brightness-110 transition-all">
-                {storeClientPhone ? 'Gérer' : 'Se connecter ➔'}
-              </span>
+
+              <button
+                type="button"
+                className="bg-[#004B1B] hover:bg-[#024213] active:scale-95 text-white text-[11px] font-black px-4 py-1.5 rounded-full shadow-xs shrink-0 transition-all cursor-pointer"
+              >
+                Gérer
+              </button>
             </div>
 
-            <div className="bg-white rounded-3xl border border-[#D8EADB] divide-y divide-[#D8EADB] text-xs shadow-2xs overflow-hidden">
-              <div className="p-3.5 flex justify-between items-center cursor-pointer hover:bg-gray-50">
-                <div className="flex items-center gap-2">
-                  <span>📍</span>
-                  <span className="font-semibold text-gray-700">Adresses enregistrées</span>
-                </div>
-                <ArrowRight className="w-3.5 h-3.5 text-gray-400" />
-              </div>
-              <div className="p-3.5 flex justify-between items-center cursor-pointer hover:bg-gray-50">
-                <div className="flex items-center gap-2">
-                  <span>🌊</span>
-                  <span className="font-semibold text-gray-700">Wave & Orange Money</span>
-                </div>
-                <span className="text-[10px] font-bold text-[#0A6E3B]">Connecté</span>
-              </div>
-              <div className="p-3.5 flex justify-between items-center cursor-pointer hover:bg-gray-50">
-                <div className="flex items-center gap-2">
-                  <span>📞</span>
-                  <span className="font-semibold text-gray-700">Support Thiob Express</span>
-                </div>
-                <span className="text-[10px] text-gray-400">+221 33 800 00 00</span>
+            {/* 3. Carte Liste de Menu avec séparateurs verts */}
+            <div className="bg-[#FAF8F5] rounded-3xl p-5 shadow-[0_8px_20px_rgba(0,0,0,0.06)] border border-white/60 space-y-0 text-left">
+              
+              {/* Adresses enregistrées */}
+              <button
+                type="button"
+                onClick={() => setIsNeighborhoodPickerOpen(true)}
+                className="w-full text-left py-3 border-b border-[#0A6E3B]/25 text-xs font-semibold text-[#081A10] hover:text-[#0A6E3B] transition-colors cursor-pointer flex items-center justify-between"
+              >
+                <span>Adresses enregistrées</span>
+              </button>
+
+              {/* Wave & Orange money */}
+              <div className="w-full text-left py-3 border-b border-[#0A6E3B]/25 text-xs font-semibold text-[#081A10] hover:text-[#0A6E3B] transition-colors cursor-pointer flex items-center justify-between">
+                <span>Wave & Orange money</span>
               </div>
 
-              {/* Accès direct aux Espaces Métiers */}
-              <div 
+              {/* Support Thiob Expresse */}
+              <a
+                href="tel:+221787802056"
+                className="w-full text-left py-3 border-b border-[#0A6E3B]/25 text-xs font-semibold text-[#081A10] hover:text-[#0A6E3B] transition-colors cursor-pointer flex items-center justify-between block"
+              >
+                <span>Support Thiob Expresse</span>
+              </a>
+
+              {/* Déconnexion / Changer de compte */}
+              <button
+                type="button"
+                onClick={() => {
+                  if (onLogout) onLogout();
+                  else setIsWhatsAppModalOpen(true);
+                }}
+                className="w-full text-left pt-3 text-xs font-bold text-[#A81B1B] hover:text-red-700 transition-colors cursor-pointer flex items-center justify-between"
+              >
+                <span>Déconnexion / Changer de compte</span>
+              </button>
+            </div>
+
+            {/* 4. Raccourcis Métiers discrets (Restaurant & Livreur) */}
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              <button
+                type="button"
                 onClick={() => setCurrentRole('restaurant')}
-                className="p-3.5 flex justify-between items-center cursor-pointer hover:bg-emerald-50 bg-emerald-50/40 text-[#0A6E3B]"
+                className="bg-white/20 hover:bg-white/30 backdrop-blur-md border border-white/30 text-white rounded-2xl py-2 px-3 text-[10px] font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
               >
-                <div className="flex items-center gap-2.5">
-                  <span className="text-base">🍽️</span>
-                  <div>
-                    <span className="font-black text-xs block text-[#081A10]">Accéder à l'Espace Restaurant</span>
-                    <span className="text-[10px] text-gray-500">Gérer mon restaurant, mes plats & commandes</span>
-                  </div>
-                </div>
-                <ArrowRight className="w-4 h-4 text-[#0A6E3B]" />
-              </div>
+                <span>🍽️</span>
+                <span>Espace Restaurant</span>
+              </button>
 
-              <div 
+              <button
+                type="button"
                 onClick={() => setCurrentRole('courier')}
-                className="p-3.5 flex justify-between items-center cursor-pointer hover:bg-orange-50 bg-orange-50/30 text-[#FF7824]"
+                className="bg-white/20 hover:bg-white/30 backdrop-blur-md border border-white/30 text-white rounded-2xl py-2 px-3 text-[10px] font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer"
               >
-                <div className="flex items-center gap-2.5">
-                  <span className="text-base">🛵</span>
-                  <div>
-                    <span className="font-black text-xs block text-[#081A10]">Accéder à l'Espace Livreur</span>
-                    <span className="text-[10px] text-gray-500">Courses Tiak-Tiak et livraisons Dakar</span>
-                  </div>
-                </div>
-                <ArrowRight className="w-4 h-4 text-[#FF7824]" />
-              </div>
-
-              {onLogout && (
-                <div 
-                  onClick={onLogout}
-                  className="p-3.5 flex justify-between items-center cursor-pointer hover:bg-rose-50 text-rose-700"
-                >
-                  <div className="flex items-center gap-2">
-                    <span>🚪</span>
-                    <span className="font-bold">Déconnexion / Changer de compte</span>
-                  </div>
-                  <ArrowRight className="w-3.5 h-3.5 text-rose-400" />
-                </div>
-              )}
+                <span>🛵</span>
+                <span>Espace Livreur</span>
+              </button>
             </div>
+
           </div>
         )}
 

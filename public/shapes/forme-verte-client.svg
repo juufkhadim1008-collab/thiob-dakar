@@ -12,11 +12,8 @@
     </linearGradient>
   </defs>
   <g id="Calque_1-2" data-name="Calque 1">
-    <path 
-      fill="url(#Dégradé_sans_nom_8)" 
-      stroke="url(#Dégradé_sans_nom_9)" 
-      stroke-miterlimit="10" 
-      stroke-width="5px" 
+    <path
+      fill="url(#Dégradé_sans_nom_8)"
       d="M1180.98,2289.28H2.5s0-2149.53,0-2149.53c0-86.68,79.37-151.64,164.34-134.5l143.26,28.9c185.89,37.5,377.39,37.5,563.28,0l143.26-28.9c84.97-17.14,164.34,47.82,164.34,134.5v2149.53Z"
     />
   </g>
