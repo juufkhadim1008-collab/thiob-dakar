@@ -73,6 +73,34 @@ const ThiobMap = dynamic(() => import('@/components/map/ThiobMap'), {
 });
 
 
+// Forme verte officielle (Illustrator) réutilisée en fond sur les pages Livreur / Commandes / Favoris / Profil
+function GreenShapeBackground({ uid }: { uid: string }) {
+  return (
+    <div className="absolute inset-0 -z-10 overflow-hidden bg-[#F2EFE7] pointer-events-none">
+      <svg viewBox="0 0 1183.48 2291.78" preserveAspectRatio="none" className="w-full h-full block">
+        <defs>
+          <radialGradient id={`greenShapeRadial-${uid}`} cx="1734.04" cy="2509.06" fx="1734.04" fy="2509.06" r="2941.72" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stopColor="#004b1b" />
+            <stop offset="0.59" stopColor="#024213" />
+            <stop offset="1" stopColor="#008625" />
+          </radialGradient>
+          <linearGradient id={`greenShapeLinear-${uid}`} x1="0" y1="1145.89" x2="1183.48" y2="1145.89" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stopColor="#008625" />
+            <stop offset="1" stopColor="#004b1b" />
+          </linearGradient>
+        </defs>
+        <path
+          fill={`url(#greenShapeRadial-${uid})`}
+          stroke={`url(#greenShapeLinear-${uid})`}
+          strokeMiterlimit="10"
+          strokeWidth="5"
+          d="M1180.98,2289.28H2.5s0-2149.53,0-2149.53c0-86.68,79.37-151.64,164.34-134.5l143.26,28.9c185.89,37.5,377.39,37.5,563.28,0l143.26-28.9c84.97-17.14,164.34,47.82,164.34,134.5v2149.53Z"
+        />
+      </svg>
+    </div>
+  );
+}
+
 // =========================================================================
 // 1. MOBILE APP CLIENT VIEW (INSPIRÉ DES MAQUETTES FOODKO, KFC & DELICIOUS FOOD)
 // =========================================================================
@@ -808,17 +836,16 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
 
 
               {/* =================================================================
-                  🍲 SECTION CATÉGORIES DE PLATS (BADGES ORGANIQUES)
+                  🍲 SECTION CATÉGORIES DE PLATS (ICÔNES DIRECTES SANS MASQUE BURGER)
                  ================================================================= */}
               <div className="space-y-2 pt-1 pb-2">
-                <div className="flex items-start gap-4 overflow-x-auto no-scrollbar px-4 pb-1">
+                <div className="flex items-start gap-3.5 overflow-x-auto no-scrollbar px-4 pb-1">
                   {[
-                    { id: 'all', name: 'Tous', image: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=400&q=80' },
-                    { id: 'cat-plat-local', name: 'Plat Local', image: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=400&q=80' },
-                    { id: 'cat-restaurant', name: 'Restaurant', image: 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=400&q=80' },
-                    { id: 'cat-fast-food', name: 'Fast Food', image: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=400&q=80' },
-                    { id: 'cat-glacier', name: 'Glacier', image: 'https://images.unsplash.com/photo-1501443762994-82bd5dace89a?auto=format&fit=crop&w=400&q=80' },
-                    { id: 'cat-jus-degue', name: 'Jus & Dégué', image: 'https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?auto=format&fit=crop&w=400&q=80' },
+                    { id: 'all', name: 'Tous', image: '/images/tous.svg' },
+                    { id: 'cat-restaurant', name: 'Restaurant', image: '/images/restaurant.svg' },
+                    { id: 'cat-fast-food', name: 'Fast Food', image: '/images/fast food.svg' },
+                    { id: 'cat-glacier', name: 'Glassier', image: '/images/glassier.svg' },
+                    { id: 'cat-jus-degue', name: 'Jus', image: '/images/jus.svg' },
                   ].map((catItem) => {
                     const isCatSelected = selectedCat === catItem.id;
                     return (
@@ -831,43 +858,25 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
                         }}
                         className="flex flex-col items-center gap-1.5 cursor-pointer shrink-0"
                       >
-                        <div className={`relative transition-all ${isCatSelected ? 'scale-105' : 'opacity-95 hover:opacity-100'}`}>
-                          <svg 
-                            viewBox="0 0 210 186" 
-                            className="w-16 h-auto" 
-                            style={{ 
-                              filter: isCatSelected 
-                                ? 'drop-shadow(0 6px 14px rgba(10,110,59,0.55)) drop-shadow(0 2px 5px rgba(0,0,0,0.2))' 
-                                : 'drop-shadow(0 5px 12px rgba(0,0,0,0.22)) drop-shadow(0 2px 4px rgba(10,110,59,0.3))' 
-                            }}
-                          >
-                            <defs>
-                              <clipPath id={`catClip-${catItem.id}`}>
-                                <path d="M189.1,48.89c-2.48-5.07-6.96-8.56-12.27-9.67-5.35-6.63-11.38-11.1-11.49-11.18-13.13-9.45-27.81-11.71-41.73-12.75-3.41-.25-6.8-.41-10.07-.55-3.35-.15-6.51-.29-9.69-.53l-1.35-.1c-5.34-.4-11.19-.84-17.07-1,.01-.02.02-.04.03-.05-6.61.64-13.41.35-20.03,1.67-2,.4-4.31.98-6.66,1.37-1.3.56-2.58,1.08-3.87,1.52h0c-1.68.76-3.42,1.65-5.22,2.67l-.16-1.31-17.25,7.59c-4.7,2.07-14.17,8.6-16.44,18.56-.92,4.06-.49,8.16,1.16,11.81l-.78.99,2.95,7.19c.06.34.13.94.18,1.4.09.77.2,1.72.39,2.78-3.91,6.06-5.66,13.66-4.23,20.75.96,4.78,3.28,8.85,6.57,11.93-1.28,3.38-1.91,7.03-1.8,10.73.06,2.07.37,4.09.9,6.01-3.36,7.93-3.39,17.31.5,24.82,6.33,12.2,18.84,14.93,27.99,16.91,1.37.3,2.67.58,3.89.88,2.07.5,4.22,1.08,6.51,1.69,2.78.74,5.66,1.51,8.47,2.16,10.08,2.35,19.1,2.59,27.82,2.83l2.37.06c9.21.26,18.63-.46,26.93-1.09l.5-.04c16.68-1.27,29.69-3.23,42.97-9.08.89-.39,1.79-.81,2.68-1.23,9.98-4.79,17.07-15.22,18.07-26.56.54-6.12-.74-11.81-3.61-16.54.13-2.67-.13-5.27-.78-7.73,5.76-4.83,8.96-12.46,8.59-21.13-.23-5.34-1.85-11.19-4.75-16.45,2.54-6.25,2.56-13.66-.21-19.31Z" />
-                              </clipPath>
-                            </defs>
-                            <path 
-                              d="M189.1,48.89c-2.48-5.07-6.96-8.56-12.27-9.67-5.35-6.63-11.38-11.1-11.49-11.18-13.13-9.45-27.81-11.71-41.73-12.75-3.41-.25-6.8-.41-10.07-.55-3.35-.15-6.51-.29-9.69-.53l-1.35-.1c-5.34-.4-11.19-.84-17.07-1,.01-.02.02-.04.03-.05-6.61.64-13.41.35-20.03,1.67-2,.4-4.31.98-6.66,1.37-1.3.56-2.58,1.08-3.87,1.52h0c-1.68.76-3.42,1.65-5.22,2.67l-.16-1.31-17.25,7.59c-4.7,2.07-14.17,8.6-16.44,18.56-.92,4.06-.49,8.16,1.16,11.81l-.78.99,2.95,7.19c.06.34.13.94.18,1.4.09.77.2,1.72.39,2.78-3.91,6.06-5.66,13.66-4.23,20.75.96,4.78,3.28,8.85,6.57,11.93-1.28,3.38-1.91,7.03-1.8,10.73.06,2.07.37,4.09.9,6.01-3.36,7.93-3.39,17.31.5,24.82,6.33,12.2,18.84,14.93,27.99,16.91,1.37.3,2.67.58,3.89.88,2.07.5,4.22,1.08,6.51,1.69,2.78.74,5.66,1.51,8.47,2.16,10.08,2.35,19.1,2.59,27.82,2.83l2.37.06c9.21.26,18.63-.46,26.93-1.09l.5-.04c16.68-1.27,29.69-3.23,42.97-9.08.89-.39,1.79-.81,2.68-1.23,9.98-4.79,17.07-15.22,18.07-26.56.54-6.12-.74-11.81-3.61-16.54.13-2.67-.13-5.27-.78-7.73,5.76-4.83,8.96-12.46,8.59-21.13-.23-5.34-1.85-11.19-4.75-16.45,2.54-6.25,2.56-13.66-.21-19.31Z" 
-                              fill="#0A6E3B"
-                            />
-                            <image href={catItem.image} width="210" height="186" preserveAspectRatio="xMidYMid slice" clipPath={`url(#catClip-${catItem.id})`} />
-                            {/* Contour vert élégant */}
-                            <path 
-                              d="M189.1,48.89c-2.48-5.07-6.96-8.56-12.27-9.67-5.35-6.63-11.38-11.1-11.49-11.18-13.13-9.45-27.81-11.71-41.73-12.75-3.41-.25-6.8-.41-10.07-.55-3.35-.15-6.51-.29-9.69-.53l-1.35-.1c-5.34-.4-11.19-.84-17.07-1,.01-.02.02-.04.03-.05-6.61.64-13.41.35-20.03,1.67-2,.4-4.31.98-6.66,1.37-1.3.56-2.58,1.08-3.87,1.52h0c-1.68.76-3.42,1.65-5.22,2.67l-.16-1.31-17.25,7.59c-4.7,2.07-14.17,8.6-16.44,18.56-.92,4.06-.49,8.16,1.16,11.81l-.78.99,2.95,7.19c.06.34.13.94.18,1.4.09.77.2,1.72.39,2.78-3.91,6.06-5.66,13.66-4.23,20.75.96,4.78,3.28,8.85,6.57,11.93-1.28,3.38-1.91,7.03-1.8,10.73.06,2.07.37,4.09.9,6.01-3.36,7.93-3.39,17.31.5,24.82,6.33,12.2,18.84,14.93,27.99,16.91,1.37.3,2.67.58,3.89.88,2.07.5,4.22,1.08,6.51,1.69,2.78.74,5.66,1.51,8.47,2.16,10.08,2.35,19.1,2.59,27.82,2.83l2.37.06c9.21.26,18.63-.46,26.93-1.09l.5-.04c16.68-1.27,29.69-3.23,42.97-9.08.89-.39,1.79-.81,2.68-1.23,9.98-4.79,17.07-15.22,18.07-26.56.54-6.12-.74-11.81-3.61-16.54.13-2.67-.13-5.27-.78-7.73,5.76-4.83,8.96-12.46,8.59-21.13-.23-5.34-1.85-11.19-4.75-16.45,2.54-6.25,2.56-13.66-.21-19.31Z" 
-                              fill="none" 
-                              stroke={isCatSelected ? '#0A6E3B' : 'rgba(10, 110, 59, 0.75)'} 
-                              strokeWidth={isCatSelected ? '6' : '5'}
-                            />
-                          </svg>
+                        <div className={`relative transition-all w-16 h-16 rounded-2xl flex items-center justify-center p-1.5 bg-white shadow-xs border ${
+                          isCatSelected 
+                            ? 'border-[#0A6E3B] ring-2 ring-[#0A6E3B]/40 shadow-md scale-105 bg-emerald-50/60' 
+                            : 'border-black/10 hover:border-[#0A6E3B]/40 hover:bg-white'
+                        }`}>
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img 
+                            src={catItem.image} 
+                            alt={catItem.name} 
+                            className="w-full h-full object-contain pointer-events-none drop-shadow-xs" 
+                          />
                           {isCatSelected && (
-                            <div className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-[#0A6E3B] text-white flex items-center justify-center text-[8px] font-black ring-2 ring-white">
+                            <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#0A6E3B] text-white flex items-center justify-center text-[8px] font-black ring-2 ring-white shadow-2xs">
                               ✓
                             </div>
                           )}
                         </div>
 
-
-                        <span className={`text-[10px] font-black text-center max-w-[70px] line-clamp-1 ${
+                        <span className={`text-[10px] font-black text-center max-w-[70px] line-clamp-1 transition-colors ${
                           isCatSelected ? 'text-[#0A6E3B]' : 'text-[#081A10]'
                         }`}>
                           {catItem.name}
@@ -883,10 +892,10 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
             {/* =================================================================
                 🌿 FORME VERTE (DESIGN ILLUSTRATOR) + SECTION DES PLATS
                ================================================================= */}
-            <div className="relative z-10 -mt-2 pt-8 pb-10 px-3.5 space-y-3">
-              
+            <div className="relative z-10 -mt-2 pt-8 pb-32 -mb-28 px-3.5 space-y-3 flex-1 flex flex-col">
+
               {/* Fond SVG vectoriel sur mesure issu d'Adobe Illustrator */}
-              <div className="absolute inset-0 pointer-events-none -z-10 overflow-hidden">
+              <div className="absolute inset-0 pointer-events-none -z-10 overflow-hidden bg-[#F2EFE7]">
                 <svg
                   viewBox="0 0 1183.48 2291.78"
                   preserveAspectRatio="none"
@@ -914,7 +923,7 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
               </div>
 
               {/* Grille des plats en cartes - chevauchement parfait sur la crête de la vague verte */}
-              <div className="grid grid-cols-3 gap-2.5 relative z-20 -mt-12">
+              <div className="grid grid-cols-3 gap-2.5 relative z-20">
 
                 {displayedDishes.length === 0 ? (
                   <div className="col-span-3 py-10 px-4 text-center space-y-2.5 bg-white/90 backdrop-blur-md rounded-2xl border border-dashed border-[#D8EADB] shadow-sm">
@@ -944,7 +953,7 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
                       whileHover={{ y: -3, scale: 1.02 }}
                       whileTap={{ scale: 0.96 }}
                       onClick={() => { setSelectedDish(dish); setDishQuantity(1); }}
-                      className="relative flex flex-col cursor-pointer group transition-all select-none bg-white rounded-[16px] border-[1.5px] border-[#0A6E3B]/70 hover:border-[#0A6E3B] shadow-[0_8px_20px_rgba(0,0,0,0.18)] p-1.5 pb-2.5 justify-between"
+                      className="relative flex flex-col cursor-pointer group transition-all select-none bg-white rounded-[16px] shadow-[0_8px_20px_rgba(0,0,0,0.18)] p-1.5 pb-2.5 justify-between"
                       style={{ aspectRatio: '100 / 126' }}
                     >
                       {/* Photo du plat */}
@@ -1018,8 +1027,9 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
             TAB: LIVREURS À PROXIMITÉ EN DIRECT (RADAR GPS & DISPONIBILITÉ)
            ===================================================================== */}
         {activeTab === 'courier' && (
-          <div className="p-4 space-y-4 pb-16">
-            
+          <div className="relative flex-1 flex flex-col p-4 space-y-4 pb-16">
+            <GreenShapeBackground uid="courier" />
+
             {/* Header avec statut GPS en direct */}
             <div className="flex items-center justify-between">
               <div>
@@ -1167,7 +1177,7 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
         {activeTab === 'menu' && (
           <div className="p-4 space-y-4 pb-12">
 
-            
+
             {/* Header with search context & live counter */}
             <div className="flex items-center justify-between">
               <div>
@@ -1365,7 +1375,8 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
             TAB 3: ORDERS (MES COMMANDES)
            ===================================================================== */}
         {activeTab === 'orders' && (
-          <div className="p-4 space-y-4">
+          <div className="relative flex-1 flex flex-col p-4 space-y-4">
+            <GreenShapeBackground uid="orders" />
             <div className="flex items-center justify-between">
               <h3 className="font-black text-sm text-white">Mes Commandes</h3>
               <span className="text-[10px] font-black text-white bg-white/15 backdrop-blur-md border border-white/20 px-2.5 py-0.5 rounded-full">
@@ -1380,7 +1391,7 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
                 <p className="font-bold text-xs text-gray-700">Aucune commande en cours</p>
                 <button
                   onClick={() => setActiveTab('home')}
-                  className="px-5 py-2 rounded-full brand-gradient text-white text-xs font-bold shadow-md"
+                  className="px-5 py-2 rounded-full bg-[#0A6E3B]/60 backdrop-blur-md border border-white/25 text-white text-xs font-bold shadow-md"
                 >
                   Commander mon premier Thiéb
                 </button>
@@ -1419,7 +1430,7 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
                         <span className="text-xs font-black text-[#0A6E3B]">Total : {formatFCFA(ord.total)}</span>
                         <button
                           onClick={() => onOpenTracking(ord)}
-                          className="px-3 py-1.5 rounded-xl brand-gradient text-white text-[11px] font-bold shadow-xs"
+                          className="px-3 py-1.5 rounded-xl bg-[#0A6E3B]/60 backdrop-blur-md border border-white/25 text-white text-[11px] font-bold shadow-xs"
                         >
                           Suivre ma commande ➔
                         </button>
@@ -1436,8 +1447,9 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
             TAB 4: MES SORTIES, RÉSERVATIONS & FAVORIS
            ===================================================================== */}
         {activeTab === 'favorites' && (
-          <div className="p-4 space-y-4 pb-12">
-            
+          <div className="relative flex-1 flex flex-col p-4 space-y-4 pb-12">
+            <GreenShapeBackground uid="favorites" />
+
             {/* Sub-tabs: Mes Sorties / Plats Favoris */}
             <div className="flex bg-black/30 backdrop-blur-md p-1 rounded-2xl border border-white/15">
               <button
@@ -1564,7 +1576,7 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
                             const r = restaurants.find(item => item.id === plan.restaurantId);
                             if (r) handleOpenShowcase(r);
                           }}
-                          className="flex-1 py-1.5 rounded-xl brand-gradient text-white text-[11px] font-bold shadow-2xs"
+                          className="flex-1 py-1.5 rounded-xl bg-[#0A6E3B]/60 backdrop-blur-md border border-white/25 text-white text-[11px] font-bold shadow-2xs"
                         >
                           Voir la vitrine du resto ➔
                         </button>
@@ -1620,7 +1632,7 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
                     <p className="font-bold text-xs text-gray-700">Aucun plat favori pour l'instant</p>
                     <button
                       onClick={() => setActiveTab('home')}
-                      className="px-4 py-2 rounded-full brand-gradient text-white text-xs font-bold mt-2 shadow-xs"
+                      className="px-4 py-2 rounded-full bg-[#0A6E3B]/60 backdrop-blur-md border border-white/25 text-white text-xs font-bold mt-2 shadow-xs"
                     >
                       Découvrir les plats
                     </button>
@@ -1640,7 +1652,7 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
                       </div>
                       <button
                         onClick={(e) => handleQuickAdd(dish, e)}
-                        className="px-3 py-1.5 rounded-xl brand-gradient text-white text-xs font-bold shadow-xs active:scale-95"
+                        className="px-3 py-1.5 rounded-xl bg-[#0A6E3B]/60 backdrop-blur-md border border-white/25 text-white text-xs font-bold shadow-xs active:scale-95"
                       >
                         + Ajouter
                       </button>
@@ -1657,7 +1669,8 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
             TAB 5: PROFIL
            ===================================================================== */}
         {activeTab === 'profile' && (
-          <div className="p-4 space-y-4">
+          <div className="relative flex-1 flex flex-col p-4 space-y-4">
+            <GreenShapeBackground uid="profile" />
             <div className="bg-white p-4 rounded-3xl border border-[#D8EADB] text-center space-y-2 shadow-2xs">
               <div className="w-14 h-14 rounded-full brand-gradient text-white flex items-center justify-center font-black text-lg mx-auto shadow-sm uppercase">
                 {clientName ? clientName.split(' ').map((w: string) => w[0]).join('').slice(0, 2) : 'TD'}
@@ -1682,7 +1695,7 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
               className="bg-white border border-[#D8EADB] p-3.5 rounded-3xl flex items-center justify-between cursor-pointer hover:border-[#0A6E3B] transition-all shadow-xs group"
             >
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl brand-gradient text-white flex items-center justify-center shadow-md group-hover:scale-105 transition-transform text-base">
+                <div className="w-10 h-10 rounded-2xl bg-[#0A6E3B]/70 backdrop-blur-md border border-white/30 text-white flex items-center justify-center shadow-md group-hover:scale-105 transition-transform text-base">
                   📱
                 </div>
                 <div>
@@ -1697,7 +1710,7 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
                   </span>
                 </div>
               </div>
-              <span className="px-3 py-1.5 brand-gradient text-white text-[10px] font-black rounded-xl shadow-xs shrink-0 group-hover:brightness-110 transition-all">
+              <span className="px-3 py-1.5 bg-[#0A6E3B]/60 backdrop-blur-md border border-white/25 text-white text-[10px] font-black rounded-xl shadow-xs shrink-0 group-hover:brightness-110 transition-all">
                 {storeClientPhone ? 'Gérer' : 'Se connecter ➔'}
               </span>
             </div>
@@ -1799,17 +1812,17 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
           FLOATING ORGANIC BOTTOM DOCK NAVIGATION (WITH CUSTOM WAVE BACKGROUND)
          ========================================================================= */}
       <div className="absolute bottom-0 inset-x-0 z-30 pt-2 pb-2">
-        
+
         {/* Wave Background SVG Shape */}
         <div className="absolute inset-0 top-1 pointer-events-none">
-          <svg 
-            viewBox="0 0 1000 240" 
-            preserveAspectRatio="none" 
+          <svg
+            viewBox="0 0 1000 240"
+            preserveAspectRatio="none"
             className="w-full h-full drop-shadow-[0_-3px_10px_rgba(0,0,0,0.05)]"
           >
-            <path 
-              d="M0,95 C140,90 220,70 300,70 C420,70 520,115 640,115 C760,115 880,45 1000,20 L1000,240 L0,240 Z" 
-              fill="#FFFFFF" 
+            <path
+              d="M0,95 C140,90 220,70 300,70 C420,70 520,115 640,115 C760,115 880,45 1000,20 L1000,240 L0,240 Z"
+              fill="#FFFFFF"
             />
           </svg>
         </div>
