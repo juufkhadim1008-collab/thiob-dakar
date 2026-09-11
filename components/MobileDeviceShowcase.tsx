@@ -876,41 +876,43 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
                 </div>
               </div>
 
-              {/* =========================================================================
-                  FORME BLANCHE ORGANIQUE (SVG /shapes/cream-mask.svg)
-                 ========================================================================= */}
-              <div className="w-full -mt-2 overflow-visible pointer-events-none relative z-0">
+            </div>
+
+            {/* =================================================================
+                🌿 FORME VERTE (DESIGN ILLUSTRATOR) + SECTION DES PLATS
+               ================================================================= */}
+            <div className="relative z-10 -mt-2 pt-4 pb-8 px-3.5 space-y-3">
+              
+              {/* Fond SVG vectoriel sur mesure issu d'Adobe Illustrator */}
+              <div className="absolute inset-0 pointer-events-none -z-10 overflow-hidden">
                 <svg
-                  viewBox="0 0 1374.24 450"
+                  viewBox="0 0 1183.48 2291.78"
                   preserveAspectRatio="none"
-                  className="w-full h-10 block"
+                  className="w-full h-full block"
                 >
-                  <path 
-                    fill="#F2EFE7" 
-                    d="M1374.24,0v440c-57.67-18.18-114.2-44.05-167.93-76.99-162.39-99.57-225.7-238.28-430.52-277.02-192.74-36.46-267.39,48.68-436.29,98.52-111.55,32.91-228.8,45.97-339.5,16.06V0h1374.24Z" 
+                  <defs>
+                    <radialGradient id="greenShapeRadialCust" cx="1734.04" cy="2509.06" fx="1734.04" fy="2509.06" r="2941.72" gradientUnits="userSpaceOnUse">
+                      <stop offset="0" stopColor="#004b1b" />
+                      <stop offset="0.59" stopColor="#024213" />
+                      <stop offset="1" stopColor="#008625" />
+                    </radialGradient>
+                    <linearGradient id="greenShapeLinearCust" x1="0" y1="1145.89" x2="1183.48" y2="1145.89" gradientUnits="userSpaceOnUse">
+                      <stop offset="0" stopColor="#008625" />
+                      <stop offset="1" stopColor="#004b1b" />
+                    </linearGradient>
+                  </defs>
+                  <path
+                    fill="url(#greenShapeRadialCust)"
+                    stroke="url(#greenShapeLinearCust)"
+                    strokeMiterlimit="10"
+                    strokeWidth="5"
+                    d="M1180.98,2289.28H2.5s0-2149.53,0-2149.53c0-86.68,79.37-151.64,164.34-134.5l143.26,28.9c185.89,37.5,377.39,37.5,563.28,0l143.26-28.9c84.97-17.14,164.34,47.82,164.34,134.5v2149.53Z"
                   />
                 </svg>
               </div>
 
-            </div>
-
-            {/* =================================================================
-                🌿 FORME VERTE + SECTION DES PLATS (TOUJOURS AU-DESSUS)
-               ================================================================= */}
-            <div className="relative z-10 -mt-2 pt-2 pb-6 px-3.5 space-y-3">
-              
-              {/* Texture SVG des pétales superposée sur le fond vert continu de l'app */}
-              <div className="absolute inset-0 pointer-events-none -z-10 overflow-hidden">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src="/shapes/bottom-petals.svg"
-                  alt=""
-                  className="w-full h-full object-cover opacity-60 mix-blend-screen pointer-events-none"
-                />
-              </div>
-
-              {/* Grille des plats en cartes (3 par ligne) - dépasse légèrement sur le haut de la forme verte */}
-              <div className="grid grid-cols-3 gap-2.5 relative z-20 -mt-6">
+              {/* Grille des plats en cartes (3 par ligne) */}
+              <div className="grid grid-cols-3 gap-2.5 relative z-20 pt-1">
 
                 {displayedDishes.length === 0 ? (
                   <div className="col-span-3 py-10 px-4 text-center space-y-2.5 bg-white/90 backdrop-blur-md rounded-2xl border border-dashed border-[#D8EADB] shadow-sm">
