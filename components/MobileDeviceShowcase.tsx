@@ -50,7 +50,11 @@ import {
   Share2,
   Info,
   Menu,
-  Trash2
+  Trash2,
+  LogOut,
+  CreditCard,
+  Wallet,
+  Headphones
 } from 'lucide-react';
 import { CATEGORIES, DAKAR_NEIGHBORHOODS, DAKAR_ZONES } from '@/lib/mock-data';
 import { MenuItem, Restaurant, Order, OrderStatus, PaymentMethod, Reservation, OutingPlan, PaymentTransaction } from '@/lib/types';
@@ -1738,29 +1742,53 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
               </button>
             </div>
 
-            {/* 3. Carte Liste de Menu avec séparateurs verts */}
+            {/* 3. Carte Liste de Menu avec séparateurs verts et icônes */}
             <div className="bg-[#FAF8F5] rounded-3xl p-5 shadow-[0_8px_20px_rgba(0,0,0,0.06)] border border-white/60 space-y-0 text-left">
               
               {/* Adresses enregistrées */}
               <button
                 type="button"
                 onClick={() => setIsNeighborhoodPickerOpen(true)}
-                className="w-full text-left py-3 border-b border-[#0A6E3B]/25 text-xs font-semibold text-[#081A10] hover:text-[#0A6E3B] transition-colors cursor-pointer flex items-center justify-between"
+                className="w-full text-left py-3 border-b border-[#0A6E3B]/25 text-xs font-semibold text-[#081A10] hover:text-[#0A6E3B] transition-colors cursor-pointer flex items-center justify-between group"
               >
-                <span>Adresses enregistrées</span>
+                <div className="flex items-center gap-2.5">
+                  <span className="w-7 h-7 rounded-full bg-[#E6F5EC] text-[#0A6E3B] flex items-center justify-center shrink-0">
+                    <MapPin className="w-3.5 h-3.5" />
+                  </span>
+                  <span>Adresses enregistrées</span>
+                </div>
+                <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-[#0A6E3B] group-hover:translate-x-0.5 transition-all" />
               </button>
 
               {/* Wave & Orange money */}
-              <div className="w-full text-left py-3 border-b border-[#0A6E3B]/25 text-xs font-semibold text-[#081A10] hover:text-[#0A6E3B] transition-colors cursor-pointer flex items-center justify-between">
-                <span>Wave & Orange money</span>
+              <div className="w-full text-left py-3 border-b border-[#0A6E3B]/25 text-xs font-semibold text-[#081A10] hover:text-[#0A6E3B] transition-colors cursor-pointer flex items-center justify-between group">
+                <div className="flex items-center gap-2.5">
+                  <span className="w-7 h-7 rounded-full bg-[#E6F5EC] text-[#0A6E3B] flex items-center justify-center shrink-0">
+                    <Wallet className="w-3.5 h-3.5" />
+                  </span>
+                  <span>Wave & Orange money</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-bold text-[#0A6E3B] bg-[#E6F5EC] px-2 py-0.5 rounded-full">Actif</span>
+                  <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-[#0A6E3B] group-hover:translate-x-0.5 transition-all" />
+                </div>
               </div>
 
               {/* Support Thiob Expresse */}
               <a
                 href="tel:+221787802056"
-                className="w-full text-left py-3 border-b border-[#0A6E3B]/25 text-xs font-semibold text-[#081A10] hover:text-[#0A6E3B] transition-colors cursor-pointer flex items-center justify-between block"
+                className="w-full text-left py-3 border-b border-[#0A6E3B]/25 text-xs font-semibold text-[#081A10] hover:text-[#0A6E3B] transition-colors cursor-pointer flex items-center justify-between block group"
               >
-                <span>Support Thiob Expresse</span>
+                <div className="flex items-center gap-2.5">
+                  <span className="w-7 h-7 rounded-full bg-[#E6F5EC] text-[#0A6E3B] flex items-center justify-center shrink-0">
+                    <Headphones className="w-3.5 h-3.5" />
+                  </span>
+                  <span>Support Thiob Expresse</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] text-gray-400 font-mono">+221 78 780 20 56</span>
+                  <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-[#0A6E3B] group-hover:translate-x-0.5 transition-all" />
+                </div>
               </a>
 
               {/* Déconnexion / Changer de compte */}
@@ -1770,9 +1798,15 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
                   if (onLogout) onLogout();
                   else setIsWhatsAppModalOpen(true);
                 }}
-                className="w-full text-left pt-3 text-xs font-bold text-[#A81B1B] hover:text-red-700 transition-colors cursor-pointer flex items-center justify-between"
+                className="w-full text-left pt-3 text-xs font-bold text-[#A81B1B] hover:text-red-700 transition-colors cursor-pointer flex items-center justify-between group"
               >
-                <span>Déconnexion / Changer de compte</span>
+                <div className="flex items-center gap-2.5">
+                  <span className="w-7 h-7 rounded-full bg-rose-50 text-[#A81B1B] flex items-center justify-center shrink-0">
+                    <LogOut className="w-3.5 h-3.5" />
+                  </span>
+                  <span>Déconnexion / Changer de compte</span>
+                </div>
+                <ChevronRight className="w-4 h-4 text-rose-300 group-hover:text-red-700 group-hover:translate-x-0.5 transition-all" />
               </button>
             </div>
 
