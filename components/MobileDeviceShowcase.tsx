@@ -64,6 +64,7 @@ import AdminAnalyticsModal from '@/components/admin/AdminAnalyticsModal';
 import DesktopAdminCommandCenter from '@/components/admin/DesktopAdminCommandCenter';
 import { supabase } from '@/lib/supabase';
 import PaymentCheckoutSheet from '@/components/payment/PaymentCheckoutSheet';
+import WhatsAppAuthModal from '@/components/auth/WhatsAppAuthModal';
 import dynamic from 'next/dynamic';
 
 const ThiobMap = dynamic(() => import('@/components/map/ThiobMap'), { 
@@ -135,6 +136,7 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
 
   const [isCartSheetOpen, setIsCartSheetOpen] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [isWhatsAppModalOpen, setIsWhatsAppModalOpen] = useState(false);
   const [isNeighborhoodPickerOpen, setIsNeighborhoodPickerOpen] = useState(false);
   const [checkoutStep, setCheckoutStep] = useState<'cart' | 'payment' | 'done'>('cart');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('wave');
@@ -1672,6 +1674,32 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
                   Membre VIP Téranga
                 </span>
               </div>
+            </div>
+
+            {/* Carte de Connexion & Sécurité WhatsApp Direct */}
+            <div 
+              onClick={() => setIsWhatsAppModalOpen(true)}
+              className="bg-gradient-to-r from-[#25D366]/15 via-emerald-50 to-[#25D366]/10 border border-[#25D366]/30 p-3.5 rounded-3xl flex items-center justify-between cursor-pointer hover:border-[#25D366] transition-all shadow-xs group"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-[#25D366] text-white flex items-center justify-center shadow-md group-hover:scale-105 transition-transform">
+                  <MessageCircle className="w-5 h-5 fill-current" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-black text-xs text-[#081A10]">
+                      {storeClientPhone ? 'Compte WhatsApp Connecté' : 'Se connecter avec WhatsApp'}
+                    </span>
+                    <span className="w-2 h-2 rounded-full bg-[#25D366] animate-pulse"></span>
+                  </div>
+                  <span className="text-[10px] text-gray-500 block mt-0.5">
+                    {storeClientPhone ? `${storeClientPhone} • Sécurisé par code OTP 🇸🇳` : 'Recevez votre code de sécurité instantané sur WhatsApp'}
+                  </span>
+                </div>
+              </div>
+              <span className="px-2.5 py-1 bg-[#25D366] text-white text-[10px] font-black rounded-xl shadow-xs shrink-0 group-hover:bg-[#20bd5a] transition-colors">
+                {storeClientPhone ? 'Modifier' : 'Connexion ➔'}
+              </span>
             </div>
 
             <div className="bg-white rounded-3xl border border-[#D8EADB] divide-y divide-[#D8EADB] text-xs shadow-2xs overflow-hidden">
@@ -3702,6 +3730,12 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
           );
         })()}
       </AnimatePresence>
+
+      {/* Modal d'Authentification & Code de Sécurité WhatsApp */}
+      <WhatsAppAuthModal
+        isOpen={isWhatsAppModalOpen}
+        onClose={() => setIsWhatsAppModalOpen(false)}
+      />
 
     </div>
   );
