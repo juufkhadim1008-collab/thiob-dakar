@@ -881,7 +881,7 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
             {/* =================================================================
                 🌿 FORME VERTE (DESIGN ILLUSTRATOR) + SECTION DES PLATS
                ================================================================= */}
-            <div className="relative z-10 -mt-2 pt-4 pb-8 px-3.5 space-y-3">
+            <div className="relative z-10 -mt-2 pt-8 pb-10 px-3.5 space-y-3">
               
               {/* Fond SVG vectoriel sur mesure issu d'Adobe Illustrator */}
               <div className="absolute inset-0 pointer-events-none -z-10 overflow-hidden">
@@ -911,8 +911,8 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
                 </svg>
               </div>
 
-              {/* Grille des plats en cartes (3 par ligne) */}
-              <div className="grid grid-cols-3 gap-2.5 relative z-20 pt-1">
+              {/* Grille des plats en cartes - chevauchement parfait sur la crête de la vague verte */}
+              <div className="grid grid-cols-3 gap-2.5 relative z-20 -mt-12">
 
                 {displayedDishes.length === 0 ? (
                   <div className="col-span-3 py-10 px-4 text-center space-y-2.5 bg-white/90 backdrop-blur-md rounded-2xl border border-dashed border-[#D8EADB] shadow-sm">
@@ -942,7 +942,7 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
                       whileHover={{ y: -3, scale: 1.02 }}
                       whileTap={{ scale: 0.96 }}
                       onClick={() => { setSelectedDish(dish); setDishQuantity(1); }}
-                      className="relative flex flex-col cursor-pointer group transition-all select-none bg-white rounded-[14px] shadow-[0_6px_16px_rgba(0,0,0,0.2)] p-1.5 pb-2.5 justify-between"
+                      className="relative flex flex-col cursor-pointer group transition-all select-none bg-white rounded-[16px] border-[1.5px] border-[#0A6E3B]/70 hover:border-[#0A6E3B] shadow-[0_8px_20px_rgba(0,0,0,0.18)] p-1.5 pb-2.5 justify-between"
                       style={{ aspectRatio: '100 / 126' }}
                     >
                       {/* Photo du plat */}
