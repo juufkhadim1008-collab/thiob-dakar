@@ -858,17 +858,30 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
                         }}
                         className="flex flex-col items-center gap-1.5 cursor-pointer shrink-0"
                       >
-                        <div className={`relative transition-all w-16 h-16 rounded-2xl flex items-center justify-center p-1.5 bg-white shadow-xs border ${
+                        <div className={`relative transition-all w-16 h-16 rounded-2xl flex items-center justify-center p-1 bg-white shadow-xs border ${
                           isCatSelected 
                             ? 'border-[#0A6E3B] ring-2 ring-[#0A6E3B]/40 shadow-md scale-105 bg-emerald-50/60' 
                             : 'border-black/10 hover:border-[#0A6E3B]/40 hover:bg-white'
                         }`}>
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img 
-                            src={catItem.image} 
-                            alt={catItem.name} 
-                            className="w-full h-full object-contain pointer-events-none drop-shadow-xs" 
-                          />
+                          {catItem.id === 'all' ? (
+                            <div className="grid grid-cols-2 gap-0.5 w-full h-full p-0.5 items-center justify-center pointer-events-none">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src="/images/restaurant.svg" alt="Restaurant" className="w-full h-full object-contain" />
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src="/images/fast food.svg" alt="Fast Food" className="w-full h-full object-contain" />
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src="/images/glassier.svg" alt="Glassier" className="w-full h-full object-contain" />
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src="/images/jus.svg" alt="Jus" className="w-full h-full object-contain" />
+                            </div>
+                          ) : (
+                            /* eslint-disable-next-line @next/next/no-img-element */
+                            <img 
+                              src={catItem.image} 
+                              alt={catItem.name} 
+                              className="w-full h-full object-contain pointer-events-none drop-shadow-xs" 
+                            />
+                          )}
                           {isCatSelected && (
                             <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-[#0A6E3B] text-white flex items-center justify-center text-[8px] font-black ring-2 ring-white shadow-2xs">
                               ✓
@@ -1027,7 +1040,7 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
             TAB: LIVREURS À PROXIMITÉ EN DIRECT (RADAR GPS & DISPONIBILITÉ)
            ===================================================================== */}
         {activeTab === 'courier' && (
-          <div className="relative flex-1 flex flex-col p-4 space-y-4 pb-16">
+          <div className="relative flex-1 flex flex-col p-4 pb-32 -mb-28 space-y-4">
             <GreenShapeBackground uid="courier" />
 
             {/* Header avec statut GPS en direct */}
@@ -1375,7 +1388,7 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
             TAB 3: ORDERS (MES COMMANDES)
            ===================================================================== */}
         {activeTab === 'orders' && (
-          <div className="relative flex-1 flex flex-col p-4 space-y-4">
+          <div className="relative flex-1 flex flex-col p-4 pb-32 -mb-28 space-y-4">
             <GreenShapeBackground uid="orders" />
             <div className="flex items-center justify-between">
               <h3 className="font-black text-sm text-white">Mes Commandes</h3>
@@ -1447,7 +1460,7 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
             TAB 4: MES SORTIES, RÉSERVATIONS & FAVORIS
            ===================================================================== */}
         {activeTab === 'favorites' && (
-          <div className="relative flex-1 flex flex-col p-4 space-y-4 pb-12">
+          <div className="relative flex-1 flex flex-col p-4 pb-32 -mb-28 space-y-4">
             <GreenShapeBackground uid="favorites" />
 
             {/* Sub-tabs: Mes Sorties / Plats Favoris */}
@@ -1669,7 +1682,7 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
             TAB 5: PROFIL
            ===================================================================== */}
         {activeTab === 'profile' && (
-          <div className="relative flex-1 flex flex-col p-4 space-y-4">
+          <div className="relative flex-1 flex flex-col p-4 pb-32 -mb-28 space-y-4">
             <GreenShapeBackground uid="profile" />
             <div className="bg-white p-4 rounded-3xl border border-[#D8EADB] text-center space-y-2 shadow-2xs">
               <div className="w-14 h-14 rounded-full brand-gradient text-white flex items-center justify-center font-black text-lg mx-auto shadow-sm uppercase">
