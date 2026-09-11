@@ -838,8 +838,8 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
               {/* =================================================================
                   🍲 SECTION CATÉGORIES DE PLATS (ICÔNES DIRECTES SANS MASQUE BURGER)
                  ================================================================= */}
-              <div className="space-y-2 pt-1 pb-2">
-                <div className="flex items-start gap-3.5 overflow-x-auto no-scrollbar px-4 pb-1">
+              <div className="space-y-2 pt-2 pb-2 relative z-30 overflow-visible">
+                <div className="flex items-start gap-3.5 overflow-x-auto no-scrollbar px-4 pt-2.5 pb-2">
                   {[
                     { id: 'all', name: 'Tous', image: '/images/tous.svg' },
                     { id: 'cat-restaurant', name: 'Restaurant', image: '/images/restaurant.svg' },
@@ -1824,10 +1824,10 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
       {/* =========================================================================
           FLOATING ORGANIC BOTTOM DOCK NAVIGATION (WITH CUSTOM WAVE BACKGROUND)
          ========================================================================= */}
-      <div className="absolute bottom-0 inset-x-0 z-30 pt-2 pb-2">
+      <div className="absolute bottom-0 inset-x-0 z-40 pt-4 pb-2 overflow-visible pointer-events-auto">
 
         {/* Wave Background SVG Shape */}
-        <div className="absolute inset-0 top-1 pointer-events-none">
+        <div className="absolute inset-0 top-2.5 pointer-events-none">
           <svg
             viewBox="0 0 1000 240"
             preserveAspectRatio="none"
@@ -1841,7 +1841,7 @@ function MobileClientApp({ onOpenTracking, onLogout }: { onOpenTracking: (ord: O
         </div>
 
 
-        <div className="relative flex items-end justify-around px-2 z-10">
+        <div className="relative flex items-end justify-around px-2 z-10 overflow-visible">
 
         {/* 1. Home */}
         <motion.button
